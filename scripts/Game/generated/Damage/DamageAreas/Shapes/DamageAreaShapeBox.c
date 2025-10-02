@@ -9,7 +9,7 @@ Do not modify, this script is generated
 \{
 */
 
-class DamageAreaShapeABB: SCR_BaseDamageAreaShape
+class DamageAreaShapeBox: SCR_BaseDamageAreaShape
 {
 }
 

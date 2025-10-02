@@ -16,9 +16,15 @@ class SCR_ControllerPresetsSettingsSubmenu: SCR_SettingsSubMenuBase
 		EPlatform platform = System.GetPlatform();
 		if (platform == EPlatform.PS4 || platform == EPlatform.PS5 || platform == EPlatform.PS5_PRO || platform == EPlatform.UNKNOWN)
 		{
-			HideMenuItem("Joystick0");
-			HideMenuItem("Joystick1");
+			HideMenuItem("Devices");
+			HideMenuItem("JoystickPreset");
+		} 
+		else 
+		{
+			//joysticks are for now supported only non non-PS
+			HandleJoystickDevices();
 		}
+		
 		
 		m_aSettingsBindings.Clear();
 
@@ -38,24 +44,15 @@ class SCR_ControllerPresetsSettingsSubmenu: SCR_SettingsSubMenuBase
 		// PRESETS
 		array<ref SCR_ControllerPreset> controllerPresets = {};
 		array<ref SCR_ControllerPreset> joystick0Presets = {};
-		array<ref SCR_ControllerPreset> joystick1Presets = {};
 
 		SCR_SettingsManagerKeybindModule keybindModule = SCR_SettingsManagerKeybindModule.Cast(GetGame().GetSettingsManager().GetModule(ESettingManagerModuleType.SETTINGS_MANAGER_KEYBINDING));
 		if (keybindModule)
-			keybindModule.GetControllerPresets(controllerPresets, joystick0Presets, joystick1Presets);
+			keybindModule.GetControllerPresets(controllerPresets);
 
 		SCR_ComboBoxComponent combo;
 		combo = BindControllerPresets("Presets", controllerPresets);
 		if (combo)
 			combo.m_OnChanged.Insert(SelectControllerPreset);
-
-		combo = BindControllerPresets("Joystick0", joystick0Presets);
-		if (combo)
-			combo.m_OnChanged.Insert(SelectJoystick0Preset);
-
-		combo = BindControllerPresets("Joystick1", joystick1Presets);
-		if (combo)
-			combo.m_OnChanged.Insert(SelectJoystick1Preset);
 
 		if (DiagMenu.GetBool(SCR_DebugMenuID.DEBUGUI_UI_SHOW_ALL_SETTINGS, false))
 			return;
@@ -115,28 +112,126 @@ class SCR_ControllerPresetsSettingsSubmenu: SCR_SettingsSubMenuBase
 		
 		SCR_AnalyticsApplication.GetInstance().ChangeSetting("Presets", "Controller Preset");
 	}
-
+	
 	//------------------------------------------------------------------------------------------------
 	//! \param[in] comp
 	//! \param[in] index
-	void SelectJoystick0Preset(SCR_ComboBoxComponent comp, int index)
+	void SelectJoystickPreset(SCR_ComboBoxComponent comp, int index)
 	{
 		SCR_SettingsManagerKeybindModule keybindModule = SCR_SettingsManagerKeybindModule.Cast(GetGame().GetSettingsManager().GetModule(ESettingManagerModuleType.SETTINGS_MANAGER_KEYBINDING));
 		if (keybindModule)
-			keybindModule.SelectControllerPresets(joystick0Index: index);
-
-		SCR_AnalyticsApplication.GetInstance().ChangeSetting("Presets", "Joystick #1 Preset");
+			keybindModule.SelectJoystickPreset(index);
 	}
-
+	
+	//------------------------------------------------------------------------------------------------
+	protected void HandleJoystickDevices()
+	{
+		InputManager input = GetGame().GetInputManager();
+		Widget parent = m_wRoot.FindAnyWidget("Content");
+		string deviceName;
+		Widget joystickWidget;
+		Widget joystickIDCombo;
+		SCR_ComboBoxComponent component;
+		if (!parent)
+			return;
+		
+		Widget joystickPreset = m_wRoot.FindAnyWidget("JoystickPreset");
+		if (!joystickPreset)
+			return;
+		
+		component = SCR_ComboBoxComponent.Cast(joystickPreset.FindHandler(SCR_ComboBoxComponent));
+		if (!component)
+			return;
+		
+		SetupJoystickPresets(component);
+		
+		//for now we support up to 4 devices
+		for (int i = 0; i <= 3 ; i++)
+		{
+			deviceName = input.GetJoystickProductName(i);
+			if (deviceName.IsEmpty())
+				continue;
+			
+			//handle joystic combos in here
+			joystickWidget = GetGame().GetWorkspace().CreateWidgets("{D8E57BEFB1599946}UI/layouts/Menus/SettingsMenu/JoystickSettingEntry.layout", parent);
+			joystickIDCombo = joystickWidget.FindAnyWidget("JoystickIDCombo");
+			if (!joystickIDCombo)
+				continue;
+			
+			component = SCR_ComboBoxComponent.Cast(joystickIDCombo.FindHandler(SCR_ComboBoxComponent));
+			if (!component)
+				continue;
+			
+			component.SetLabel(deviceName);
+			component.SetCurrentItem(i);
+			component.m_OnChanged.Insert(OnIndexChanged);
+			
+		}	
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	protected void OnIndexChanged(SCR_ComboBoxComponent component, int index)
+	{
+		//this is safe to do because we do not translate device names, we use exact strings from the devices so we can rely on it
+		string deviceName = component.GetLabel().GetText();
+		if (deviceName.IsEmpty())
+			return;
+		
+		BaseContainer inputDeviceSettings = GetGame().GetEngineUserSettings().GetModule("InputDeviceUserSettings");
+		BaseContainer joystickSetting = inputDeviceSettings.GetObject("JoystickSettings");
+		if (!joystickSetting)
+			return;
+		
+		BaseContainerList rules = joystickSetting.SetObjectArray("DeviceOrderRules");
+		if (!rules)
+			return;
+		
+		BaseContainer container;				
+		for (int i; i < rules.Count(); i++)
+		{
+			BaseContainer foundContainer = rules.Get(i);
+			string name;
+			if (foundContainer.Get("DeviceNameContains", name) && name == deviceName)
+			{
+				container = foundContainer;
+				break;
+			}
+		} 
+		
+		if (!container)
+		{	
+			Resource holder = BaseContainerTools.CreateContainer("JoystickOrderRule");
+			if (holder)
+				container = holder.GetResource().ToBaseContainer();
+			
+			rules.Insert(container);
+		}
+		
+		container.Set("DeviceNameContains", deviceName);
+		container.Set("DeviceSlotNumber", index);
+		
+		GetGame().UserSettingsChanged();
+		GetGame().SaveUserSettings();
+	}
+	
 	//------------------------------------------------------------------------------------------------
 	//! \param[in] comp
-	//! \param[in] index
-	void SelectJoystick1Preset(SCR_ComboBoxComponent comp, int index)
+	protected void SetupJoystickPresets(SCR_ComboBoxComponent component)
 	{
 		SCR_SettingsManagerKeybindModule keybindModule = SCR_SettingsManagerKeybindModule.Cast(GetGame().GetSettingsManager().GetModule(ESettingManagerModuleType.SETTINGS_MANAGER_KEYBINDING));
-		if (keybindModule)
-			keybindModule.SelectControllerPresets(joystick1Index: index);
+		if (!keybindModule)
+			return;
 		
-		SCR_AnalyticsApplication.GetInstance().ChangeSetting("Presets", "Joystick #2 Preset");
+		array<ref SCR_ControllerPreset> joystickPresets = {};
+		
+		keybindModule.GetJoystickPresets(joystickPresets);
+		
+		foreach (SCR_ControllerPreset preset : joystickPresets)
+		{
+			component.AddItem(preset.GetDisplayName());
+		}
+		
+		component.SetCurrentItem(keybindModule.GetActivePresetIndex(joystickPresets));
+		component.m_OnChanged.Insert(SelectJoystickPreset);
 	}
 }

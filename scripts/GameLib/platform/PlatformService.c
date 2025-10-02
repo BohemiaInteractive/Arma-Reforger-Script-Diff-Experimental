@@ -37,4 +37,19 @@ class PlatformService
 	Returns \see PlatformKind for this particular executable.
 	*/
 	proto native PlatformKind GetLocalPlatformKind();
+	
+	/*!
+	Start platform specific activity
+	\param		activity SingleplayerActivity struct.
+	\return		Returns true if activity successfully started
+	*/
+	proto native bool StartSingleplayerActivity(string ObjectID);
+	
+	/*!
+	End platform specific activity
+	\param		activity SingleplayerActivity struct.
+	\param		outcome Outcome of activity notstarted/inprogress/completed
+	\return		Returns true if activity successfully started
+	*/
+	proto native bool EndSingleplayerActivity(string ObjectID, string Outcome);
 }

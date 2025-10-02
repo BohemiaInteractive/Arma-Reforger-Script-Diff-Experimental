@@ -92,6 +92,15 @@ class SCR_CharacterDamageManagerComponent : SCR_ExtendedDamageManagerComponent
 	
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Allow this character to show bleeding effects on any clothing items when damaged or bleeding", category: "Bleeding")]
 	protected bool m_bAllowBloodyClothes;
+
+	[Attribute(defvalue: "0.1", desc: "Poison buildup speed factor", params: "0.01 1 0.01")]
+	protected float m_fPoisonBuildupFactor;
+
+	//-----------------------------------------------------------------------------------------------------------
+	float GetPoisonBuildupFactor()
+	{
+		return m_fPoisonBuildupFactor;
+	}
 	
 	//-----------------------------------------------------------------------------------------------------------
 	//! Check whether character health state meets requirements for consciousness
@@ -842,7 +851,7 @@ class SCR_CharacterDamageManagerComponent : SCR_ExtendedDamageManagerComponent
 
 		// TODO: Blood traces on ground that should be left regardless of clothing, perhaps just delayed
 		SCR_CharacterHitZone characterHitZone = SCR_CharacterHitZone.Cast(hitZone);
-		if (characterHitZone.IsCovered())
+		if (!characterHitZone || characterHitZone.IsCovered())
 			return;
 		
 		array<HitZone> groupHitZones = {};

@@ -72,6 +72,10 @@ class SCR_PhysicalHitZonesRegenDamageEffect : SCR_DotDamageEffect
 		array<ref SCR_PersistentDamageEffect> bleedings = characterDmgManager.GetAllPersistentEffectsOfType(SCR_BleedingDamageEffect);
 		if (!bleedings.IsEmpty())
 			return true;
+
+		array<ref SCR_PersistentDamageEffect> poisons = characterDmgManager.GetAllPersistentEffectsOfType(SCR_PoisonDamageEffect);
+		if (!poisons.IsEmpty())
+			return true;
 		
 		array<ref SCR_PersistentDamageEffect> persistentEffects = {};
 		characterDmgManager.FindAllDamageEffectsOfTypeOnHitZone(SCR_PhysicalHitZonesRegenDamageEffect, characterDmgManager.GetDefaultHitZone(), persistentEffects);

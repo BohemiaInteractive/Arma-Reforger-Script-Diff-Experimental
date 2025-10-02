@@ -255,6 +255,47 @@ class SCR_DebugShapeManager
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Method used to create a boundary shape
+	//! \param[in] boundsPositionsWorldSpace list points defining the base of the boundary
+	//! \param[in] height of the walls
+	//! \param[in] upDirection
+	//! \param[in] colour
+	//! \param[in] additionalFlags
+	//! \return created shape
+	Shape AddBounds(notnull array<vector> boundsPositionsWorldSpace, float height, vector upDirection = vector.Up, int colour = DEFAULT_SHAPE_COLOUR, ShapeFlags additionalFlags = 0)
+	{
+		vector verts[400];
+		int numberOfVerts;
+		int lastId = boundsPositionsWorldSpace.Count() - 1;
+		vector heightOffset = upDirection * height;
+		vector nextPosition;
+		foreach (int i, vector position : boundsPositionsWorldSpace)
+		{
+			verts[numberOfVerts] = position;
+			numberOfVerts++;
+			if (i < lastId)
+				nextPosition = boundsPositionsWorldSpace[i + 1];
+			else
+				nextPosition = boundsPositionsWorldSpace[0];
+
+			verts[numberOfVerts] = nextPosition + heightOffset; // diagonal
+			numberOfVerts++;
+			verts[numberOfVerts] = nextPosition; // right edge
+			numberOfVerts++;
+			verts[numberOfVerts] = position; // bottom edge
+			numberOfVerts++;
+			verts[numberOfVerts] = position + heightOffset; // left edge
+			numberOfVerts++;
+			verts[numberOfVerts] = nextPosition + heightOffset; // top edge
+			numberOfVerts++;
+		}
+
+		Shape shape = Shape.CreateLines(colour, ShapeFlags.DEFAULT | additionalFlags, verts, numberOfVerts);
+		m_Shapes.Insert(shape);
+		return shape;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Create a sphere
 	//! \param[in] centre world position of the sphere's centre
 	//! \param[in] radius radius in metres

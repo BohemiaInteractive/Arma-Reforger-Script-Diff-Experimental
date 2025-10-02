@@ -16,7 +16,7 @@ class DamageArea: ScriptAndConfig
 	*/
 	proto external IEntity GetParent();
 	// ! Returns shape of this DamageArea
-	proto external notnull BaseDamageAreaShape GetShape();
+	proto external BaseDamageAreaShape GetShape();
 
 	// callbacks
 

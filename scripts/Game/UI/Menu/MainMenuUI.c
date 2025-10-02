@@ -23,9 +23,9 @@ class SCR_MissionMetaData
 class MainMenuUI : ChimeraMenuBase
 {
 	protected const ResourceName TILES_LAYOUT = "{2D4191089E061C18}UI/layouts/Menus/PlayMenu/MainMenuTile_Vertical.layout";
-	protected const ResourceName TILES_GM_LAYOUT = "{ECA6FD4399DCD621}UI/layouts/Menus/PlayMenu/MainMenuTile_Menu_Vertical.layout";
-	protected const ResourceName TILES_KS_LAYOUT = "{0DE8AE59C27B5181}UI/layouts/Menus/PlayMenu/MainMenuTile_Campaign.layout";
 	protected const ResourceName CONFIG = "{6DDC861718434B94}Configs/ContentBrowser/MainMenu/MainMenuEntries.conf";
+	
+	protected const string SCENARIO_LIST_WIDGET_NAME = "ScenariosHorizontalLayoutDeep";
 
 	protected SCR_MenuTileComponent m_FocusedTile;
 	protected DialogUI m_BannedDetectionDialog;
@@ -57,6 +57,7 @@ class MainMenuUI : ChimeraMenuBase
 		if (!bottomContent || !descriptionRoot || !footer)
 			return;
 
+		//Here: check isContentDisabled TODO BURAK
 		PrepareTiles();
 
 		// Listen to buttons in grid
@@ -199,15 +200,18 @@ class MainMenuUI : ChimeraMenuBase
 		if (m_FocusedTile)
 			GetGame().GetWorkspace().SetFocusedWidget(m_FocusedTile.GetRootWidget(), true);
 
+		//Here: check isContentDisabled TODO BURAK
 		PrepareTiles();
 		
 		super.OnMenuFocusGained();
 	}
+	
 	//------------------------------------------------------------------------------------------------
 	protected void LoadTutorial(SCR_MainMenuConfiguration menuConfig, notnull Widget root)
 	{
+		return;
 		WorkshopApi workshopAPI = GetGame().GetBackendApi().GetWorkshop();
-		ResourceName tutorial = menuConfig.m_TutorialScenario;
+		ResourceName tutorial = menuConfig.m_TutorialScenario.m_sScenarioName;
 		MissionWorkshopItem itemTutorial = workshopAPI.GetInGameScenario(tutorial);
 
 		bool playedTutorial;
@@ -225,11 +229,25 @@ class MainMenuUI : ChimeraMenuBase
 
 		bool canShowTutorial = !playedTutorial && playedTutorialCount < playedTutorialMax;
 		if (canShowTutorial)
-			CreateTile(tutorial, root);
+			CreateTile(tutorial, root, isContentDisabled: false);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	protected void LoadMenuTiles(SCR_MainMenuConfiguration menuConfig, notnull Widget root)
+	{
+		array<ResourceName> customTiles = menuConfig.m_aMainMenuCustomTiles;
+		foreach(ResourceName tile: customTiles)
+		{
+			GetGame().GetWorkspace().CreateWidgets(tile, root);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void CreateTile(ResourceName mission, notnull Widget root, bool isRecommended = false)
+	//! \param[in] mission resource name of mission
+	//! \param[in] root related widget
+	//! \param[in] isRecommended 
+	//! \param[in] isContentDisabled when true data is not loaded yet, content inaccessible
+	protected void CreateTile(ResourceName mission, notnull Widget root, bool isRecommended = false, bool isContentDisabled = false)
 	{
 		MissionWorkshopItem item = SCR_ScenarioUICommon.GetInGameScenario(mission);
 		if (!item)
@@ -244,10 +262,13 @@ class MainMenuUI : ChimeraMenuBase
 			return;
 
 		tile.ShowMission(item, isRecommended);
+		if (isContentDisabled)
+			tile.DisableTile();
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void PrepareTiles()
+	//! \param[in] isContentDisabled when true data is not loaded yet, content inaccessible 
+	protected void PrepareTiles(bool isContentDisabled = false)
 	{
 		Resource resource = BaseContainerTools.LoadContainer(CONFIG);
 		if (!resource)
@@ -258,19 +279,17 @@ class MainMenuUI : ChimeraMenuBase
 		if (!menuConfig)
 			return;
 
-		Widget root = GetRootWidget().FindAnyWidget("ScenariosHorizontalLayoutDeep");
-		const int maxCount = 8;
+		Widget root = GetRootWidget().FindAnyWidget(SCENARIO_LIST_WIDGET_NAME);
+		int maxCount = menuConfig.m_iMaxDisplayedScenarios;
 
 		// delete previous content
 		SCR_WidgetHelper.RemoveAllChildren(root);
 		
 		// Tutorial Missions
 		LoadTutorial(menuConfig, root);
-
-		// GameMaster Tile
-		//GetGame().GetWorkspace().CreateWidgets(TILES_GM_LAYOUT, root);
-		// Campaign tile
-		GetGame().GetWorkspace().CreateWidgets(TILES_KS_LAYOUT, root);
+		
+		// Menu Tiles
+		LoadMenuTiles(menuConfig, root);
 
 		// Get missions from Workshop API
 		array<MissionWorkshopItem> missionItemsAll = {};
@@ -305,19 +324,27 @@ class MainMenuUI : ChimeraMenuBase
 
 		// Store total number of entries
 		int iEntriesTotal = missionItemsAll.Count();
-		array<ResourceName> missionsRecommended = menuConfig.m_aMainMenuScenarios;
-
+		array<ref SCR_MainMenuConfigEntry> missionsRecommended = {};
+		foreach (SCR_MainMenuConfigEntry entry : menuConfig.m_aMainMenuScenarios)
+		{
+			missionsRecommended.Insert(entry);
+		}
+		
 		foreach (MissionWorkshopItem item : missionItemsAll)
 		{
 			SCR_MissionMetaData newItem = new SCR_MissionMetaData(item, 0);
 
 			int score = 0;
-			if (missionsRecommended.Find(item.Id()) != -1)
+			foreach (SCR_MainMenuConfigEntry entry : missionsRecommended)
 			{
-				newItem.m_bRecommended = true;
-				score = 3;
+				if (entry && entry.m_sScenarioName == item.Id())
+				{
+					newItem.m_bRecommended = true;
+					score = 3;
+					break;
+				}
 			}
-
+			
 			if (item.IsFavorite())
 			{
 				score = score + 2;
@@ -359,7 +386,17 @@ class MainMenuUI : ChimeraMenuBase
 
 		foreach (SCR_MissionMetaData p : topMissions)
 		{
-			CreateTile(p.m_Item.Id(), root, p.m_bRecommended);
+			// check if missions can be available when loading in progress
+			bool disabled;
+			foreach (SCR_MainMenuConfigEntry entry : missionsRecommended)
+			{
+				if (!entry || entry.m_sScenarioName != p.m_Item.Id())
+					continue;
+				
+				disabled = !entry.m_bScenarioAvailableWhenDownloadingContent;
+				break;
+			}
+			CreateTile(p.m_Item.Id(), root, p.m_bRecommended, isContentDisabled : disabled && isContentDisabled);
 		}
 	}
 

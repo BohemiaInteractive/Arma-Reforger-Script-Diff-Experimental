@@ -19,6 +19,7 @@ class SCR_GMMenu : ChimeraMenuBase
 		if (back)
 			back.m_OnActivated.Insert(OnBack);
 
+		//Here: check isContentDisabled TODO BURAK
 		PrepareTiles();
 
 		if (m_Gallery)
@@ -35,7 +36,7 @@ class SCR_GMMenu : ChimeraMenuBase
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void PrepareTiles()
+	protected void PrepareTiles(bool isContentDisabled = false)
 	{
 		Resource resource = BaseContainerTools.LoadContainer(CONFIG);
 		if (!resource)
@@ -61,6 +62,8 @@ class SCR_GMMenu : ChimeraMenuBase
 				continue;
 
 			tile.ShowMission(SCR_ScenarioUICommon.GetInGameScenario(mission));
+			if (isContentDisabled)
+				tile.DisableTile();
 		}
 		
 		Widget focusWidget = root.GetChildren().GetChildren();

@@ -54,6 +54,18 @@ class SCR_CampaignTileComponent: SCR_MainMenuTileComponent
 		
 		return false;
 	}
+
+	//------------------------------------------------------------------------------------------------
+	//!
+	//! \param[in] item
+	override void ShowMission(notnull MissionWorkshopItem item, bool showRecommended = false)
+	{
+		super.ShowMission(item, showRecommended);
+		
+		m_wFavoriteIcon.SetVisible(false);
+		m_wRecentIcon.SetVisible(false);
+		m_wNewIcon.SetVisible(false);
+	}
 	
 	//------------------------------------------------------------------------------------------------
 	override void DisableTile()

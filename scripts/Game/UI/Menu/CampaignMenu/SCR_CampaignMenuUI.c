@@ -12,6 +12,7 @@ class SCR_CampaignMenuUI : SCR_SuperMenuBase
 		if (buttonBack)
 			buttonBack.m_OnActivated.Insert(Close);
 		
+		//Here: check isContentDisabled TODO BURAK
 		PrepareTiles();
 		
 		if (System.GetPlatform() == EPlatform.PS5 || System.GetPlatform() == EPlatform.PS4 || System.GetPlatform() == EPlatform.PS5_PRO)
@@ -31,7 +32,7 @@ class SCR_CampaignMenuUI : SCR_SuperMenuBase
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void PrepareTiles()
+	protected void PrepareTiles(bool isContentDisabled = false)
 	{
 		Resource resource = BaseContainerTools.LoadContainer(CONFIG);
 		if (!resource)
@@ -46,7 +47,6 @@ class SCR_CampaignMenuUI : SCR_SuperMenuBase
 		
 		Widget scenarioWidgetParent = GetRootWidget().FindAnyWidget("ScenariosHorizontalLayout");
 		
-		bool finishedPrevious = true;
 		foreach (int i, ResourceName mission : missions)
 		{
 			Widget w = GetGame().GetWorkspace().CreateWidgets(TILES_LAYOUT, scenarioWidgetParent);
@@ -57,17 +57,21 @@ class SCR_CampaignMenuUI : SCR_SuperMenuBase
 			if (!tile)
 				continue;
 			
-			bool wasFocused = finishedPrevious;
+			if (i == 0)
+				AlignableSlot.SetPadding(w, 0, 0, 0, 0);
 
 			MissionWorkshopItem item = SCR_ScenarioUICommon.GetInGameScenario(mission);
 			
-			tile.ShowMission(item);			
+			tile.ShowMission(item);
 			if (tile.UpdateCampaignButtons())
 			{
 				Widget focusWidget = w.GetChildren();
 				if (focusWidget)
 					GetGame().GetWorkspace().SetFocusedWidget(focusWidget);
 			}
+			
+			if (isContentDisabled)
+				tile.DisableTile();
 		}	
 	}
 }
