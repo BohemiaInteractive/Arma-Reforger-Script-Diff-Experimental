@@ -30,16 +30,18 @@ class SCR_AIWaypointArtillerySupportSerializer : ScriptedEntitySerializer
 			source.Get("m_eAmmoType", ammoTypeDefault);
 
 		context.StartObject("base");
-		ESerializeResult baseResult = super.Serialize(entity, context);
+		const ESerializeResult baseResult = super.Serialize(entity, context);
 		context.EndObject();
 		if (baseResult == ESerializeResult.ERROR)
-			return ESerializeResult.ERROR;
+			return baseResult;
 
 		if (baseResult == ESerializeResult.DEFAULT &&
 			active == activeDefault &&
 			targetShotCount == targetShotCountDefault &&
 			ammoType == ammoTypeDefault)
-			return ESerializeResult.DEFAULT;
+		{
+			return baseResult;
+		}
 
 		context.WriteValue("version", 1);
 		context.WriteDefault(active, activeDefault);

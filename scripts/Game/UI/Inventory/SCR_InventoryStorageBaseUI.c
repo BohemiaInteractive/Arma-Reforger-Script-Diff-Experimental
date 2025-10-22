@@ -62,7 +62,18 @@ class SCR_InventoryStorageBaseUI : ScriptedWidgetComponent
 	protected Widget m_wProgressBar;
 	protected Widget m_wWarningOverlay;
 	protected static const ref Color m_WeightDefault = new Color(0.73, 0.73, 0.73, 1);
+	
+	protected static ref ScriptInvokerVoid s_OnArsenalEnter;	
 	//------------------------------------------------------------------------ USER METHODS ------------------------------------------------------------------------
+	
+	//------------------------------------------------------------------------------------------------
+	static ScriptInvokerVoid GetOnArsenalEnter()
+	{
+		if (!s_OnArsenalEnter)
+			s_OnArsenalEnter = new ScriptInvokerVoid();
+		
+		return s_OnArsenalEnter;
+	}
 	
 	//------------------------------------------------------------------------------------------------
 	SCR_EAnalyticalItemSlotType GetAnalyticalItemSlotType()
@@ -1388,6 +1399,9 @@ class SCR_InventoryStorageBaseUI : ScriptedWidgetComponent
 				{
 					pItemsInStorage.Insert(itemPreviewManagerEntity.ResolvePreviewEntityForPrefab(resourceName));
 				}
+				
+				if (s_OnArsenalEnter)
+					s_OnArsenalEnter.Invoke();
 				
 				return;
 			}

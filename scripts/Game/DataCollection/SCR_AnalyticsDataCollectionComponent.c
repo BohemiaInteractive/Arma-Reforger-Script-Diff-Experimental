@@ -49,6 +49,12 @@ class SCR_AnalyticsDataCollectionComponent : SCR_BaseGameModeComponent
 	//------------------------------------------------------------------------------------------------
 	protected override void OnGameModeEnd(SCR_GameModeEndData data)
 	{
+		// Track stats only on server
+		RplComponent rplComponent = RplComponent.Cast(GetOwner().FindComponent(RplComponent));
+		bool isMaster = (rplComponent && rplComponent.IsMaster());
+		if (!isMaster)
+			return;
+		
 		foreach (SCR_AnalyticsDataCollectionModule module : m_aModules)
 		{
 			module.OnGameModeEnd();

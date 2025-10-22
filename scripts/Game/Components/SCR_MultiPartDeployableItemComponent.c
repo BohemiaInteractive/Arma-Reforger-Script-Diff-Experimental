@@ -257,7 +257,8 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 		if (!data)
 			return;
 
-		int r, g, b, a = 1;
+		int r, g, b;
+		const int a = 1;
 		Color color = new Color(r, g, b, a);
 		vector mat[4];
 		array<ref SCR_DeployableVariantContainer> variants = data.GetVariants();

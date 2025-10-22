@@ -304,6 +304,10 @@ class SCR_DestructionMultiPhaseComponent : SCR_DestructionDamageManagerComponent
 				{
 					GoToDamagePhase(lastPhase, false);
 					ReplicateDestructibleState(lastPhase, true);
+					
+					// Delete children without spawning effects
+					if (componentData.m_bDestroyChildrenWhenDestroyed)
+						DeleteDestructibleChildrenDelayed(false);
 				}
 				else
 				{

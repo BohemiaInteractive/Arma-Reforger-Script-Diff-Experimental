@@ -465,7 +465,7 @@ class SCR_ContentBrowser_ScenarioSubMenuBase : SCR_SubMenuBase
 			missionFilter.Insert(scenario.Id())
 		}
 
-		return GetGame().GetSaveGameManager().RetrieveSaveGameInfo(missionFilter, new SaveGameOperationCb(context, OnSaveGameDataLoaded));
+		return GetGame().GetSaveGameManager().RetrieveSaveGameInfo(missionFilter, new SaveGameOperationCb(OnSaveGameDataLoaded, context));
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -492,7 +492,7 @@ class SCR_ContentBrowser_ScenarioSubMenuBase : SCR_SubMenuBase
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnSaveGameDataLoaded(Managed context, bool success)
+	protected void OnSaveGameDataLoaded(bool success, Managed context)
 	{
 		if (!success)
 		{

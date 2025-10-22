@@ -645,7 +645,6 @@ class SCR_CampaignBuildingGadgetToolComponent : SCR_GadgetComponent
 		// remove the offset to ensure that CheckAvailableSpace will have the same position when it is called by the user action
 		matCopy[3] = matCopy[3] - matCopy[1] * 0.01;
 
-		LocalizedString obstructionReason;
 		if (m_CurrentlyHandledComponent.CheckAvailableSpace(matCopy, angle))
 		{
 			m_CurrentlyHandledComponent.SetPreviewState(SCR_EPreviewState.PLACEABLE);

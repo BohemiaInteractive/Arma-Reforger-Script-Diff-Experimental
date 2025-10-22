@@ -674,10 +674,9 @@ class SCR_AICombatMoveLogic_Attack : SCR_AICombatMoveLogicBase
 	//--------------------------------------------------------------------------------------------
 	protected override vector ResolveRequestTargetPos()
 	{
-		if (m_CombatComp.IsTargetVisible(m_Target))
+		IEntity tgtEntity = m_Target.GetTargetEntity();
+		if (tgtEntity && m_CombatComp.IsTargetVisible(m_Target))
 		{
-			IEntity tgtEntity = m_Target.GetTargetEntity(); // We've checked already
-		
 			ChimeraCharacter character = ChimeraCharacter.Cast(tgtEntity);
 			if (character)
 			{
@@ -691,7 +690,7 @@ class SCR_AICombatMoveLogic_Attack : SCR_AICombatMoveLogicBase
 			return pos;
 		}
 		
-		// Target is not visible, use last seen position
+		// Target is either not visible or tgtEntity is null, use last seen position
 		vector lastSeenPos = m_Target.GetLastSeenPosition();
 		lastSeenPos = lastSeenPos + Vector(0, 1.8, 0);
 		return lastSeenPos;		

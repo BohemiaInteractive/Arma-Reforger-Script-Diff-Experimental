@@ -11,7 +11,7 @@ class SCR_GameModeSFManager : SCR_BaseGameModeComponent
 	[Attribute( defvalue: "3", desc: "Maximal number of tasks that can be generated", category: "Tasks" )];
 	int m_iMaxNumberOfTasks;
 	
-	[Attribute(UIWidgets.Auto, desc: "Actions that will be activated after tasks are initialized for the first time. Not called on save-game load", category: "Tasks")];
+	[Attribute(UIWidgets.Auto, desc: "Actions that will be activated after tasks are initialized.", category: "Tasks")];
 	ref array<ref SCR_ScenarioFrameworkActionBase> m_aAfterTasksInitActions;
 	
 	[Attribute(desc: "List of Core Areas that are essential for the Scenario to spawn alongside Debug Areas", category: "Debug")];

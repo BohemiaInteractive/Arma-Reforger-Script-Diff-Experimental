@@ -66,6 +66,7 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 	
 	protected ref array<ref Tuple2<int, WorldTimestamp>> m_aPlacingCooldown = {};
 	protected bool m_bCooldownClientLock;
+	protected bool m_bUseAllAvailableProvidersByPlayer;
 	
 	SCR_CampaignBuildingProviderComponent m_MasterProviderComponent;
 	
@@ -230,7 +231,13 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 	//------------------------------------------------------------------------------------------------
 	bool UseAllAvailableProviders()
 	{
-		return m_bUseAllAvailableProviders;
+		return m_bUseAllAvailableProviders || m_bUseAllAvailableProvidersByPlayer;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SetUseAllAvailableProvidersByPlayer(bool useByPlayer)
+	{
+		m_bUseAllAvailableProvidersByPlayer = useByPlayer;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -629,7 +636,7 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 			availableTraits.RemoveItem(EEditableEntityLabel.TRAIT_BASE);
 
 		// extends available traits from other providers traits
-		if (!m_bUseAllAvailableProviders)
+		if (!UseAllAvailableProviders())
 			return availableTraits;
 
 		array<SCR_MilitaryBaseComponent> bases = {};

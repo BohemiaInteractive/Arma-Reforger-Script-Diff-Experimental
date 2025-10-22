@@ -3,7 +3,7 @@ enum SCR_ESpawnLogicDisconnectBehaviour
 	NOTHING,
 	SAVE,
 	DELETE
-};
+}
 
 //------------------------------------------------------------------------------------------------
 /*
@@ -23,6 +23,8 @@ class SCR_SpawnLogic
 	[Attribute(SCR_ESpawnLogicDisconnectBehaviour.SAVE.ToString(), UIWidgets.ComboBox, "Decide what happens to character persistence data on disconnect.", enums: ParamEnumArray.FromEnum(SCR_ESpawnLogicDisconnectBehaviour))]
 	protected SCR_ESpawnLogicDisconnectBehaviour m_eDisconnectCharacterBehaviour;
 
+	protected SCR_RespawnSystemComponent m_RespawnSystem;
+
 	protected SCR_PersistenceSystem m_Persistence;
 	protected PersistenceCollection m_PlayerCollection;
 	protected PersistenceCollection m_CharacterCollection;
@@ -37,6 +39,7 @@ class SCR_SpawnLogic
 	//------------------------------------------------------------------------------------------------
 	void OnInit(SCR_RespawnSystemComponent owner)
 	{
+		m_RespawnSystem = owner;
 		auto gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 		m_Persistence = SCR_PersistenceSystem.GetByEntityWorld(gameMode);
 		if (m_Persistence)
@@ -61,21 +64,6 @@ class SCR_SpawnLogic
 		SCR_RespawnComponent respawnComponent = GetPlayerRespawnComponent_S(playerId);
 		respawnComponent.GetOnRespawnRequestInvoker_S().Insert(OnPlayerSpawnRequest_S);
 		respawnComponent.GetOnRespawnResponseInvoker_S().Insert(OnPlayerSpawnResponse_S);
-
-		#ifdef WORKBENCH
-		// TODO(@langepau): Remove once peertools properly invoke the audit success from gamecode.
-		if (RplSession.Mode() == RplMode.Listen && playerId > 1)
-			OnPlayerAuditSuccess_S(playerId);
-		#else
-		// TODO(@langepau): Remove once identity is available already during registered event.
-		if (RplSession.Mode() == RplMode.Dedicated)
-		{
-			DSConfig running();
-			const bool hasConfig = GetGame().GetBackendApi().GetRunningDSConfig(running);
-			if (!hasConfig)
-				OnPlayerAuditSuccess_S(playerId);
-		}
-		#endif
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -112,7 +100,7 @@ class SCR_SpawnLogic
 				m_Persistence.ReleaseTracking(playerController);
 				break;
 			}
-			
+
 			case SCR_ESpawnLogicDisconnectBehaviour.DELETE:
 			{
 				m_Persistence.StopTracking(playerController);
@@ -133,7 +121,7 @@ class SCR_SpawnLogic
 				m_Persistence.ReleaseTracking(character);
 				break;
 			}
-			
+
 			case SCR_ESpawnLogicDisconnectBehaviour.DELETE:
 			{
 				m_Persistence.StopTracking(character);
@@ -252,7 +240,7 @@ class SCR_SpawnLogic
 			return;
 
 		Tuple2<int, bool> characterAvailableContext(playerId, false);
-		PersistenceWhenAvailableTask linkControlledEntityTask(characterAvailableContext, OnControlledCharacterAvailable);
+		PersistenceWhenAvailableTask linkControlledEntityTask(OnControlledCharacterAvailable, characterAvailableContext);
 		m_Persistence.WhenAvailable(posessCharacterId, linkControlledEntityTask);
 	}
 
@@ -262,6 +250,9 @@ class SCR_SpawnLogic
 		#ifdef _ENABLE_RESPAWN_LOGS
 		PrintFormat("%1::ExcuteInitialLoadOrSpawn_S(playerId: %2)", Type().ToString(), playerId);
 		#endif
+
+		if (ResolveReconnection(playerId))
+			return; // User was reconnected, their entity was returned
 
 		#ifdef WORKBENCH
 		// Wait one frame for inital play from camera entity to be available (or not).
@@ -322,16 +313,16 @@ class SCR_SpawnLogic
 		// Load existing data about the player to see which character, faction, group etc to connect him with again on load
 		PersistenceLoadRequest request();
 		request.Instances = {playerController};
-		// Pass controller als weakptr via tuple
-		PersistenceResultCallback callback(new Tuple1<SCR_PlayerController>(playerController), OnPlayerControllerLoaded_S);
+		// Pass controller as weakptr via tuple
+		PersistenceResultCallback callback(OnPlayerControllerLoaded_S, new Tuple1<SCR_PlayerController>(playerController));
 		m_Persistence.RequestLoad(request, callback);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnPlayerControllerLoaded_S(Managed context, EPersistenceStatusCode statusCode, Managed result, bool isLast)
+	protected void OnPlayerControllerLoaded_S(EPersistenceStatusCode statusCode, Managed result, bool isLast, Managed context)
 	{
 		#ifdef _ENABLE_RESPAWN_LOGS
-		PrintFormat("%1::OnPlayerControllerLoaded_S(%1, %2, %3)", Type().ToString(), context, typename.EnumToString(EPersistenceStatusCode, statusCode), result);
+		PrintFormat("%1::OnPlayerControllerLoaded_S(%2, %3, %4)", Type().ToString(), typename.EnumToString(EPersistenceStatusCode, statusCode), result, context);
 		#endif
 
 		auto playerController = Tuple1<SCR_PlayerController>.Cast(context).param1;
@@ -358,7 +349,7 @@ class SCR_SpawnLogic
 			if (!controlledCharacterId.IsNull())
 			{
 				Tuple2<int, bool> characterAvailableContext(playerController.GetPlayerId(), true);
-				PersistenceWhenAvailableTask linkControlledEntityTask(characterAvailableContext, OnControlledCharacterAvailable);
+				PersistenceWhenAvailableTask linkControlledEntityTask(OnControlledCharacterAvailable, characterAvailableContext);
 				m_Persistence.WhenAvailable(controlledCharacterId, linkControlledEntityTask);
 				return;
 			}
@@ -377,15 +368,15 @@ class SCR_SpawnLogic
 		request.Include = {playerCharacterId};
 
 		Tuple1<int> playerCharContext(playerId);
-		PersistenceResultCallback callback(playerCharContext, OnPlayerCharacterLoaded_S);
+		PersistenceResultCallback callback(OnPlayerCharacterLoaded_S, playerCharContext);
 		m_Persistence.RequestSpawn(request, callback);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnPlayerCharacterLoaded_S(Managed context, EPersistenceStatusCode statusCode, Managed result, bool isLast)
+	protected void OnPlayerCharacterLoaded_S(EPersistenceStatusCode statusCode, Managed result, bool isLast, Managed context)
 	{
 		#ifdef _ENABLE_RESPAWN_LOGS
-		PrintFormat("%1::OnPlayerCharacterLoaded_S(%1, %2, %3)", Type().ToString(), context, typename.EnumToString(EPersistenceStatusCode, statusCode), result);
+		PrintFormat("%1::OnPlayerCharacterLoaded_S(%2, %3, %4)", Type().ToString(), typename.EnumToString(EPersistenceStatusCode, statusCode), result, context);
 		#endif
 
 		auto playerDataContext = Tuple1<int>.Cast(context);
@@ -446,7 +437,7 @@ class SCR_SpawnLogic
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnControlledCharacterAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected void OnControlledCharacterAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto characterAvailableContext = Tuple2<int, bool>.Cast(context);
 
@@ -513,11 +504,6 @@ class SCR_SpawnLogic
 		PrintFormat("%1::DoInitialSpawn_S(playerId: %2)", Type().ToString(), playerId);
 		#endif
 
-		// Probe reconnection component first
-		IEntity returnedEntity;
-		if (ResolveReconnection(playerId, returnedEntity))
-			return; // User was reconnected, their entity was returned
-
 		#ifdef WORKBENCH
 		if (GetGame().GetPlayerController().GetPlayerId() == playerId && HandlePlayFromCamera())
 			return;
@@ -537,7 +523,7 @@ class SCR_SpawnLogic
 		Probe the SCR_ReconnectComponent for player of given playerId.
 		If player is eligible for respawn using the reconnection method, true is returned.
 	*/
-	bool IsEligibleForReconnection(int playerId)
+	protected bool IsEligibleForReconnection(int playerId)
 	{
 		SCR_ReconnectComponent reconnectComponent = SCR_ReconnectComponent.GetInstance();
 		if (!reconnectComponent || !reconnectComponent.IsReconnectEnabled())
@@ -564,9 +550,9 @@ class SCR_SpawnLogic
 		If such player is eligible for spawning this way, action is taken and true is
 		returned on success (entity given over), false otherwise.
 		\param playerId Player
-		\param assignedEntity Returned entity if successful
+		\return True if existing entity was re-assigned to him
 	*/
-	protected bool ResolveReconnection(int playerId, out IEntity assignedEntity)
+	protected bool ResolveReconnection(int playerId)
 	{
 		if (!IsEligibleForReconnection(playerId))
 			return false;
@@ -576,7 +562,21 @@ class SCR_SpawnLogic
 		#endif
 
 		SCR_ReconnectComponent reconnectComponent = SCR_ReconnectComponent.GetInstance();
-		assignedEntity = reconnectComponent.ReturnControlledEntity(playerId);
+		const IEntity assignedEntity = reconnectComponent.ReturnControlledEntity(playerId);
+		if (assignedEntity)
+		{
+			const Faction faction = SCR_FactionManager.SGetFaction(assignedEntity);
+			if (faction)
+			{
+				PlayerController pc = GetGame().GetPlayerManager().GetPlayerController(playerId);
+				SCR_PlayerFactionAffiliationComponent playerFactionComp = SCR_PlayerFactionAffiliationComponent.Cast(pc.FindComponent(SCR_PlayerFactionAffiliationComponent));
+				if (playerFactionComp)
+					playerFactionComp.SetFaction_S(faction);
+			}
+
+			m_RespawnSystem.EmitPlayerEntityChange_S(playerId, null, assignedEntity);
+		}
+
 		return assignedEntity != null;
 	}
 

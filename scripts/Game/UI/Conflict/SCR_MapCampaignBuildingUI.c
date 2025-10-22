@@ -1,6 +1,7 @@
 class SCR_MapCampaignBuildingUI : SCR_MapUIBaseComponent
 {
 	protected SCR_MapCampaignUI m_MapCampaignUI
+	protected SCR_CampaignBuildingProviderComponent m_TemporaryProviderComponent;
 
 	//------------------------------------------------------------------------------------------------
 	override void Init()
@@ -31,29 +32,71 @@ class SCR_MapCampaignBuildingUI : SCR_MapUIBaseComponent
 	{
 		array<SCR_CampaignBuildingProviderComponent> campaignBuildingProvides = {};
 		int providerCount = baseUI.GetBase().GetBuildingProviders(campaignBuildingProvides);
-		SCR_CampaignBuildingProviderComponent m_ProviderComponent;
+		m_TemporaryProviderComponent = null;
 		if (providerCount > 0)
 		{
 			for (int i = 0; i < providerCount; i++)
 			{
-				if (campaignBuildingProvides[i].UseAllAvailableProviders())
+				if (campaignBuildingProvides[i].IsMasterProvider())
 				{
-					m_ProviderComponent = campaignBuildingProvides[i];
+					m_TemporaryProviderComponent = campaignBuildingProvides[i];
 					break;
 				}
 			}
 		}
 
-		if (!m_ProviderComponent)
+		if (!m_TemporaryProviderComponent)
 			return;
 
 		IEntity playerEntity = SCR_PlayerController.GetLocalControlledEntity();
-
-		// check player faction
-		if (!m_ProviderComponent.IsEntityFactionSame(playerEntity, m_ProviderComponent.GetOwner()))
+		if (!playerEntity)
 			return;
 
+		// check player faction
+		if (!m_TemporaryProviderComponent.IsEntityFactionSame(playerEntity, m_TemporaryProviderComponent.GetOwner()))
+			return;
+
+		m_TemporaryProviderComponent.SetUseAllAvailableProvidersByPlayer(true);
+
+		SCR_CampaignBuildingBudgetToEvaluateData aiBudgetData = m_TemporaryProviderComponent.GetBudgetData(EEditableEntityBudget.AI);
+		aiBudgetData.SetShowBudgetInUI(true);
+
 		int playerID = SCR_PlayerController.GetLocalPlayerId();
-		m_ProviderComponent.RequestBuildingMode(playerID, true);
+		m_TemporaryProviderComponent.RequestBuildingMode(playerID, true);
+
+		SCR_EditorManagerEntity editorManager = GetEditorManager();
+		if (!editorManager)
+			return;
+
+		editorManager.GetOnClosed().Insert(OnModeClosed);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnModeClosed()
+	{
+		SCR_EditorManagerEntity editorManager = GetEditorManager();
+		if (!editorManager)
+			return;
+
+		editorManager.GetOnClosed().Remove(OnModeClosed);
+
+		if (!m_TemporaryProviderComponent)
+			return;
+
+		m_TemporaryProviderComponent.SetUseAllAvailableProvidersByPlayer(false);
+
+		SCR_CampaignBuildingBudgetToEvaluateData aiBudgetData = m_TemporaryProviderComponent.GetBudgetData(EEditableEntityBudget.AI);
+		aiBudgetData.SetShowBudgetInUI(false);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \return local Editor Manager
+	protected SCR_EditorManagerEntity GetEditorManager()
+	{
+		SCR_EditorManagerCore core = SCR_EditorManagerCore.Cast(SCR_EditorManagerCore.GetInstance(SCR_EditorManagerCore));
+		if (!core)
+			return null;
+
+		return core.GetEditorManager();
 	}
 }

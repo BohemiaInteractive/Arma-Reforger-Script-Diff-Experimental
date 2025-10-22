@@ -59,9 +59,6 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	[Attribute("60", desc: "Defines how much time must elapse before a player can spawn at this base after it has been captured. [s]", category: "Campaign", params: "0 inf")]
 	protected float m_fRespawnDelayAfterCaptureSeconds;
 
-	[Attribute("0", desc: "If toggled on, this base will only be active if establishing bases is disabled", category: "Campaign")]
-	protected bool m_bIsPreBuiltBase;
-
 	[Attribute("-1", desc: "How many supplies are periodically replenished. If value is -1, default Gamemode value will be used.", params: "-1 inf 1", category: "Campaign")]
 	protected int m_iRegularSuppliesIncomeBase;
 
@@ -116,6 +113,7 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	protected WorldTimestamp m_fLastEnemyContactTimestamp;
 
 	protected bool m_bLocalPlayerPresent;
+	protected bool m_bWasHQSet;
 
 	protected SCR_CampaignMilitaryBaseMapDescriptorComponent m_MapDescriptor;
 
@@ -406,12 +404,6 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	FactionKey GetBuiltFaction()
 	{
 		return m_sBuiltFaction;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	bool IsPreBuiltBase()
-	{
-		return m_bIsPreBuiltBase;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -960,7 +952,10 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	{
 		SCR_CampaignFaction faction = SCR_CampaignFaction.Cast(GetFaction());
 		if (faction && m_bIsHQ)
+		{
 			faction.SetMainBase(this);
+			m_bWasHQSet = true;
+		}
 
 		if (IsProxy())
 			return;
@@ -1479,6 +1474,14 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 			// Do an auto save every time a base was captured
 			if (!SCR_PersistenceSystem.IsLoadInProgress() && (GetGame().GetWorld().GetWorldTime() > campaign.BACKEND_DELAY))
 				GetGame().GetSaveGameManager().RequestSavePoint(ESaveGameType.AUTO);
+		}
+		else
+		{
+			if (newCampaignFaction && m_bIsHQ && !m_bWasHQSet)
+			{
+				newCampaignFaction.SetMainBase(this);
+				m_bWasHQSet = true;
+			}
 		}
 
 		if (RplSession.Mode() != RplMode.Dedicated)

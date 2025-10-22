@@ -358,6 +358,9 @@ class SCR_GroupTaskManagerComponent : ScriptComponent
 	//------------------------------------------------------------------------------------------------
 	protected void ReleaseFrequency(notnull SCR_Task task)
 	{
+		if (!IsEnabledAssigningFrequencies())
+			return;
+
 		RplId taskRplId = GetTaskRplId(task);
 		if (!taskRplId.IsValid())
 		{

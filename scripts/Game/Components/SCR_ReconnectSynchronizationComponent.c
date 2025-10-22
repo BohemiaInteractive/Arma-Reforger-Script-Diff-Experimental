@@ -32,12 +32,16 @@ class SCR_ReconnectSynchronizationComponent : ScriptComponent
 	//! \param[in] state is subject SCR_EReconnectState
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
     protected void RPC_DoSendReconnectState(int state)
-    {		
+    {
 		m_OnPlayerReconnect.Invoke(state);
-		
+
 		if (state == SCR_EReconnectState.ENTITY_AVAILABLE)
 			SCR_CommonDialogs.CreateDialog(DIALOG_RECON_RESTORE);
 		else if (state == SCR_EReconnectState.ENTITY_DISCARDED)
 			SCR_CommonDialogs.CreateDialog(DIALOG_RECON_DISCARD);
+
+		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
+		if (respawnSystem)
+			respawnSystem.DestroyLoadingPlaceholder();
     }	
 }

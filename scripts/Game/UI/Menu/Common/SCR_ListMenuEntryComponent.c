@@ -166,7 +166,7 @@ class SCR_ListMenuEntryComponent : SCR_ScriptedWidgetComponent
 
 		if (enable)
 		{
-			if (!anim.GetContentFit())
+			if (!anim.GetContentFitX())
 			{
 				anim.AnimationStart();
 			}

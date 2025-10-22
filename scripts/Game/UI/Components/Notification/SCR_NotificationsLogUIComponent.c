@@ -49,6 +49,8 @@ class SCR_NotificationsLogComponent : MenuRootSubComponent
 	//InputType
 	protected bool m_bIsUsingMouseAndKeyboard = true;
 
+	protected string m_sCachedLanguage;
+
 	protected ref ScriptInvoker m_OnNewMessageHasPosition = new ScriptInvoker();
 	protected ref ScriptInvoker m_OnInputDeviceChanged = new ScriptInvoker();
 
@@ -172,6 +174,23 @@ class SCR_NotificationsLogComponent : MenuRootSubComponent
 			//Can be that notification is already removed
 			if (index < m_aNotificationMessages.Count())
 				m_aNotificationMessages.Remove(index);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Update notification texts
+	void UpdateNotificationTexts()
+	{
+		foreach (SCR_NotificationMessageUIComponent msg : m_aNotificationMessages)
+		{
+			if (msg)
+				msg.UpdateText();
+		}
+
+		foreach (SCR_NotificationMessageUIComponent priorityMsg : m_aPriorityNotificationMessages)
+		{
+			if (priorityMsg)
+				priorityMsg.UpdateText();
 		}
 	}
 
@@ -360,6 +379,16 @@ class SCR_NotificationsLogComponent : MenuRootSubComponent
 		bool state;
 		interfaceSettings.Get("m_bShowNotifications", state);
 		m_wRoot.SetVisible(state);
+
+		// check if language is really changed
+		string newLanguage;
+		WidgetManager.GetLanguage(newLanguage);
+		if (newLanguage.IsEmpty() || newLanguage == m_sCachedLanguage)
+			return;
+
+		m_sCachedLanguage = newLanguage;
+
+		UpdateNotificationTexts();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -399,6 +428,7 @@ class SCR_NotificationsLogComponent : MenuRootSubComponent
 				m_wRoot.SetVisible(state);
 				
 				GetGame().OnUserSettingsChangedInvoker().Insert(OnSettingsChanged);
+				WidgetManager.GetLanguage(m_sCachedLanguage);
 			}
 		}
 

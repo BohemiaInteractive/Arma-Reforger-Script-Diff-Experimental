@@ -13,6 +13,8 @@ class SCR_NotificationTaskName : SCR_NotificationDisplayData
 		data.GetParams(taskRplId);
 
 		string taskName = GetTaskName(taskRplId);
+		if (taskName.IsEmpty())
+			return string.Empty;
 
 		data.SetNotificationTextEntries(taskName);
 		return super.GetText(data);

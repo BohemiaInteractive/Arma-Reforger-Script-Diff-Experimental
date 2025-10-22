@@ -62,9 +62,10 @@ class SCR_CharacterCommandHandlerComponent_Tests : SCR_CharacterCommandHandlerCo
 		float waterDepth = pInputCtx.GetWaterBodyApproxDepth();
 		float waterCharSubmersion = pInputCtx.GetWaterCharacterSubmersion();
 
+		CharacterCommandSwimSettings swimSettings = GetCommandSwimSettings();
 		if( pCurrentCommandID == ECharacterCommandIDs.SWIM )
 		{
-			if( waterDepth < m_SwimSettings.m_fWaterLevelOut )
+			if( waterDepth < swimSettings.m_fWaterLevelOut )
 			{
 				CharacterCommandSwim sc = GetCommandSwim();
 				sc.StopSwimming();
@@ -75,7 +76,7 @@ class SCR_CharacterCommandHandlerComponent_Tests : SCR_CharacterCommandHandlerCo
 		}
 
 		//! if total water depth >= 1.5m && character is 1.5m in water 
-		if( waterDepth >= m_SwimSettings.m_fWaterLevelIn && waterCharSubmersion >= m_SwimSettings.m_fWaterLevelIn )
+		if( waterDepth >= swimSettings.m_fWaterLevelIn && waterCharSubmersion >= swimSettings.m_fWaterLevelIn )
 		{
 			m_WeaponManager.SetVisibleCurrentWeapon(false);
 			StartCommand_Swim();
@@ -87,11 +88,11 @@ class SCR_CharacterCommandHandlerComponent_Tests : SCR_CharacterCommandHandlerCo
 		{
 			CharacterCommandMove mc = GetCommandMove();
 
-			if( waterCharSubmersion > m_SwimSettings.m_fToErectLevel )
+			if( waterCharSubmersion > swimSettings.m_fToErectLevel )
 			{
 				m_CharacterControllerComp.ForceStanceUp(0);
 			}
-			else if( waterCharSubmersion > m_SwimSettings.m_fToCrouchLevel )
+			else if( waterCharSubmersion > swimSettings.m_fToCrouchLevel )
 			{
 				m_CharacterControllerComp.ForceStanceUp(1);
 			}
@@ -447,7 +448,7 @@ class SCR_CharacterCommandHandlerComponent_Tests : SCR_CharacterCommandHandlerCo
 			CancelThrowDefault();
 
 			ref CharacterCommandClimbResult climbTestResult = new CharacterCommandClimbResult();
-			CharacterCommandClimb.DoClimbTest(m_OwnerEntity, GetCurrentCommandClimbSettings(), climbTestResult);
+			CharacterCommandClimb.DoClimbTest(m_OwnerEntity, GetCommandClimbSettings(), climbTestResult);
 
 			vector grabPoint = climbTestResult.m_ClimbGrabPointLS;
 			if ( climbTestResult.m_ClimbParent )
@@ -506,25 +507,6 @@ class SCR_CharacterCommandHandlerComponent_Tests : SCR_CharacterCommandHandlerCo
 		m_SwimST = new SCR_CharacterCommandSwimST(m_CharacterAnimComp);
 		m_SwimCommand = new SCR_CharacterCommandSwim(m_CharacterAnimComp, m_SwimST, m_OwnerEntity, GetControllerComponent());
 		m_FlyCommand = new SCR_CharacterCommandFly(m_CharacterAnimComp, m_SwimST, m_OwnerEntity, GetControllerComponent());
-				
-		// Command's settings examples
-		// ---------------------------
-
-		// movement setting change
-		//m_OwnMoveSettings.m_fLeaningSpeed = 1;
-		//SetCurrentCommandMoveSettings(m_OwnMoveSettings);
-		
-		// try to change default climb settings
-		//CharacterCommandClimbSettings defaultClimb = GetDefaultCommandClimbSettings();
-		//defaultClimb.m_fFwMaxDistance = 3;
-		
-		// setup own climb settings and make it current
-		//m_OwnClimbSettings.m_fFwMaxDistance = 3;
-		//SetCurrentCommandClimbSettings(m_OwnClimbSettings);
-
-		// swim settings overrides
-		m_SwimSettings.m_fMovementSpeed = 1.5;
-		SetCurrentCommandSwimSettings(m_SwimSettings);
 	}
 	
 	/*
@@ -553,8 +535,6 @@ class SCR_CharacterCommandHandlerComponent_Tests : SCR_CharacterCommandHandlerCo
 	protected ref SCR_CharacterCommandSwimST m_SwimST;
 	protected ref SCR_CharacterCommandSwim m_SwimCommand;
 	protected ref SCR_CharacterCommandFly m_FlyCommand;
-	
-	protected ref CharacterCommandSwimSettings m_SwimSettings = new CharacterCommandSwimSettings();
 
 	protected float m_fFallYDiff;
 	//protected float m_fThrowingForce;

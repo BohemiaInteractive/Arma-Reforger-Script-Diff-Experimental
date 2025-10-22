@@ -30,6 +30,13 @@ class SCR_TaskListEntryDescriptionWidgets
 	SizeLayoutWidget m_wAssignedPlayersCount;
 	TextWidget m_wAssignedCountText;
 	ImageWidget m_wAssignedCountIcon;
+	FrameWidget m_wAuthorFrame;
+
+	OverlayWidget m_wTaskAuthor;
+	SCR_AssignedPlayerLabelUIComponent m_TaskAuthorComponent;
+
+	ImageWidget m_wPlatformKindIcon;
+	TextWidget m_wPlayerName;
 
 	ScrollLayoutWidget m_wDescriptionScrollLayout;
 	SCR_GamepadScrollComponent m_DescriptionScrollLayoutComponent;
@@ -40,6 +47,7 @@ class SCR_TaskListEntryDescriptionWidgets
 	ScrollLayoutWidget m_wTasksScrollLayout;
 	VerticalLayoutWidget m_wChildTasksWrapper;
 	Widget m_wAssignedPlayersWrapper;
+
 	FrameWidget m_wTaskAssignGroupList;
 	SCR_TaskAssignGroupListUIComponent m_TaskAssignGroupListComponent;
 
@@ -51,16 +59,19 @@ class SCR_TaskListEntryDescriptionWidgets
 	TextWidget m_wTaskStateText;
 
 	ButtonWidget m_wButtonShowMap;
-	SCR_InputButtonComponent m_ButtonShowMapComponent;
+	SCR_InputButtonComponent m_ButtonShowMapComponent0;
+	SCR_TaskListFocusUIComponent m_ButtonShowMapComponent1;
 
 
 	ButtonWidget m_wButtonAssignTask;
-	SCR_InputButtonComponent m_ButtonAssignTaskComponent;
+	SCR_InputButtonComponent m_ButtonAssignTaskComponent0;
+	SCR_TaskListFocusUIComponent m_ButtonAssignTaskComponent1;
 
 
 	ButtonWidget m_wButtonOpenAssignGroupList;
 	SCR_InputButtonComponent m_ButtonOpenAssignGroupListComponent0;
 	SCR_TaskListFocusUIComponent m_ButtonOpenAssignGroupListComponent1;
+
 
 	//------------------------------------------------------------------------------------------------
 	bool Init(notnull Widget root)
@@ -91,6 +102,13 @@ class SCR_TaskListEntryDescriptionWidgets
 		m_wAssignedPlayersCount = SizeLayoutWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.Header.m_wAssignedPlayersCount"));
 		m_wAssignedCountText = TextWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.Header.m_wAssignedPlayersCount.HorizontalLayout.m_wAssignedCountText"));
 		m_wAssignedCountIcon = ImageWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.Header.m_wAssignedPlayersCount.HorizontalLayout.m_wAssignedCountIcon"));
+		m_wAuthorFrame = FrameWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.m_wAuthorFrame"));
+
+		m_wTaskAuthor = OverlayWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.m_wAuthorFrame.ContentWrapper.m_TaskAuthor"));
+		m_TaskAuthorComponent = SCR_AssignedPlayerLabelUIComponent.Cast(m_wTaskAuthor.FindHandler(SCR_AssignedPlayerLabelUIComponent));
+
+		m_wPlatformKindIcon = ImageWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.m_wAuthorFrame.ContentWrapper.m_TaskAuthor.AssignedPlayer.Overlay.HorizontalLayout.SizeIcon.m_wPlatformKindIcon"));
+		m_wPlayerName = TextWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.m_wAuthorFrame.ContentWrapper.m_TaskAuthor.AssignedPlayer.Overlay.HorizontalLayout.m_wPlayerName"));
 
 		m_wDescriptionScrollLayout = ScrollLayoutWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.Overlay.m_wDescriptionScrollLayout"));
 		m_DescriptionScrollLayoutComponent = SCR_GamepadScrollComponent.Cast(m_wDescriptionScrollLayout.FindHandler(SCR_GamepadScrollComponent));
@@ -101,6 +119,7 @@ class SCR_TaskListEntryDescriptionWidgets
 		m_wTasksScrollLayout = ScrollLayoutWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.m_wChildTasks.VertialLayout.m_wTasksScrollLayout"));
 		m_wChildTasksWrapper = VerticalLayoutWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.m_wChildTasks.VertialLayout.m_wTasksScrollLayout.m_wChildTasksWrapper"));
 		m_wAssignedPlayersWrapper = root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.FooterWrapper.m_wAssignedPlayersWrapper");
+
 		m_wTaskAssignGroupList = FrameWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.FooterWrapper.m_wTaskAssignGroupList"));
 		m_TaskAssignGroupListComponent = SCR_TaskAssignGroupListUIComponent.Cast(m_wTaskAssignGroupList.FindHandler(SCR_TaskAssignGroupListUIComponent));
 
@@ -112,11 +131,13 @@ class SCR_TaskListEntryDescriptionWidgets
 		m_wTaskStateText = TextWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.FooterWrapper.m_wTaskStateWrapper.HorizontalLayout.m_wTaskStateText"));
 
 		m_wButtonShowMap = ButtonWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.FooterWrapper.Footer.m_wButtonShowMap"));
-		m_ButtonShowMapComponent = SCR_InputButtonComponent.Cast(m_wButtonShowMap.FindHandler(SCR_InputButtonComponent));
+		m_ButtonShowMapComponent0 = SCR_InputButtonComponent.Cast(m_wButtonShowMap.FindHandler(SCR_InputButtonComponent));
+		m_ButtonShowMapComponent1 = SCR_TaskListFocusUIComponent.Cast(m_wButtonShowMap.FindHandler(SCR_TaskListFocusUIComponent));
 
 
 		m_wButtonAssignTask = ButtonWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.FooterWrapper.Footer.m_wButtonAssignTask"));
-		m_ButtonAssignTaskComponent = SCR_InputButtonComponent.Cast(m_wButtonAssignTask.FindHandler(SCR_InputButtonComponent));
+		m_ButtonAssignTaskComponent0 = SCR_InputButtonComponent.Cast(m_wButtonAssignTask.FindHandler(SCR_InputButtonComponent));
+		m_ButtonAssignTaskComponent1 = SCR_TaskListFocusUIComponent.Cast(m_wButtonAssignTask.FindHandler(SCR_TaskListFocusUIComponent));
 
 
 		m_wButtonOpenAssignGroupList = ButtonWidget.Cast(root.FindWidget("SizeLayout.DescriptionOverlay.VerticalLayout.FooterWrapper.Footer.m_wButtonOpenAssignGroupList"));

@@ -170,7 +170,8 @@ class SCR_AIGroup : ChimeraAIGroup
 	protected static ref ScriptInvoker s_OnJoinPrivateGroupConfirm = new ScriptInvoker();
 	protected static ref ScriptInvoker s_OnJoinPrivateGroupCancel = new ScriptInvoker();
 	protected static ref ScriptInvokerGroupRole s_OnGroupRoleChanged;
-
+	protected static ref ScriptInvokerBase<ScriptInvokerAIGroup> s_OnGroupRallyPointChanged;
+	
 	protected ref SCR_ScriptProfanityFilterRequestCallback m_ProfanityCallbackName;
 	protected ref SCR_ScriptProfanityFilterRequestCallback m_ProfanityCallbackDesc;
 
@@ -179,6 +180,9 @@ class SCR_AIGroup : ChimeraAIGroup
 
 	[RplProp()]
 	protected int m_iDeployedRadioCount = 0;
+
+	protected int m_RallyPointId = -1;
+	protected bool m_bForcedRallyPoint;
 
 	//commanding variables
 	protected SCR_AIGroup m_SlaveGroup;
@@ -215,6 +219,37 @@ class SCR_AIGroup : ChimeraAIGroup
 	void SetNumberOfMembersToSpawn(int number)
 	{
 		m_iNumOfMembersToSpawn = number;
+	}
+
+	
+	//------------------------------------------------------------------------------------------------
+	//! Sets the group Rally Point to the input base
+	//! \param[in] base to set rally point to
+	//! \param[in] if rally point should be force set or not
+	void SetRallyPoint(notnull SCR_MilitaryBaseComponent base, bool force = false)
+	{
+		if (!force && m_bForcedRallyPoint)
+			return;
+
+		int baseCallsign = base.GetCallsign();
+
+		RpcDo_SetRallyPoint(baseCallsign, force);
+		Rpc(RpcDo_SetRallyPoint, baseCallsign, force);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Removes current group Rally Point
+	void RemoveRallyPoint()
+	{
+		RpcDo_RemoveRallyPoint();
+		Rpc(RpcDo_RemoveRallyPoint);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \return Rally Point callsign ID
+	int GetRallyPointId()
+	{
+		return m_RallyPointId;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -417,6 +452,15 @@ class SCR_AIGroup : ChimeraAIGroup
 	static ScriptInvoker GetOnJoinPrivateGroupCancel()
 	{
 		return s_OnJoinPrivateGroupCancel;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	static ScriptInvokerBase<ScriptInvokerAIGroup> GetOnGroupRallyPointChanged()
+	{
+		if (!s_OnGroupRallyPointChanged)
+			s_OnGroupRallyPointChanged = new ScriptInvokerBase<ScriptInvokerAIGroup>(); 
+
+		return s_OnGroupRallyPointChanged;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1327,6 +1371,34 @@ class SCR_AIGroup : ChimeraAIGroup
 
 		if (s_OnGroupRoleChanged)
 			s_OnGroupRoleChanged.Invoke(m_iGroupID, groupRole);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	void RpcDo_SetRallyPoint(int callsignId, bool force)
+	{
+		if (m_RallyPointId == callsignId)
+		{
+			m_bForcedRallyPoint = force || m_bForcedRallyPoint;
+			return;
+		}
+
+		m_RallyPointId = callsignId;
+		m_bForcedRallyPoint = force;
+
+		if (s_OnGroupRallyPointChanged)
+			s_OnGroupRallyPointChanged.Invoke(this);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	void RpcDo_RemoveRallyPoint()
+	{
+		m_RallyPointId = -1;
+		m_bForcedRallyPoint = false;
+
+		if (s_OnGroupRallyPointChanged)
+			s_OnGroupRallyPointChanged.Invoke(this);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -2416,17 +2488,46 @@ class SCR_AIGroup : ChimeraAIGroup
 		m_aAllocatedCompartments = new array<BaseCompartmentSlot>;
 		m_GroupUtilityComponent = SCR_AIGroupUtilityComponent.Cast(this.FindComponent(SCR_AIGroupUtilityComponent));
 
-		if (s_bIgnoreSpawning && Event_OnInit)
+		SCR_SpawnPoint.GetOnSpawnPointFinalizeSpawn().Insert(OnSpawnPointFinalizeSpawn);
+
+		if (s_bIgnoreSpawning)
 		{
+			s_bIgnoreSpawning = false;
+
 			//--- Instantly mark as initialized if no team members are to be spawned
-			Event_OnInit.Invoke(this);
-		}
-		else if (m_bSpawnImmediately || GetWorld().IsEditMode())
-		{
-			SpawnUnits();
+			if (Event_OnInit)
+				Event_OnInit.Invoke(this);
+			
+			return;
 		}
 
-		s_bIgnoreSpawning = false;
+		if (m_bSpawnImmediately || GetWorld().IsEditMode())
+			SpawnUnits();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnSpawnPointFinalizeSpawn(SCR_SpawnRequestComponent requestComponent, SCR_SpawnData data, IEntity entity)
+	{
+		if (requestComponent.GetPlayerId() != m_iLeaderID)
+			return;
+
+		SCR_SpawnPointSpawnData spawnData = SCR_SpawnPointSpawnData.Cast(data);
+		if (!spawnData)
+			return;
+
+		SCR_SpawnPoint spawnPoint = spawnData.GetSpawnPoint();
+		if (!spawnPoint)
+			return;
+
+		IEntity baseEntity = spawnPoint.GetParent();
+		if (!baseEntity)
+			return;
+
+		SCR_MilitaryBaseComponent baseComponent = SCR_MilitaryBaseComponent.Cast(baseEntity.FindComponent(SCR_MilitaryBaseComponent));
+		if (!baseComponent)
+			return;
+
+		SetRallyPoint(baseComponent);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -2773,6 +2874,8 @@ class SCR_AIGroup : ChimeraAIGroup
 				groupsManager.GetOnPlayableGroupRemoved().Invoke(this);
 			}
 		}
+
+		SCR_SpawnPoint.GetOnSpawnPointFinalizeSpawn().Remove(OnSpawnPointFinalizeSpawn);
 
 		DestroyEntities(m_aSceneGroupUnitInstances);
 		DestroyEntities(m_aSceneWaypointInstances);

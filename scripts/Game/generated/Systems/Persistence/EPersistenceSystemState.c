@@ -16,6 +16,7 @@ sealed enum EPersistenceSystemState
 	ACTIVE,
 	SHUTDOWN,
 	FAILURE,
+	DEACTIVATED,
 }
 
 /*!

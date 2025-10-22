@@ -86,8 +86,12 @@ class SCR_AutoSpawnLogic : SCR_SpawnLogic
 	//------------------------------------------------------------------------------------------------
 	protected bool GetForcedFaction(out Faction faction)
 	{
-		if (m_sForcedFaction.IsEmpty())
+		if (m_sForcedFaction.IsEmpty() && 
+			!System.GetCLIParam("autodeployFaction", m_sForcedFaction) && 
+			!System.GetCLIParam("tdmf", m_sForcedFaction))
+		{
 			return false;
+		}
 
 		faction = GetGame().GetFactionManager().GetFactionByKey(m_sForcedFaction);
 		if (!faction)

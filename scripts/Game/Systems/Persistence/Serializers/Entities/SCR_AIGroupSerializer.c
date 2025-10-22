@@ -22,13 +22,10 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 	{
 		const SCR_AIGroup group = SCR_AIGroup.Cast(entity);
 
+		// Skip commander group that is managed by commander system in conflict
 		const SCR_EGroupRole role = group.GetGroupRole();
-		if (role == SCR_EGroupRole.COMMANDER)
-		{
-			// Skip commander group that is managed by commander system in conflict
-			if (SCR_GameModeCampaign.Cast(GetGame().GetGameMode()))
-				return ESerializeResult.DEFAULT;
-		}
+		if (role == SCR_EGroupRole.COMMANDER && SCR_GameModeCampaign.Cast(GetGame().GetGameMode()))
+			return ESerializeResult.DEFAULT;
 
 		const bool useCommanding = SCR_CommandingManagerComponent.GetInstance() != null;
 		const UUID commandingGroup = GetSystem().GetId(group.GetMaster());
@@ -89,7 +86,6 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 		if (playable)
 		{
 			const int radioFrequency = group.GetRadioFrequency();
-
 			const string flag = group.GetGroupFlag();
 			const bool isPrivate = group.IsPrivate();
 			const bool isPrivateChangeable = group.IsPrivacyChangeable();
@@ -97,6 +93,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 			const string customDesc = group.GetCustomDescription();
 			const int maxMembers = group.GetMaxMembers();
 			const SCR_ECharacterRank requiredRank = group.GetRequiredRank();
+			const bool deleteIfNoPlayer = group.GetDeleteIfNoPlayer();
 
 			context.Write(radioFrequency);
 			context.WriteDefault(preDefined, false);
@@ -108,6 +105,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 			context.WriteDefault(customDesc, string.Empty);
 			context.WriteDefault(maxMembers, 0);
 			context.WriteDefault(requiredRank, SCR_ECharacterRank.PRIVATE);
+			context.WriteDefault(deleteIfNoPlayer, true);
 
 			array<UUID> playerIdentities();
 			foreach (auto playerId : playerIds)
@@ -162,7 +160,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 			if (!commandingGroup.IsNull())
 			{
 				Tuple1<SCR_AIGroup> commandingContext(group);
-				PersistenceWhenAvailableTask commandingTask(commandingContext, OnCommandingAvailable);
+				PersistenceWhenAvailableTask commandingTask(OnCommandingAvailable, commandingContext);
 				GetSystem().WhenAvailable(commandingGroup, commandingTask);
 			}
 		}
@@ -173,10 +171,9 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 		foreach (int idx, auto member : aiMembers)
 		{
 			Tuple2<SCR_AIGroup, bool> memberContext(group, idx == 0); //Leader at idx 0 of aiMembers
-			PersistenceWhenAvailableTask memberTask(memberContext, OnAiMemberAvailable);
+			PersistenceWhenAvailableTask memberTask(OnAiMemberAvailable, memberContext);
 			GetSystem().WhenAvailable(member, memberTask);
 		}
-
 
 		// Reconnect to all waypoints in the right order. For now we simply unlink all waypoints
 		array<AIWaypoint> outWaypoints();
@@ -191,7 +188,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 		foreach (int idx, auto waypoint : waypoints)
 		{
 			Tuple2<SCR_AIGroup, int> waypointContext(group, idx);
-			PersistenceWhenAvailableTask waypointTask(waypointContext, OnWaypointAvailable);
+			PersistenceWhenAvailableTask waypointTask(OnWaypointAvailable, waypointContext);
 			GetSystem().WhenAvailable(waypoint, waypointTask);
 		}
 
@@ -201,13 +198,13 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 			context.Read(radioFrequency);
 			group.SetRadioFrequency(radioFrequency);
 
-			SCR_EGroupRole role;
-			if (context.Read(role))
-				group.SetGroupRole(role);
-
 			bool preDefined;
 			if (context.Read(preDefined))
 				group.SetPredefinedGroup(preDefined);
+			
+			SCR_EGroupRole role;
+			if (context.Read(role))
+				group.SetGroupRole(role);
 
 			string flag;
 			context.ReadDefault(flag, string.Empty);
@@ -240,6 +237,10 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 			if (context.Read(requiredRank))
 				group.SetRequiredRank(requiredRank);
 
+			bool deleteIfNoPlayer;
+			context.ReadDefault(deleteIfNoPlayer, true);
+			group.SetCanDeleteIfNoPlayer(deleteIfNoPlayer);
+
 			auto groupsManager = SCR_GroupsManagerComponent.GetInstance();
 			if (groupsManager)
 			{
@@ -261,7 +262,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 					playerContext.param4 = customDesc;
 				}
 
-				PersistenceWhenAvailableTask AddPlayerIdTask(playerContext, OnPlayerMemberAvailable);
+				PersistenceWhenAvailableTask AddPlayerIdTask(OnPlayerMemberAvailable, playerContext);
 				GetSystem().WhenAvailable(playerIdentity, AddPlayerIdTask, m_fMaxPlayerReconnectTime);
 			}
 		}
@@ -270,7 +271,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnPlayerMemberAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnPlayerMemberAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto playerController = SCR_PlayerController.Cast(instance);
 		if (!playerController)
@@ -303,7 +304,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnAiMemberAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnAiMemberAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto member = SCR_ChimeraCharacter.Cast(instance);
 		if (!member)
@@ -338,7 +339,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnWaypointAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnWaypointAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto waypoint = AIWaypoint.Cast(instance);
 		if (!waypoint)
@@ -350,7 +351,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnCommandingAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnCommandingAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto masterGroup = SCR_AIGroup.Cast(instance);
 		if (!masterGroup)

@@ -56,6 +56,12 @@ class SCR_CampaignMapUIBase : SCR_CampaignMapUIElement
 	protected Widget m_wInfoText;
 	protected Widget m_wAntennaImg;
 
+	protected Widget m_wRallyPointIconTop;
+	protected Widget m_wRallyPointIconBalancer;
+	protected Widget m_wRallyPointIconBottom;
+	protected TextWidget m_wRallyPointText;
+	protected LocalizedString m_sRallyPointText = "#AR-RallyPoint_Name";
+
 	protected int m_iBaseSize = 80; 	// Maximum base icon size - it needs to be divisible by 4, otherwise the texture will look blurred	
 	protected int m_iDefBaseSize = 46;	// Default base size
 	protected int m_iMaxBaseSize = 80;  // Maximum size of the base, everything is calculated from this value, changing it will change the scale of all the steps
@@ -450,6 +456,13 @@ class SCR_CampaignMapUIBase : SCR_CampaignMapUIElement
 		m_wInfoText = w.FindAnyWidget("Info");
 		m_wAntennaImg = w.FindAnyWidget("AntenaOff");
 
+		m_wRallyPointIconTop = w.FindAnyWidget("RallyPointIconTop");
+		m_wRallyPointIconBalancer = w.FindAnyWidget("RallyPointIconBalancer");
+		m_wRallyPointIconBottom = w.FindAnyWidget("RallyPointIconBottom");
+		m_wRallyPointText = TextWidget.Cast(w.FindAnyWidget("RallyPointText"));
+		if (m_wRallyPointText)
+			m_wRallyPointText.SetTextFormat("(%1)", m_sRallyPointText);
+
 		m_wLocalTask = ImageWidget.Cast(w.FindAnyWidget("LocalTask"));
 
 		SCR_GameModeCampaign gameMode = SCR_GameModeCampaign.GetInstance();
@@ -458,6 +471,8 @@ class SCR_CampaignMapUIBase : SCR_CampaignMapUIElement
 			SCR_CampaignMobileAssemblyStandaloneComponent.s_OnUpdateRespawnCooldown.Insert(SetIconInfoText);
 			SCR_CampaignMobileAssemblyStandaloneComponent.s_OnSpawnPointOwnerChanged.Insert(UpdateAssemblyIcon);
 		}
+
+		SCR_AIGroup.GetOnGroupRallyPointChanged().Insert(OnGroupRallyPointChanged);
 
 		m_bIsRespawnMenu = SCR_DeployMenuMain.GetDeployMenu() != null;
 		m_bIsEditor = SCR_EditorManagerEntity.IsOpenedInstance(false);
@@ -498,6 +513,7 @@ class SCR_CampaignMapUIBase : SCR_CampaignMapUIElement
 			SCR_CampaignMobileAssemblyStandaloneComponent.s_OnSpawnPointOwnerChanged.Remove(UpdateAssemblyIcon);
 		}
 
+		SCR_AIGroup.GetOnGroupRallyPointChanged().Remove(OnGroupRallyPointChanged);
 		SCR_MapEntity.GetOnMapClose().Remove(OnMapCloseInvoker);
 
 		if (m_ResourceComponent)
@@ -898,6 +914,8 @@ class SCR_CampaignMapUIBase : SCR_CampaignMapUIElement
 
 		if (!owner)
 			return;
+
+		SetRallyPointVisibility();
 
 		m_ResourceComponent = SCR_ResourceComponent.FindResourceComponent(owner);
 		
@@ -1402,6 +1420,76 @@ class SCR_CampaignMapUIBase : SCR_CampaignMapUIElement
 	void SetAntennaIconVisible(bool visible)
 	{
 		m_wAntennaImg.SetVisible(visible);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnGroupRallyPointChanged(SCR_AIGroup group)
+	{
+		int playerId = SCR_PlayerController.GetLocalPlayerId();
+
+		SCR_GroupsManagerComponent groupsManager = SCR_GroupsManagerComponent.GetInstance();
+		if (!groupsManager)
+			return;
+
+		SCR_AIGroup playerGroup = groupsManager.GetPlayerGroup(playerId);
+		if (!playerGroup || playerGroup != group)
+			return;
+
+		SetRallyPointVisibility(group);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void SetRallyPointVisibility(SCR_AIGroup playerGroup = null)
+	{
+		if (!m_Base)
+		{
+			SetRallyPointVisible(false);
+			return;
+		}
+
+		MapConfiguration mapConfig = SCR_MapEntity.GetMapInstance().GetMapConfig();
+		if (!mapConfig || mapConfig.MapEntityMode != EMapEntityMode.FULLSCREEN)
+		{
+			SetRallyPointVisible(false);
+			return;
+		}
+
+		if (!playerGroup)
+		{
+			int playerId = SCR_PlayerController.GetLocalPlayerId();
+
+			SCR_GroupsManagerComponent groupsManager = SCR_GroupsManagerComponent.GetInstance();
+			if (!groupsManager)
+			{
+				SetRallyPointVisible(false);
+				return;
+			}
+
+			playerGroup = groupsManager.GetPlayerGroup(playerId);
+			if (!playerGroup)
+			{
+				SetRallyPointVisible(false);
+				return;
+			}
+		}
+
+		SetRallyPointVisible(playerGroup.GetRallyPointId() == m_Base.GetCallsign());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void SetRallyPointVisible(bool visible)
+	{
+		if (m_wRallyPointIconTop)
+			m_wRallyPointIconTop.SetVisible(visible);
+
+		if (m_wRallyPointIconBottom)
+			m_wRallyPointIconBottom.SetVisible(visible);
+
+		if (m_wRallyPointIconBalancer)
+			m_wRallyPointIconBalancer.SetVisible(visible);
+
+		if (m_wRallyPointText)
+			m_wRallyPointText.SetVisible(visible);
 	}
 
 	//------------------------------------------------------------------------------------------------

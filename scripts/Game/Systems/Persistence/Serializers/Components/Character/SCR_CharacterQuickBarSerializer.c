@@ -26,26 +26,28 @@ class SCR_CharacterQuickBarSerializer : BaseInventoryStorageComponentSerializer
 			if (!m_aSlotIndexFilter.IsEmpty() && !m_aSlotIndexFilter.Contains(idx))
 				continue;
 
-			auto quickslotEntity = SCR_QuickslotEntityContainer.Cast(quickslot);
-			if (!quickslotEntity)
+			auto container = SCR_QuickslotEntityContainer.Cast(quickslot);
+			if (!container)
 				continue;
 
-			const UUID persistentId = GetSystem().GetId(quickslotEntity.GetEntity());
+			const UUID id = GetSystem().GetId(container.GetEntity());
+			if (id.IsNull())
+				continue;
 
 			SCR_PersistentQuickSlotItem slot();
 			slot.m_iIndex = idx;
-			slot.m_sEntityId = persistentId;
+			slot.m_sEntityId = id;
 			slots.Insert(slot);
 		}
 
 		context.StartObject("base");
-		ESerializeResult baseResult = super.Serialize(owner, component, context);
+		const ESerializeResult baseResult = super.Serialize(owner, component, context);
 		context.EndObject();
 		if (baseResult == ESerializeResult.ERROR)
-			return ESerializeResult.ERROR;
+			return baseResult;
 		
 		if (baseResult == ESerializeResult.DEFAULT && slots.IsEmpty())
-			return ESerializeResult.DEFAULT;
+			return baseResult;
 
 		context.WriteValue("version", 1);
 		const bool prev = context.EnableTypeDiscriminator(false);
@@ -70,23 +72,31 @@ class SCR_CharacterQuickBarSerializer : BaseInventoryStorageComponentSerializer
 		}
 
 		int version;
-		context.ReadValue("version", version);
+		context.Read(version);
 
 		array<ref SCR_PersistentQuickSlotItem> slots();
 		const bool prev = context.EnableTypeDiscriminator(false);
 		context.ReadValue("quickSlots", slots);
 		context.EnableTypeDiscriminator(prev);
 
+		array<int> allSlots();
+		allSlots.Copy(m_aSlotIndexFilter);
+		
 		foreach (auto quickSlot : slots)
 		{
-			auto entity = IEntity.Cast(GetSystem().FindById(quickSlot.m_sEntityId));
+			// We are on the storage that must have held the items, and do direct lookup, so any deferred deserialize is not relevant here
+			const IEntity entity = IEntity.Cast(GetSystem().FindById(quickSlot.m_sEntityId));
 			if (!entity)
-			{
-				charStorage.RemoveItemFromQuickSlotAtIndex(quickSlot.m_iIndex);
 				continue;
-			}
 
 			charStorage.StoreItemToQuickSlot(entity, quickSlot.m_iIndex, true);
+			charStorage.SetQuickSlotInitialized(quickSlot.m_iIndex);
+			allSlots.RemoveItem(quickSlot.m_iIndex);
+		}
+
+		foreach (int noDataSlotIdx : allSlots)
+		{
+			charStorage.SetQuickSlotInitialized(noDataSlotIdx);
 		}
 
 		return true;

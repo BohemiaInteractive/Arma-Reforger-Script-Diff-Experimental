@@ -206,8 +206,11 @@ class SCR_VehicleWeaponSupportStationComponent : SCR_BaseItemSupportStationCompo
 				//~ Consume supplies
 				if (!OnConsumeSuppliesServer(GetSupplyAmountAction(actionOwner, actionUser, action)))
 					return;
-				
-				IEntity spawnedWeapon = GetGame().SpawnEntityPrefab(resource);
+
+				const EntitySpawnParams params = new EntitySpawnParams();
+				weaponSlot.GetSlotInfo().GetWorldTransform(params.Transform);
+
+				IEntity spawnedWeapon = GetGame().SpawnEntityPrefab(resource, actionOwner.GetWorld(), params);
 				if (!spawnedWeapon)
 					return;
 
@@ -222,37 +225,28 @@ class SCR_VehicleWeaponSupportStationComponent : SCR_BaseItemSupportStationCompo
 		SCR_RefundPylonSupportStationAction refundPylonAction = SCR_RefundPylonSupportStationAction.Cast(action);
 		if (refundPylonAction)
 		{
+			TurretControllerComponent turrentController = TurretControllerComponent.Cast(actionOwner.FindComponent(TurretControllerComponent));
+			if (!turrentController)
+				return;
+
+			const WeaponSlotComponent weaponSlot = refundPylonAction.GetManagedWeaponSlot();
+			if (!weaponSlot)
+				return;
+
+			const IEntity attachedWeapon = weaponSlot.GetWeaponEntity();
+			if (!attachedWeapon)
+				return;
+
+			const int weaponId = refundPylonAction.GetPylonIndex();
+			turrentController.RemoveWeapon(null, weaponId, null);
+
 			//~ Generate supplies
 			if (!OnGenerateSuppliesServer(GetSupplyAmountAction(actionOwner, actionUser, action)))
 				return;
-			
+
 			super.OnExecutedServer(actionOwner, actionUser, action);
 
-			if (actionOwner.GetParent())
-			{
-				TurretControllerComponent turrentController = TurretControllerComponent.Cast(actionOwner.GetParent().FindComponent(TurretControllerComponent));
-				if (turrentController)
-				{
-					array<Managed> weaponSlots = {};
-					actionOwner.GetParent().FindComponents(WeaponSlotComponent, weaponSlots);
-					
-					WeaponSlotComponent weaponSlot;
-					foreach (Managed slot : weaponSlots)
-					{
-						weaponSlot = WeaponSlotComponent.Cast(slot);
-						if (!weaponSlot)
-							continue;
-
-						if (weaponSlot.GetWeaponEntity() != actionOwner)
-							continue;
-
-						turrentController.RemoveWeapon(null, weaponSlot.GetWeaponSlotIndex(), null);	
-						break;
-					}
-				}
-			}
-
-			delete actionOwner;
+			RplComponent.DeleteRplEntity(attachedWeapon, false);
 			
 			return;
 		}

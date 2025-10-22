@@ -33,6 +33,8 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 	protected bool m_bCanShowSpawnPosition;
 	protected bool m_bWasMapOpened;
 	protected bool m_bIsConscious;
+	protected bool m_bWasNight;
+	protected bool m_bCohesionHintWasShown;
 
 	protected float m_fNextAllowedHintTimestamp;
 
@@ -45,6 +47,8 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 	protected static const int AFTER_RESPAWN_HINT_DELAY_MS = 16500;
 	protected static const int DELAY_BETWEEN_HINTS_MS = 1000;
 	protected static const int FEATURE_HINT_DELAY = 120000;
+	protected static const int NIGHT_HINT_DELAY_MS = 10000;
+	protected static const int COHESION_HINT_DELAY_MS = 20000;
 
 	//------------------------------------------------------------------------------------------------
 	//! \return
@@ -59,32 +63,30 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Serves for enabling spawn hint on map. Also saves player spawn position
+	//! Serves for updating spawn hint on map witth he given position.
 	//! \param[in] enable
-	void EnablePlayerSpawnHint(bool enable)
+	//! \param[in] position
+	void UpdatePlayerSpawnHint(bool show, vector position = vector.Zero)
 	{
-		IEntity player = SCR_PlayerController.GetLocalControlledEntity();
-
-		if (!player && enable)
-			return;
-
-		m_bCanShowSpawnPosition = enable;
-
-		if (enable)
+		m_bCanShowSpawnPosition = show;
+		if (show)
 		{
-			m_vFirstSpawnPosition = player.GetOrigin();
+			if (m_vFirstSpawnPosition != vector.Zero)
+				return; // Entity change while already spawned at some position, do not update.
+
 			SetSpawnTime();
 		}
 		else
 		{
-			m_vFirstSpawnPosition = vector.Zero;
 			SetMapOpened(false);
 
 			if (m_MapCampaignUI)
 				m_MapCampaignUI.RemoveSpawnPositionHint();
+			
+			PauseHintQueue();
 		}
 
-		GetGame().GetCallqueue().Remove(EnablePlayerSpawnHint);
+		m_vFirstSpawnPosition = position;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -369,9 +371,93 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 		SCR_AIGroup playerGroup = groupManager.GetPlayerGroup(SCR_PlayerController.GetLocalPlayerId());
 		if (!playerGroup)
 			return;
+		
+		SCR_Faction playerFaction = SCR_Faction.Cast(playerGroup.GetFaction());
+		if (!playerFaction)
+			return;
 
-		if (SCR_PlayerController.GetLocalPlayerId() == playerGroup.GetLeaderID())
+		if (SCR_PlayerController.GetLocalPlayerId() == playerGroup.GetLeaderID() && SCR_PlayerController.GetLocalPlayerId() != playerFaction.GetCommanderId())
 			ShowHint(EHint.CONFLICT_SQUAD_LEADER_COMMUNICATION);
+
+		SCR_MapRadialUI mapContextualMenu = SCR_MapRadialUI.GetInstance();
+		if (!mapContextualMenu)
+			return;
+
+		mapContextualMenu.GetOnMenuInitInvoker().Insert(OnRadialMenuAvailable);
+
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		if (!mapEntity)
+			return;
+
+		SCR_MapCampaignUI mapCampaignUI = SCR_MapCampaignUI.Cast(mapEntity.GetMapUIComponent(SCR_MapCampaignUI));
+
+		if (!mapCampaignUI)
+			return;
+
+		mapCampaignUI.GetOnBaseHovered().Insert(OnBaseHovered);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnRadialMenuAvailable()
+	{
+		SCR_MapRadialUI mapMenu = SCR_MapRadialUI.GetInstance();
+		if (!mapMenu)
+			return;
+
+		mapMenu.GetOnMenuInitInvoker().Insert(OnRadialMenuAvailable);
+		SCR_RadialMenu m_RadialMenu = mapMenu.GetRadialController().GetRadialMenu();
+		if (m_RadialMenu)
+		{
+			m_RadialMenu.GetOnEntryPerformed().Insert(OnEntryPerformed);
+			m_RadialMenu.GetOnOpen().Insert(OnRadialMenuOpen);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void OnEntryPerformed(SCR_SelectionMenuEntry entry)
+	{
+		if (!entry)
+			return;
+
+		SCR_FactionCommanderPlayerComponent commander = SCR_FactionCommanderPlayerComponent.Cast(m_PlayerController.FindComponent(SCR_FactionCommanderPlayerComponent));
+		if (!commander)
+			return;
+
+		SCR_FactionCommanderMenuEntry configForEntry = commander.GetConfigForEntry(entry);
+		if (!configForEntry)
+			return;
+
+		if (configForEntry.GetShowHint())
+			ShowHint(configForEntry.GetHintId());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void OnMapClose(MapConfiguration config)
+	{
+		SCR_MapRadialUI mapMenu = SCR_MapRadialUI.GetInstance();
+		if (!mapMenu)
+			return;
+
+		SCR_RadialMenu m_RadialMenu = mapMenu.GetRadialController().GetRadialMenu();
+		if (m_RadialMenu)
+		{
+			m_RadialMenu.GetOnEntryPerformed().Remove(OnEntryPerformed);
+			m_RadialMenu.GetOnOpen().Remove(OnRadialMenuOpen);
+		}
+
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		if (!mapEntity) return;
+			SCR_MapCampaignUI mapCampaignUI = SCR_MapCampaignUI.Cast(mapEntity.GetMapUIComponent(SCR_MapCampaignUI));
+
+		if (!mapCampaignUI) return;
+			mapCampaignUI.GetOnBaseHovered().Remove(OnBaseHovered)
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnBaseHovered(SCR_CampaignMilitaryBaseComponent base)
+	{
+		if (base && base.GetType() == SCR_ECampaignBaseType.SOURCE_BASE)
+			ShowHint(EHint.CONFLICT_SOURCE_BASE);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -634,13 +720,6 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 	//------------------------------------------------------------------------------------------------
 	protected void OnTaskAssigneeAdded(SCR_Task task, SCR_TaskExecutor executor, int requesterID)
 	{
-		SCR_TaskExecutorPlayer playerExec = SCR_TaskExecutorPlayer.Cast(executor);
-		if (!playerExec)
-			return;
-
-		if (playerExec.GetPlayerID() != SCR_PlayerController.GetLocalPlayerId())
-			return;
-
 		SCR_GroupsManagerComponent groupManager = SCR_GroupsManagerComponent.GetInstance();
 		if (!groupManager)
 			return;
@@ -655,6 +734,15 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 			array<int> playerIds = {};
 			playerIds = assignedGroup.GetPlayerIDs();
 			if (!playerIds.Contains(SCR_PlayerController.GetLocalPlayerId()))
+				return;
+		}
+		else
+		{
+			SCR_TaskExecutorPlayer playerExec = SCR_TaskExecutorPlayer.Cast(executor);
+			if (!playerExec)
+				return;
+
+			if (playerExec.GetPlayerID() != SCR_PlayerController.GetLocalPlayerId())
 				return;
 		}
 
@@ -717,6 +805,7 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 		if (SCR_SeizeCampaignMilitaryBaseTaskEntity.Cast(task))
 		{
 			ShowHint(EHint.CONFLICT_OBJECTIVES_SEIZE);
+			return;
 		}
 
 		if (SCR_HoldCampaignMilitaryBaseTaskEntity.Cast(task))
@@ -1619,7 +1708,7 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 	protected void OnPlayerJoinedGroup(SCR_AIGroup group, int playerID)
 	{
 		if (playerID != SCR_PlayerController.GetLocalPlayerId())
-		return;
+			return;
 
 		switch (group.GetGroupRole())
 		{
@@ -1640,8 +1729,6 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 			default:
 				return;
 		}
-
-		SCR_AIGroup.GetOnPlayerAdded().Remove(OnPlayerJoinedGroup);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1653,8 +1740,11 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnTaskSelected(notnull SCR_Task task)
+	protected void OnTaskSelected(SCR_Task task)
 	{
+		if (!task)
+			return;
+		
 		if (task.IsInherited(SCR_PickupRequestedTaskEntity) ||
 			task.IsInherited(SCR_ReinforceRequestedTaskEntity) ||
 			task.IsInherited(SCR_RearmRequestedTaskEntity) ||
@@ -1680,8 +1770,12 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 			SCR_AIGroup playerGroup = groupManager.GetPlayerGroup(SCR_PlayerController.GetLocalPlayerId());
 			if (!playerGroup)
 				return;
+			
+			SCR_Faction playerFaction = SCR_Faction.Cast(playerGroup.GetFaction());
+			if (!playerFaction)
+				return;
 
-			if (SCR_PlayerController.GetLocalPlayerId() == playerGroup.GetLeaderID())
+			if (SCR_PlayerController.GetLocalPlayerId() == playerGroup.GetLeaderID() && SCR_PlayerController.GetLocalPlayerId() != playerFaction.GetCommanderId())
 				ShowHint(EHint.CONFLICT_OBJECTIVES_SQUAD_LEADER);
 			else
 				ShowHint(EHint.CONFLICT_OBJECTIVES_BASICS);
@@ -1769,7 +1863,143 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 		if (newState == SCR_ETaskState.COMPLETED)
 			ShowHint(EHint.CONFLICT_OBJECTIVES_ADVANCED);
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnRadialMenuOpen()
+	{
+		SCR_GroupsManagerComponent groupManager = SCR_GroupsManagerComponent.GetInstance();
+		if (!groupManager)
+			return;
+
+		SCR_AIGroup playerGroup = groupManager.GetPlayerGroup(SCR_PlayerController.GetLocalPlayerId());
+		if (!playerGroup)
+			return;
+
+		if (SCR_PlayerController.GetLocalPlayerId() == playerGroup.GetLeaderID())
+		{
+			ShowHint(EHint.CONFLICT_SUPPORT_REQUESTS_SQUAD_LEADER);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnJournalOpened(bool newVisibility)
+	{
+		SCR_GroupsManagerComponent groupManager = SCR_GroupsManagerComponent.GetInstance();
+		if (!groupManager)
+			return;
+
+		SCR_AIGroup playerGroup = groupManager.GetPlayerGroup(SCR_PlayerController.GetLocalPlayerId());
+		if (!playerGroup)
+			return;
+
+		if (SCR_PlayerController.GetLocalPlayerId() == playerGroup.GetLeaderID())
+		{
+			ShowHint(EHint.CONFLICT_SQUAD_LEADER_ADVANCED);
+		}
+
+		ShowHint(EHint.CONFLICT_TASK_RELEVANCE);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void NightHint()
+	{
+		ChimeraWorld world = GetGame().GetWorld();
+		if (!world)
+			return;
+		
+		TimeAndWeatherManagerEntity timeManager = world.GetTimeAndWeatherManager();
+		if (!timeManager)
+			return;
+
+		float now = timeManager.GetTimeOfTheDay();
+
+		if (timeManager.IsNightHour(now) && !m_bWasNight)
+			ShowHint(EHint.CONFLICT_NIGHT_PLAY);
+
+		m_bWasNight = timeManager.IsNightHour(now);
+
+		SCR_HintManagerComponent hintManager = SCR_HintManagerComponent.GetInstance();
+		if (hintManager && hintManager.WasShown(EHint.CONFLICT_NIGHT_PLAY))
+			GetGame().GetCallqueue().Remove(NightHint);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnArsenalOpen()
+	{
+		ShowHint(EHint.CONFLICT_MSAR);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnItemSlotHover(SCR_InventorySlotUI slot)
+	{
+		if (!slot)
+			return;
+
+		if (slot.IsInherited(SCR_InventorySlotWeaponSlotsUI))
+			// CallLater (with delay) is part of the intended design: it prevents showing the hint too aggressively
+			GetGame().GetCallqueue().CallLater(ShowHint, 3000, false, EHint.GAMEPLAY_WEAPON_INSPECTION, false, false);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void TryRegisterInventoryHover()
+	{
+		SCR_InventoryMenuUI menu = SCR_InventoryMenuUI.GetInventoryMenu();
+		if (menu)
+		{
+			menu.GetOnItemHover().Insert(OnItemSlotHover);
+			GetGame().GetCallqueue().Remove(TryRegisterInventoryHover);
+		}
+		else
+		{
+			GetGame().GetCallqueue().CallLater(TryRegisterInventoryHover, 500, false);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void CheckSquadCohesionHint()
+	{
+		SCR_GroupsManagerComponent groupsManager = SCR_GroupsManagerComponent.GetInstance();
+		SCR_AIGroup group = groupsManager.GetPlayerGroup(m_PlayerController.GetPlayerId());
+		if (!group)
+			return;
+
+		if (group.GetLeaderID() != m_PlayerController.GetPlayerId())
+			return;
+
+		SCR_AIGroupCohesionComponent cohesionComp = SCR_AIGroupCohesionComponent.Cast(group.FindComponent(SCR_AIGroupCohesionComponent));
+		if (!cohesionComp)
+			return;
+
+		array<int> playersInCohesion = {};
+		cohesionComp.GetPlayersInCohesion(playersInCohesion);
+
+		int total = group.GetPlayerCount();
+		if (total < 2)
+			return;
+
+		float ratio = playersInCohesion.Count() / total;
+		if (ratio >= 0.6)
+		{
+			if (!m_bCohesionHintWasShown)
+			{
+				ShowHint(EHint.CONFLICT_SQUAD_LEADER_COHESION);
+				m_bCohesionHintWasShown = true;
+			}
+		}
+		else
+		{
+			m_bCohesionHintWasShown = false;
+		}
+
+		SCR_HintManagerComponent hintManager = SCR_HintManagerComponent.GetInstance();
+		if (hintManager && hintManager.WasShown(EHint.CONFLICT_SQUAD_LEADER_COHESION))
+		{
+			GetGame().GetCallqueue().Remove(CheckSquadCohesionHint);
+			return;
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void ProcessEvents(bool activate)
 	{
 		if (RplSession.Mode() == RplMode.Dedicated)
@@ -1780,6 +2010,8 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 		GetGame().GetCallqueue().Remove(GroupLeaderHint);
 		GetGame().GetCallqueue().Remove(LoneDriverHint);
 		GetGame().GetCallqueue().Remove(TransportRequestHint);
+		GetGame().GetCallqueue().Remove(NightHint);
+		GetGame().GetCallqueue().Remove(CheckSquadCohesionHint);
 
 		if (activate)
 		{
@@ -1788,6 +2020,8 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 			GetGame().GetCallqueue().CallLater(GroupLeaderHint, FEATURE_HINT_DELAY, true);
 			GetGame().GetCallqueue().CallLater(LoneDriverHint, FEATURE_HINT_DELAY, true);
 			GetGame().GetCallqueue().CallLater(TransportRequestHint, FEATURE_HINT_DELAY, true);
+			GetGame().GetCallqueue().CallLater(NightHint, NIGHT_HINT_DELAY_MS, true);
+			GetGame().GetCallqueue().CallLater(CheckSquadCohesionHint, COHESION_HINT_DELAY_MS, true);
 
 			GetGame().GetInputManager().AddActionListener("TasksOpen", EActionTrigger.DOWN, RegisterTasksShown);
 			SCR_TaskManagerUIComponent taskUIManager = SCR_TaskManagerUIComponent.GetInstance();
@@ -1816,6 +2050,7 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 				inventoryComp.GetOnPlayerInteraction().Insert(OnPlayerSuppliesInteraction);
 
 			SCR_MapEntity.GetOnMapOpen().Insert(OnMapOpen);
+			SCR_MapEntity.GetOnMapClose().Insert(OnMapClose);
 			SCR_FactionCommanderVolunteerUserAction.GetOnCanBePerformed().Insert(OnCommanderVolunteer);
 			if (SCR_FactionCommanderHandlerComponent.GetInstance())
 				SCR_FactionCommanderHandlerComponent.GetInstance().GetOnFactionCommanderChanged().Insert(OnFactionCommanderChanged);
@@ -1832,6 +2067,12 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 			RegisterVehicleListener();
 
 			SCR_Task.GetOnTaskStateChanged().Insert(OnTaskStateChanged);
+			SCR_TaskManagerUIComponent taskManager = SCR_TaskManagerUIComponent.GetInstance();
+			if (taskManager)
+				taskManager.GetOnTaskHUDVisible().Insert(OnJournalOpened);
+
+			SCR_InventoryStorageBaseUI.GetOnArsenalEnter().Insert(OnArsenalOpen);
+			TryRegisterInventoryHover();
 		}
 		else
 		{
@@ -1874,6 +2115,7 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 			}
 
 			SCR_MapEntity.GetOnMapOpen().Remove(OnMapOpen);
+			SCR_MapEntity.GetOnMapClose().Remove(OnMapClose);
 			SCR_FactionCommanderVolunteerUserAction.GetOnCanBePerformed().Remove(OnCommanderVolunteer);
 			if (SCR_FactionCommanderHandlerComponent.GetInstance())
 				SCR_FactionCommanderHandlerComponent.GetInstance().GetOnFactionCommanderChanged().Remove(OnFactionCommanderChanged);
@@ -1890,6 +2132,14 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 			UnregisterVehicleEnter();
 
 			SCR_Task.GetOnTaskStateChanged().Remove(OnTaskStateChanged);
+			SCR_TaskManagerUIComponent taskManager = SCR_TaskManagerUIComponent.GetInstance();
+			if (taskManager)
+				taskManager.GetOnTaskHUDVisible().Remove(OnJournalOpened);
+
+			SCR_InventoryStorageBaseUI.GetOnArsenalEnter().Remove(OnArsenalOpen);
+			SCR_InventoryMenuUI menu = SCR_InventoryMenuUI.GetInventoryMenu();
+			if (menu)
+				menu.GetOnItemHover().Remove(OnItemSlotHover);
 		}
 	}
 

@@ -1,5 +1,5 @@
 [BaseContainerProps(), SCR_ContainerActionTitle()]
-class SCR_ScenarioFrameworkActionBase
+class SCR_ScenarioFrameworkActionBase : BaseContainerObject
 {
 	[Attribute(desc: "If set to true, when this action gets activated, it will break the breakpoint in the Script Editor in CanActivate method from which you can step out to the OnActivate method and debug this specific action. This can be also set during runtime via Debug Menu > ScenarioFramework > Action Inspector")]
 	bool m_bDebug;
@@ -15,14 +15,14 @@ class SCR_ScenarioFrameworkActionBase
 	//! \param[in] entity that initialized this action.
 	void Init(IEntity entity)
 	{
+		m_Entity = entity;
+		
 		if (!SCR_BaseTriggerEntity.Cast(entity))
 		{
 			OnActivate(entity);
-			m_Entity = entity;
 			return;
 		}
 
-		m_Entity = entity;
 		ScriptInvoker pOnActivateInvoker = SCR_BaseTriggerEntity.Cast(entity).GetOnActivate();
 		if (pOnActivateInvoker)
 			pOnActivateInvoker.Insert(OnActivate);

@@ -117,6 +117,17 @@ class SCR_AccountWidgetComponent : SCR_ScriptedWidgetComponent
 			
 			SCR_ScriptedWidgetTooltip.GetOnTooltipShow().Insert(OnTooltipShow);
 		}
+		
+		// Hide news menu button (top right corner) on PS
+		if (GetGame().GetPlatformService().GetLocalPlatformKind() == PlatformKind.PSN)
+		{
+			Widget newsButton = GetRootWidget().FindAnyWidget("NewsButton");
+			if (newsButton)
+			{
+				newsButton.SetVisible(false);
+				newsButton.SetEnabled(false);
+			}
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------

@@ -9,7 +9,7 @@ class SCR_ScenarioFrameworkActionCOKLocationSelector : SCR_ScenarioFrameworkActi
 
 	[Attribute(defvalue: "10", desc: "Marker Search Distance", params: "0 inf 0.01")]
 	float m_fMarkerSearchDistance;
-
+	
 	//------------------------------------------------------------------------------------------------
 	override void OnActivate(IEntity object)
 	{
@@ -19,49 +19,70 @@ class SCR_ScenarioFrameworkActionCOKLocationSelector : SCR_ScenarioFrameworkActi
 		if (!m_aSelectionOfAreas || m_aSelectionOfAreas.Count() < 2)
 			return;
 
+		//Prepare starting location
 		const string startingLocation = m_aSelectionOfAreas.GetRandomElement();
 		m_aSelectionOfAreas.RemoveItem(startingLocation);
+		SpawnObjects({startingLocation}, SCR_ScenarioFrameworkEActivationType.ON_INIT);
 
+		//Prepare exfil location
 		const string endingLocation = m_aSelectionOfAreas.GetRandomElement();
 		IEntity endLocationEnt = GetGame().GetWorld().FindEntityByName(endingLocation);
-		if (!endLocationEnt)
-			return;
+		if (endLocationEnt)
+		{
+			MoveExfil(endLocationEnt);
+			m_aSelectionOfAreas.RemoveItem(endingLocation);
+		}
+		
+		//Spawn rest of PB markers
+		SpawnMarkers();
+	}
 
-		SpawnObjects({startingLocation}, SCR_ScenarioFrameworkEActivationType.ON_INIT);
-		IEntity startLocationEnt = GetGame().GetWorld().FindEntityByName(startingLocation);
-		if (!startLocationEnt)
+	//------------------------------------------------------------------------------------------------
+	protected void SpawnMarkers()
+	{
+		IEntity ent;
+		SCR_ScenarioFrameworkSlotMarker slotMarker;
+		foreach(string selection : m_aSelectionOfAreas)
+		{
+			ent = GetGame().GetWorld().FindEntityByName(selection);
+			if (!ent)
+				continue;
+			
+			ent = ent.GetChildren();
+			while (ent)
+			{
+				slotMarker = SCR_ScenarioFrameworkSlotMarker.Cast(ent.FindComponent(SCR_ScenarioFrameworkSlotMarker));
+				if (slotMarker)
+				{
+					SpawnObjects({slotMarker.GetName()}, SCR_ScenarioFrameworkEActivationType.ON_TRIGGER_ACTIVATION);
+					break;
+				}
+				
+				ent = ent.GetSibling();
+			}
+		}
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	protected void MoveExfil(notnull IEntity ent)
+	{
+		SCR_ScenarioFrameworkSlotMarker existingMarkerSlot;
+		IEntity child = ent.GetChildren();
+		while (child)
+		{
+			existingMarkerSlot = SCR_ScenarioFrameworkSlotMarker.Cast(child.FindComponent(SCR_ScenarioFrameworkSlotMarker));
+			if (existingMarkerSlot)
+				break;
+			
+			child = child.GetSibling();
+		}
+
+		if (!existingMarkerSlot)
 			return;
 		
-		GetGame().GetWorld().QueryEntitiesBySphere(startLocationEnt.GetOrigin(), m_fMarkerSearchDistance, HideMarker);
-		GetGame().GetWorld().QueryEntitiesBySphere(endLocationEnt.GetOrigin(), m_fMarkerSearchDistance, MoveExfill);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected bool HideMarker(notnull IEntity ent)
-	{
-		SCR_ScenarioFrameworkSlotMarker existingMarkerSlot = SCR_ScenarioFrameworkSlotMarker.Cast(ent.FindComponent(SCR_ScenarioFrameworkSlotMarker));
-		if (!existingMarkerSlot)
-			return true;
-
-		existingMarkerSlot.SetIsTerminated(true);
-		return false;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected bool MoveExfill(notnull IEntity ent)
-	{
-		// Look for location marker at the exfil coords
-		SCR_ScenarioFrameworkSlotMarker existingMarkerSlot = SCR_ScenarioFrameworkSlotMarker.Cast(ent.FindComponent(SCR_ScenarioFrameworkSlotMarker));
-		if (!existingMarkerSlot)
-			return true;
-
-		SCR_MapMarkerBase locationMarker = existingMarkerSlot.GetMapMarker();
-		if (!locationMarker)
-			return true;
-
 		SCR_MapMarkerBase exfilMarker;
 		IEntity exfilArea = GetGame().GetWorld().FindEntityByName(m_sExfilAreaName);
-		IEntity child = exfilArea.GetChildren();
+		child = exfilArea.GetChildren();
 		
 		// Place exfil logic area at the area marker position
 		exfilArea.SetOrigin(ent.GetOrigin());
@@ -85,13 +106,11 @@ class SCR_ScenarioFrameworkActionCOKLocationSelector : SCR_ScenarioFrameworkActi
 		}
 
 		if (!exfilMarker)
-			return true;
+			return;
 
 		// Copy random exfil location name onto exfil marker
-		exfilMarker.SetCustomText(locationMarker.GetCustomText());
-
-		// Terminate default area marker as we do not want its name to show next to exfil marker who also has it
-		existingMarkerSlot.SetIsTerminated(true);
-		return false;
+		SCR_ScenarioFrameworkMarkerCustom mapMarkerType = SCR_ScenarioFrameworkMarkerCustom.Cast(existingMarkerSlot.GetMapMarkerType());
+		if (mapMarkerType)
+			exfilMarker.SetCustomText(mapMarkerType.m_sMapMarkerText);
 	}
 }

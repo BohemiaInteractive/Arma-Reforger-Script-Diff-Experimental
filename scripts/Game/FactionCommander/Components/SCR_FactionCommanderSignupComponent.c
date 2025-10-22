@@ -6,4 +6,18 @@ class SCR_FactionCommanderSignupComponentClass : SCR_MilitaryBaseLogicComponentC
 
 class SCR_FactionCommanderSignupComponent : SCR_MilitaryBaseLogicComponent
 {
+	//------------------------------------------------------------------------------------------------
+	override bool IsControlledByFaction(notnull Faction faction)
+	{
+		foreach (SCR_MilitaryBaseComponent base : m_aBases)
+		{
+			if (!SCR_CampaignMilitaryBaseComponent.Cast(base))
+				continue;
+
+			if (base.GetFaction() == faction)
+				return true;
+		}
+
+		return false;
+	}
 }

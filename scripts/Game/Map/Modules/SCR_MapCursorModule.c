@@ -110,7 +110,7 @@ class SCR_MapCursorModule : SCR_MapModuleBase
 	static const EMapCursorState STATE_SUBMENU_RESTRICTED = EMapCursorState.CS_CONTEXTUAL_MENU | EMapCursorState.CS_DIALOG;
 	static const EMapCursorState STATE_CTXMENU_RESTRICTED = EMapCursorState.CS_DRAG | EMapCursorState.CS_DRAW | EMapCursorState.CS_ROTATE;
 	static const EMapCursorState STATE_RESET_RESTRICTED = EMapCursorState.CS_DRAG | EMapCursorState.CS_DRAW | EMapCursorState.CS_ROTATE;
-	static const EMapCursorState STATE_POPUP_RESTRICTED = EMapCursorState.CS_PAN | EMapCursorState.CS_DRAW | EMapCursorState.CS_ROTATE | EMapCursorState.CS_ASSIGN_WP;
+	static const EMapCursorState STATE_POPUP_RESTRICTED = EMapCursorState.CS_PAN | EMapCursorState.CS_DRAW | EMapCursorState.CS_ROTATE | EMapCursorState.CS_COMMAND_NEGATIVE | EMapCursorState.CS_COMMAND_POSITIVE;
 
 	// timers
 	protected float m_fPanCountdown;		// used to stop panning cursor state and refresh start position for next drag panning

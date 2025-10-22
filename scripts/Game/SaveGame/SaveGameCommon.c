@@ -1,5 +1,2 @@
-void SaveGameOperationDelegate(Managed context, bool success);
+void SaveGameOperationDelegate(bool success, Managed context = null);
 typedef func SaveGameOperationDelegate;
-
-void SaveGameDelegate(SaveGame save);
-typedef func SaveGameDelegate;

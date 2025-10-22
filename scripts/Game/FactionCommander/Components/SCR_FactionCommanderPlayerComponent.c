@@ -86,6 +86,26 @@ class SCR_FactionCommanderPlayerComponent : ScriptComponent
 	static const string REQUESTED_TASK_ID = "%1_RequestedTask_%2";
 
 	//------------------------------------------------------------------------------------------------
+	SCR_FactionCommanderMenuEntry GetConfigForEntry(notnull SCR_SelectionMenuEntry entry)
+	{
+		if (!m_mTaskRootMenuEntries)
+			return null;
+
+		SCR_FactionCommanderMenuEntry configEntry = m_mTaskRootMenuEntries.Get(entry);
+		if (configEntry)
+			return configEntry;
+
+		if (m_mEntryNames)
+		{
+			SCR_SelectionMenuEntry key;
+			if (m_mEntryNames && m_mTaskRootMenuEntries && m_mEntryNames.Find(entry.GetId(), key))
+				return m_mTaskRootMenuEntries.Get(key);
+		}
+
+		return null;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void SetReplaceCommanderCooldownTimestamp(WorldTimestamp timeStamp)
 	{
 		m_ReplaceCommanderCooldown = timeStamp;
@@ -751,7 +771,7 @@ class SCR_FactionCommanderPlayerComponent : ScriptComponent
 
 		string taskID = string.Format(REQUESTED_TASK_ID, faction.GetFactionKey(), GenerateTaskID());
 
-		SCR_BaseRequestedTaskEntity task = SCR_BaseRequestedTaskEntity.Cast(taskSystem.CreateTask(taskPrefab, taskID, "", "", destination));
+		SCR_BaseRequestedTaskEntity task = SCR_BaseRequestedTaskEntity.Cast(taskSystem.CreateTask(taskPrefab, taskID, "", "", destination, playerId));
 		if (!task)
 		{
 			Print("Task was not created", LogLevel.ERROR);
@@ -824,7 +844,7 @@ class SCR_FactionCommanderPlayerComponent : ScriptComponent
 
 		string taskID = string.Format(TASK_ID, faction.GetFactionKey(), GenerateTaskID());
 
-		SCR_Task task = taskSystem.CreateTask(taskPrefab, taskID, "", "", destination);
+		SCR_Task task = taskSystem.CreateTask(taskPrefab, taskID, "", "", destination, playerId);
 		if (!task)
 		{
 			Print("Task was not created", LogLevel.ERROR);

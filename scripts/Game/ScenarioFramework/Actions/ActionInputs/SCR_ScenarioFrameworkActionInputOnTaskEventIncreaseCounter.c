@@ -7,6 +7,9 @@ class SCR_ScenarioFrameworkActionInputOnTaskEventIncreaseCounter : SCR_ScenarioF
 	[Attribute(defvalue: SCR_ETaskState.COMPLETED.ToString(), UIWidgets.ComboBox, "Task state", "", ParamEnumArray.FromEnum(SCR_ETaskState))];
 	SCR_ETaskState m_eEventName;
 	
+	[Attribute(desc: "Names of task layers whose events should be ignored")]
+	ref array<string> m_aIgnoredLayerNames;
+	
 	protected int m_iActionsInput;
 	
 	//------------------------------------------------------------------------------------------------
@@ -37,6 +40,9 @@ class SCR_ScenarioFrameworkActionInputOnTaskEventIncreaseCounter : SCR_ScenarioF
 			if (taskLayer)
 			{
 				sTaskLayerName = taskLayer.GetOwner().GetName();
+				if (m_aIgnoredLayerNames && m_aIgnoredLayerNames.Contains(sTaskLayerName))
+					return;
+				
 				if (taskLayer.GetLayerTaskResolvedBeforeLoad())
 					return;
 			}

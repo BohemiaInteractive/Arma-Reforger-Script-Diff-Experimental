@@ -413,7 +413,6 @@ class SCR_SettingsManagerKeybindModule : SCR_SettingsManagerModuleBase
 		
 		foreach (int i, SCR_ControllerPreset preset : presets)
 		{
-			Print(preset.GetResourceName());
 			if (setPresets.Contains(preset.GetResourceName()))
 				return i;
 		}

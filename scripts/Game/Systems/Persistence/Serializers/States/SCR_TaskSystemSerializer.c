@@ -74,7 +74,7 @@ class SCR_TaskSave
 	ref array<LocalizedString> 	m_aTaskName = {};
 	ref array<LocalizedString>	m_aTaskDescription = {};
 	ref array<UUID> 			m_aAssignees = {};
-	ref array<string> 			m_aOwnerFactionKeys;
+	ref array<string> 			m_aOwnerFactionKeys = {};
 	ref array<UUID> 			m_aOwnerGroupIDs = {};
 	ref array<UUID> 			m_aOwnerExecutors = {};
 	SCR_ETaskState 				m_eState;
@@ -221,21 +221,21 @@ class SCR_TaskSave
 		foreach (auto assignee : m_aAssignees)
 		{
 			Tuple2<SCR_Task, int> taskContext(task, 0);
-			PersistenceWhenAvailableTask loadTask(taskContext, OnExecutorAvailable);
+			PersistenceWhenAvailableTask loadTask(OnExecutorAvailable, taskContext);
 			persistence.WhenAvailable(assignee, loadTask);
 		}
 
 		foreach (auto group : m_aOwnerGroupIDs)
 		{
 			Tuple1<SCR_Task> taskContext(task);
-			PersistenceWhenAvailableTask loadTask(taskContext, OnGroupAvailable);
+			PersistenceWhenAvailableTask loadTask(OnGroupAvailable, taskContext);
 			persistence.WhenAvailable(group, loadTask);
 		}
 
 		foreach (auto owner : m_aOwnerExecutors)
 		{
 			Tuple2<SCR_Task, int> taskContext(task, 1);
-			PersistenceWhenAvailableTask loadTask(taskContext, OnExecutorAvailable);
+			PersistenceWhenAvailableTask loadTask(OnExecutorAvailable, taskContext);
 			persistence.WhenAvailable(owner, loadTask);
 		}
 
@@ -288,7 +288,7 @@ class SCR_TaskSave
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnExecutorAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnExecutorAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto taskContext = Tuple2<SCR_Task, int>.Cast(context);
 		if (!taskContext.param1)
@@ -327,7 +327,7 @@ class SCR_TaskSave
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnGroupAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnGroupAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto taskContext = Tuple1<SCR_Task>.Cast(context);
 		if (!taskContext.param1)
@@ -438,7 +438,7 @@ class SCR_CampaignMilitaryTaskSave : SCR_TaskSave
 		if (task)
 		{
 			Tuple1<SCR_CampaignMilitaryBaseTaskEntity> ctx(task);
-			PersistenceWhenAvailableTask baseTask(ctx, OnBaseAvailable);
+			PersistenceWhenAvailableTask baseTask(OnBaseAvailable, ctx);
 			persistence.WhenAvailable(m_sBaseId, baseTask);
 		}
 
@@ -446,7 +446,7 @@ class SCR_CampaignMilitaryTaskSave : SCR_TaskSave
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnBaseAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnBaseAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto base = IEntity.Cast(instance);
 		if (!base)

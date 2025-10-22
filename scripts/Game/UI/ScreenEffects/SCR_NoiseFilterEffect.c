@@ -134,5 +134,7 @@ class SCR_NoiseFilterEffect : SCR_BaseScreenEffect
 	void ~SCR_NoiseFilterEffect()
 	{
 		SCR_DeployMenuBase.SGetOnMenuOpen().Remove(OnRespawnMenuOpen);
+		s_fGrainIntensity = 0;
+		s_bDisableNightNoiseEffect = false;
 	}
 }

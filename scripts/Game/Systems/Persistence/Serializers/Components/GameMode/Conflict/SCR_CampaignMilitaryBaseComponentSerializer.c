@@ -46,7 +46,7 @@ class SCR_CampaignMilitaryBaseComponentSerializer : ScriptedComponentSerializer
 		if (context.Read(buildingId) && !buildingId.IsNull())
 		{
 			Tuple1<SCR_CampaignMilitaryBaseComponent> ctx(militaryBase);
-			PersistenceWhenAvailableTask task(ctx, OnBuildingAvailable);
+			PersistenceWhenAvailableTask task(OnBuildingAvailable, ctx);
 			GetSystem().WhenAvailable(buildingId, task);
 		}
 
@@ -62,7 +62,8 @@ class SCR_CampaignMilitaryBaseComponentSerializer : ScriptedComponentSerializer
 		if (context.Read(builtFaction))
 		{
 			const Faction faction = GetGame().GetFactionManager().GetFactionByKey(builtFaction);
-			militaryBase.SetBuiltFaction(faction);
+			if (faction)
+				militaryBase.SetBuiltFaction(faction);
 		}
 
 		militaryBase.Initialize();
@@ -75,7 +76,7 @@ class SCR_CampaignMilitaryBaseComponentSerializer : ScriptedComponentSerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnBuildingAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnBuildingAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto building = IEntity.Cast(instance);
 		if (!building)

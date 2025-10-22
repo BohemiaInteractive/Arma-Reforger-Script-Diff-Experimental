@@ -311,6 +311,9 @@ class SCR_MilitaryBaseSystem : GameSystem
 	//------------------------------------------------------------------------------------------------
 	void UnregisterBase(notnull SCR_MilitaryBaseComponent base)
 	{
+		if (!m_aBases.Contains(base))
+			return;
+
 		if (m_aAvailableCallsignIds)
 			m_aAvailableCallsignIds.Insert(base.GetCallsign());
 

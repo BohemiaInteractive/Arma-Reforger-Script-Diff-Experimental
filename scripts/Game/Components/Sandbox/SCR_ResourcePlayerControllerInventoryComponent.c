@@ -700,6 +700,12 @@ class SCR_ResourcePlayerControllerInventoryComponent : ScriptComponent
 			if (!TryPerformResourceConsumption(actorFrom, resourceUsed))
 				return;
 
+			// WARNING: From now on resourceComponentFrom.GetOwner().IsDeleted() can be true!
+			// That happens, for example, when moving one last supply from player to supply truck. 
+			// Due to a bug in Enfusion GenericEntity owner = resourceComponentFrom.GetOwner() 
+			// will be NULL, so we always need to access the entity via resource component
+			// and shall from now on never assign it directly to GenericEntity.
+			
 			vector position = resourceComponentFrom.GetOwner().GetOrigin();
 			FindSuitablePosition(position, HORIZONTAL_SPAWN_OFFSET, VERTICAL_SPAWN_OFFSET);
 			

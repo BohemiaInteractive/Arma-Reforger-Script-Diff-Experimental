@@ -17,7 +17,6 @@ class PersistenceSystem: GameSystem
 	Returns false if the save process could not be started.
 	*/
 	proto external bool TriggerSave(ESaveGameType saveType);
-	proto external void TriggerBreak();
 	/*!
 	Save the current state of the instance. Data is transient until the storage is flushed,
 	but the entity can safely be deleted already after this (e.g. saving a disconnecting player).
@@ -35,6 +34,10 @@ class PersistenceSystem: GameSystem
 	proto external bool IsPrefabDataForced();
 	//! Is the instance configured to be persisted or will it be skipped in save-data.
 	proto external bool IsTracked(notnull Managed entityOrState);
+	/*!
+	Make an instance known to the persistence system for further tracking and to apply save-data on load.
+	Mostly for scripted states. IEntity should usually be registered by putting the PersistenceComponent on it!
+	*/
 	proto external bool StartTracking(notnull Managed entityOrState);
 	//! Pause any save-data processing for this instance.
 	proto external bool PauseTracking(notnull Managed entityOrState);
@@ -65,12 +68,14 @@ class PersistenceSystem: GameSystem
 	Obtain a configuration instance that can be adjusted dynamically through script.
 	By default it is populated with the values from the system configuration.
 	You can not get/create an instance for something that has no configuration at all.
-	The instance is not shared and will remain the same even if retrieved multiple times.
 	*/
 	proto external PersistenceConfig GetConfig(notnull Managed entityOrState);
-	//! Cheap check if something has a dynamic config instance previously exposed through SCR_GetConfig.
-	proto external bool HasDefaultConfig(notnull Managed entityOrState);
-	//! If the circumstances change this allows to re-evaluate the rules and select the currently appropriate config.
+	//! Apply a configuration obtained by GetConfig and possibly changed via script.
+	proto external void SetConfig(notnull Managed entityOrState, notnull PersistenceConfig config);
+	/*!
+	If the circumstances change this allows to re-evaluate the rules and select the currently appropriate config.
+	Note: This will reset any customization done via script on SetConfig.
+	*/
 	proto external bool ReloadConfig(notnull Managed entityOrState);
 	//! Serialize an entity instance into the provided save context.
 	proto external ESerializeResult SerializeEntity(notnull IEntity entity, notnull BaseSerializationSaveContext context, SerializerDefaultSpawnData defaultData = null);
@@ -103,6 +108,10 @@ class PersistenceSystem: GameSystem
 	//! Info if the system inited with loading data or not on new playthrough
 	proto external bool WasDataLoaded();
 	proto external Managed GetPersistentState(typename stateType);
+	/*!
+	Deletes all data for session storage if any is currently used. To be invoked on e.g. GamemodeEnd or debug purposes.
+	*/
+	proto external void ClearSessionData(PersistenceStatusCallback callback = null);
 
 	// callbacks
 
@@ -115,6 +124,8 @@ class PersistenceSystem: GameSystem
 	\param success True or false if save data was successfully comitted to database
 	*/
 	event protected void OnAfterSave(ESaveGameType saveType, bool success);
+	//! Called after initial world load completed. Success = false indicates fatal deserialization which is likely to negatively impact gameplay.
+	event protected void OnAfterLoad(bool success);
 	/*!
 	Handle deletion of an entity to do some pre or post processing
 	Reasons for deletion include:

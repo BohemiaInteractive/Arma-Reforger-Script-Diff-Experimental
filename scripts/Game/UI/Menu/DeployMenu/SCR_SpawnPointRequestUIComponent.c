@@ -159,6 +159,7 @@ class SCR_SpawnPointRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		}
 
 		SetLastUsedSpawnPointSelected();
+		SetRallyPointSpawnSelected();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -184,6 +185,50 @@ class SCR_SpawnPointRequestUIComponent : SCR_DeployRequestUIBaseComponent
 			return;
 
 		m_SpawnPointSelector.SetCurrentItem(lastUsedSpawnPointId);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Sets the player group Rally Point as default selected option in spawn selector
+	protected void SetRallyPointSpawnSelected()
+	{
+		PlayerController pc = GetGame().GetPlayerController();
+		if (!pc)
+			return;
+
+		SCR_PlayerControllerGroupComponent playerControllerGroupComponent = SCR_PlayerControllerGroupComponent.GetPlayerControllerComponent(pc.GetPlayerId());
+		if (!playerControllerGroupComponent)
+			return;
+
+		int playerGroupId = playerControllerGroupComponent.GetGroupID();
+		SCR_AIGroup playerGroup = SCR_GroupsManagerComponent.GetInstance().FindGroup(playerGroupId);
+		if (!playerGroup)
+			return;
+
+		int rallyPointBaseCallsignId = playerGroup.GetRallyPointId();
+		if (rallyPointBaseCallsignId < 0)
+			return;
+
+		array<SCR_SpawnPoint> spawnPoints = m_SpawnPointSelector.GetSpawnPointsInList();
+		IEntity parentEntity;
+		SCR_MilitaryBaseComponent baseComponent;
+		foreach (SCR_SpawnPoint spawnPoint : spawnPoints)
+		{
+			parentEntity = spawnPoint.GetRootParent();
+			if (!parentEntity)
+				continue;
+
+			baseComponent = SCR_MilitaryBaseComponent.Cast(parentEntity.FindComponent(SCR_MilitaryBaseComponent));
+			if (!baseComponent)
+				continue;
+
+			if (baseComponent.GetCallsign() != rallyPointBaseCallsignId)
+				continue;
+
+			int rallyPointSpawnPointId = m_SpawnPointSelector.GetItemId(spawnPoint.GetRplId());
+			m_SpawnPointSelector.SetCurrentItem(rallyPointSpawnPointId);
+
+			return;
+		}
 	}
 
 	void UpdateRelevantSpawnPoints()

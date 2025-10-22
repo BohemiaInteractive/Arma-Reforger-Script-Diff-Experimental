@@ -66,7 +66,7 @@ class SCR_FactionCommanderBaseRequestMenuHandler : SCR_FactionCommanderBaseTaskM
 		if (!group)
 			return false;
 
-		if (!hoveredEntity && GetActiveGroupRequestCount(commanderFaction, playerId) >= SCR_BaseRequestedTaskEntity.REQUEST_MAX_COUNT)
+		if (GetActiveGroupRequestCount(commanderFaction, playerId) >= SCR_BaseRequestedTaskEntity.REQUEST_MAX_COUNT)
 		{
 			disabledText = LIMIT_REQUEST_REACHED_TEXT;
 			return false;

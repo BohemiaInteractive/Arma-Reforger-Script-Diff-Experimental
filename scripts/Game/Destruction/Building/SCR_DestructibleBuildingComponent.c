@@ -457,11 +457,22 @@ class SCR_TimedParticle : SCR_TimedEffect
 	[Attribute("1", desc: "Overall multiplier for particle effect intensity. Higher values multiplies particle count (Birt Rate + Birth Rate RND), size (Size Multiplier and Size RND) , and velocity (Velocity and Velocity RND).")]
 	protected float m_fParticlesMultiplier;
 
+	void SCR_TimedParticle()
+	{
+		if (!m_Particle)
+		{
+			Print("No SCR_ParticleSpawnable defined on SCR_TimedParticle", LogLevel.WARNING);
+		}
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Plays particles
 	override void ExecuteEffect(IEntity owner, SCR_HitInfo hitInfo, inout notnull SCR_BuildingDestructionData data)
 	{
 		super.ExecuteEffect(owner, hitInfo, data);
+
+		if (m_Particle == null)
+			return;
 
 		ParticleEffectEntity emitter;
 		if (m_bAttachToParent)
@@ -522,7 +533,7 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 	private int m_iDataIndex = -1;
 
 	protected bool m_bDestroyed = false;
-	
+
 	protected ref array<vector> m_aPowerPolePositions = {};
 
 	//------------------------------------------------------------------------------------------------
@@ -1023,7 +1034,7 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 			// Kill occupants after destruction starts determined by delay set in prefab data, so it appears as if they died from the building falling on top of them
 			GetGame().GetCallqueue().CallLater(DamageOccupantsDelayed, GetDelay() * 1000, param1: e);
 			return true;
-		} 
+		}
 		else if (Vehicle.Cast(e))
 		{
 			//destroy the vehicle after the destruction delay
@@ -1056,11 +1067,55 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 			{
 				if (!e.Type().IsInherited(SCR_PowerPole) && !e.Type().IsInherited(SCR_JunctionPowerPole))
 					return true;
-				
-				m_aPowerPolePositions.Insert(e.GetOrigin());
+
+				// Cast to SCR_PowerPole to access slot data
+				SCR_PowerPole powerPole = SCR_PowerPole.Cast(e);
+				if (!powerPole)
+				{
+					// Fallback to entity origin if cast fails
+					m_aPowerPolePositions.Insert(e.GetOrigin());
+					continue;
+				}
+
+				// Get prefab data to access cable slot groups
+				SCR_PowerPoleClass prefabData = SCR_PowerPoleClass.Cast(powerPole.GetPrefabData());
+				if (!prefabData || !prefabData.m_aCableSlotGroups)
+				{
+					// Fallback to entity origin if no cable slot groups
+					m_aPowerPolePositions.Insert(e.GetOrigin());
+					continue;
+				}
+
+				// Iterate through cable slot groups and average slot positions per group
+				foreach (SCR_PoleCableSlotGroup slotGroup : prefabData.m_aCableSlotGroups)
+				{
+					if (!slotGroup || !slotGroup.m_aSlots)
+						continue;
+
+					vector avgLocalPos = vector.Zero;
+					int validSlotCount = 0;
+
+					// Sum all slot positions in this group
+					foreach (SCR_PoleCableSlot slot : slotGroup.m_aSlots)
+					{
+						if (!slot)
+							continue;
+
+						avgLocalPos += slot.m_vPosition;
+						validSlotCount++;
+					}
+
+					// Calculate average and transform to world space
+					if (validSlotCount > 0)
+					{
+						avgLocalPos = avgLocalPos / validSlotCount;
+						vector avgWorldPos = powerPole.CoordToParent(avgLocalPos);
+						m_aPowerPolePositions.Insert(avgWorldPos);
+					}
+				}
 			}
 		}
-		
+
 		// There shouldn't really be any physical hierchies created on buildings and alike,
 		// so more than anything, this check is just a precaution.
 		// I wish it was just a precaution - Mour
@@ -1111,42 +1166,42 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 		if (headHitzone)
 			headHitzone.HandleDamage(1000, EDamageType.TRUE, null);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	protected void HandleVehicle(IEntity targetEntity)
 	{
 		if (!IsInside(targetEntity))
 			return;
-		
+
 		SCR_VehicleDamageManagerComponent damageManager = SCR_VehicleDamageManagerComponent.Cast(targetEntity.FindComponent(DamageManagerComponent));
 		if (!damageManager)
 			return;
-		
+
 		HitZone defaultHitzone = damageManager.GetDefaultHitZone();
 		if (defaultHitzone)
 			defaultHitzone.HandleDamage(defaultHitzone.GetMaxHealth(), EDamageType.TRUE, null);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	void HandleConnectedPowerlines()
 	{
 		BaseWorld world = GetGame().GetWorld();
-	
+
 		foreach (vector polePosition : m_aPowerPolePositions)
 		{
 			world.QueryEntitiesBySphere(polePosition, 3, ProcessFoundPowerline);
 		}
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	protected bool ProcessFoundPowerline(notnull IEntity e)
 	{
 		if (e.Type() != PowerlineEntity)
 			return true;
-		
+
 		delete e;
 		return true;
-	}	
+	}
 
 	//------------------------------------------------------------------------------------------------
 	void GoToDestroyedStateLoad(bool spawnEffects = true)
@@ -1188,7 +1243,7 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 
 		m_bDestroyed = true;
 
-		if (IsMaster())		
+		if (IsMaster())
 			HandleConnectedPowerlines();
 
 		IEntity owner = GetOwner();
@@ -1197,7 +1252,7 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 		auto persistence = PersistenceSystem.GetInstance();
 		if (persistence)
 			persistence.StartTracking(owner);
-		
+
 		vector mins, maxs;
 		owner.GetBounds(mins, maxs);
 
@@ -1251,7 +1306,7 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 			}
 
 			//SetEventMask(owner, EntityEvent.FRAME);
-			Activate(owner);
+			EnableDamageSystemOnFrame();
 		}
 	}
 
@@ -1309,7 +1364,7 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 	{
 		owner.SetObject(null, ""); // Hide the building
 		//ClearEventMask(owner, EntityEvent.FRAME);
-		Deactivate(owner);
+		DisableDamageSystemOnFrame();
 
 		if (spawnEffects)
 			SpawnEffects(1, owner, immediate); // Ensure all effects get played
@@ -1506,7 +1561,7 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 	{
 		if (!owner)
 			return;
-		
+
 		SCR_BuildingDestructionData data = GetData();
 		if (!data)
 			return;
@@ -1540,7 +1595,10 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 		else
 		// Getting to the final state
 		{
-			owner.SetOrigin(newOrigin);
+			vector worldMat[4];
+			owner.GetWorldTransform(worldMat);
+			worldMat[3] = newOrigin;
+			owner.SetWorldTransform(worldMat);
 
 			// Rather than updating entities one by one, let the damage system
 			// know it is supposed to perform a parallel update.
@@ -1710,7 +1768,7 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 		RplComponent rplComponent = RplComponent.Cast(GetOwner().FindComponent(RplComponent));
 		return rplComponent && rplComponent.IsProxy();
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	protected bool IsMaster()
 	{

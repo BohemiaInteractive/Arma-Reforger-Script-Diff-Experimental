@@ -16,6 +16,9 @@ class SCR_ScenarioFrameworkActionVoiceOverPlayLine : SCR_ScenarioFrameworkAction
 	[Attribute(defvalue: "1", desc: "If Voice Line should play right now or wait for the current voice lines to finish and then play it")]
 	bool m_bPlayImmediately;
 	
+	[Attribute(desc: "Allow VO Playing In Gameover and when game is stopped")]
+	bool m_bAllowPlayingInGameOver;
+	
 	[Attribute(desc: "Actions that will be triggered once Sequence finishes playing")]
 	ref array<ref SCR_ScenarioFrameworkActionBase>	m_aActions;
 
@@ -35,6 +38,10 @@ class SCR_ScenarioFrameworkActionVoiceOverPlayLine : SCR_ScenarioFrameworkAction
 		}
 		
 		if (!CanActivate())
+			return;
+		
+		SCR_BaseGameMode gamemode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+		if (!gamemode || (!m_bAllowPlayingInGameOver && !gamemode.IsRunning()))
 			return;
 		
 		PlayerManager playerManager = GetGame().GetPlayerManager();

@@ -51,11 +51,8 @@ class SCR_ScenarioFrameworkLayerBase : ScriptComponent
 	[Attribute(defvalue: SCR_EScenarioFrameworkLogicOperators.AND.ToString(), UIWidgets.ComboBox, "Which Boolean Logic will be used for Activation Conditions", "", enums: SCR_EScenarioFrameworkLogicOperatorHelper.GetParamInfo(), category: "Activation")]
 	SCR_EScenarioFrameworkLogicOperators m_eActivationConditionLogic;
 
-	[Attribute(desc: "Actions that will be activated on first initalization. Not on re-init from e.g. save-game", category: "OnInit")]
+	[Attribute(desc: "Actions that will be activated on initalization.", category: "OnInit")]
 	ref array<ref SCR_ScenarioFrameworkActionBase>	m_aActivationActions;
-
-	[Attribute(desc: "Actions that will be activated when this gets initialized during save-game load", category: "OnInit")]
-	ref array<ref SCR_ScenarioFrameworkActionBase>	m_aLoadActions;
 
 	[Attribute(desc: "Should the dynamic Spawn/Despawn based on distance from observer cameras be enabled?", category: "Activation")]
 	bool m_bDynamicDespawn;
@@ -1319,18 +1316,6 @@ class SCR_ScenarioFrameworkLayerBase : ScriptComponent
 	protected void InitActivationActions()
 	{
 		const IEntity owner = GetOwner();
-		
-		// On load we execute a second set of actions for e.g. user action listeners or other plugins
-		// The normal actions are not called to not spawn in inital AI or items or engine state etc, as they are all saved.
-		if (SCR_ScenarioFrameworkSystem.IsSaveGameLoading())
-		{
-			foreach (SCR_ScenarioFrameworkActionBase activationAction : m_aLoadActions)
-			{
-				activationAction.Init(owner);
-			}
-			
-			return;
-		}
 
 		foreach (SCR_ScenarioFrameworkActionBase activationAction : m_aActivationActions)
 		{
@@ -1342,11 +1327,6 @@ class SCR_ScenarioFrameworkLayerBase : ScriptComponent
 	protected void RestoreActionsToDefault()
 	{
 		foreach (SCR_ScenarioFrameworkActionBase activationAction : m_aActivationActions)
-		{
-			activationAction.RestoreToDefault();
-		}
-
-		foreach (SCR_ScenarioFrameworkActionBase activationAction : m_aLoadActions)
 		{
 			activationAction.RestoreToDefault();
 		}

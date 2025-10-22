@@ -4,12 +4,12 @@ class SCR_BaseToggleToolbarAction : SCR_EditorToolbarAction
 {
 	[Attribute(desc: "When defined, this info will be used when the action is toggled on.")]
 	protected ref SCR_UIInfo m_InfoToggled;
-	
-	private ref ScriptInvoker m_OnToggleChanged = new ScriptInvoker();
-	
-	private int currentlyToggled = -1;
-	private bool old_highlight = false;
-	
+
+	protected ref ScriptInvoker m_OnToggleChanged = new ScriptInvoker();
+
+	protected int m_iCurrentValue = -1;
+	protected bool m_bCurrentHighlight = false;
+
 	/*!
 	Get ScriptInvoker called when the action is toggled by some external event.
 	*/
@@ -17,19 +17,31 @@ class SCR_BaseToggleToolbarAction : SCR_EditorToolbarAction
 	{
 		return m_OnToggleChanged;
 	}
-	
+
 	/*!
 	Toggle action state.
 	To be called by inherited classes.
 	*/
 	protected void Toggle(int value, bool highlight = false)
 	{
-		if(value == currentlyToggled && highlight == old_highlight)
+		if (value == m_iCurrentValue && highlight == m_bCurrentHighlight)
 			return;
-		
-		currentlyToggled = value;
-		old_highlight = highlight;
+
+		m_iCurrentValue = value;
+		m_bCurrentHighlight = highlight;
 		m_OnToggleChanged.Invoke(value, highlight);
+	}
+
+	//! Current value
+	int GetCurrentValue()
+	{
+		return m_iCurrentValue;
+	}
+
+	//! Current value
+	int GetCurrentHighlight()
+	{
+		return m_bCurrentHighlight;
 	}
 	
 	/*!
@@ -40,7 +52,7 @@ class SCR_BaseToggleToolbarAction : SCR_EditorToolbarAction
 	void Track()
 	{
 	}
-	
+
 	/*!
 	Untrack events which influence the action.
 	Called when the action's GUI representation is destroyed.
@@ -49,7 +61,7 @@ class SCR_BaseToggleToolbarAction : SCR_EditorToolbarAction
 	void Untrack()
 	{
 	}
-	
+
 	/*
 	Get UI info representing toggled state of the action.
 	When not defined, default UI info will be returned.
@@ -62,4 +74,4 @@ class SCR_BaseToggleToolbarAction : SCR_EditorToolbarAction
 		else
 			return GetInfo();
 	}
-};
+}

@@ -37,4 +37,11 @@ class SCR_CampaignBuildingBudgetToEvaluateData
 	{
 		return m_bShowBudgetInUI;
 	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \param[in] value
+	void SetShowBudgetInUI(bool value)
+	{
+		m_bShowBudgetInUI = value;
+	}
 }

@@ -9,7 +9,7 @@ Do not modify, this script is generated
 \{
 */
 
-class PersistenceSerializerBase: ScriptAndConfig
+sealed class PersistenceSerializerBase: ScriptAndConfig
 {
 	//! Delcare the type this serializer can handle so it can automatically find matching data instances. MUST be implemented!
 	static event typename GetTargetType();
@@ -20,6 +20,7 @@ class PersistenceSerializerBase: ScriptAndConfig
 	}
 	//! Only constructed through the persistence system
 	private void PersistenceSerializerBase();
+	private void ~PersistenceSerializerBase();
 
 	//! Get persistence system the serializer is linked to
 	proto external PersistenceSystem GetSystem();

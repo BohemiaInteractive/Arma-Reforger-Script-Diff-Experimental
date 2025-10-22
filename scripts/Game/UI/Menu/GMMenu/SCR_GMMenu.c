@@ -19,8 +19,8 @@ class SCR_GMMenu : ChimeraMenuBase
 		if (back)
 			back.m_OnActivated.Insert(OnBack);
 
-		//Here: check isContentDisabled TODO BURAK
-		PrepareTiles();
+		bool disableContent = GetGame().GetGameInstallStatus() != 1.0;
+		PrepareTiles(disableContent);
 
 		if (m_Gallery)
 			m_Gallery.SetFocusedItem(0, true);

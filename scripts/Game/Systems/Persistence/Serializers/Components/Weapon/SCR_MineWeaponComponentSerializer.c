@@ -33,7 +33,7 @@ class SCR_MineWeaponComponentSerializer : ScriptedComponentSerializer
 		if (context.Read(flagId))
 		{
 			Tuple1<SCR_MineWeaponComponent> ctx(mine);
-			PersistenceWhenAvailableTask task(ctx, OnFlagAvailable);
+			PersistenceWhenAvailableTask task(OnFlagAvailable, ctx);
 			GetSystem().WhenAvailable(flagId, task);
 		}
 
@@ -41,7 +41,7 @@ class SCR_MineWeaponComponentSerializer : ScriptedComponentSerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnFlagAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnFlagAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto flag = IEntity.Cast(instance);
 		if (!flag)

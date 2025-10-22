@@ -1,4 +1,3 @@
-[BaseContainerProps(), SCR_ContainerActionTitle()]
 class SCR_ContainerActionTitle : BaseContainerCustomTitle
 {
 	//------------------------------------------------------------------------------------------------

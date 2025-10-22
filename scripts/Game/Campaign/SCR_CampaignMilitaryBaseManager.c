@@ -302,7 +302,7 @@ class SCR_CampaignMilitaryBaseManager
 
 	//------------------------------------------------------------------------------------------------
 	//! Update the list of Conflict bases
-	int UpdateBases(bool refresTargetCount = false)
+	int UpdateBases(bool refreshTargetCount = false)
 	{
 		SCR_RadioCoverageSystem.UpdateAll();
 		SCR_MilitaryBaseSystem baseManager = SCR_MilitaryBaseSystem.GetInstance();
@@ -312,7 +312,7 @@ class SCR_CampaignMilitaryBaseManager
 		m_aBases.Clear();
 		m_aControlPoints.Clear();
 
-		if (refresTargetCount)
+		if (refreshTargetCount)
 			m_iTargetActiveBases = 0;
 
 		foreach (SCR_MilitaryBaseComponent base : bases)
@@ -321,7 +321,7 @@ class SCR_CampaignMilitaryBaseManager
 			if (!campaignBase)
 				continue;
 
-			if (refresTargetCount && campaignBase.IsInitialized())
+			if (refreshTargetCount && campaignBase.IsInitialized())
 				++m_iTargetActiveBases;
 
 			m_aBases.Insert(campaignBase);
@@ -863,6 +863,9 @@ class SCR_CampaignMilitaryBaseManager
 
 		foreach (SCR_CampaignMilitaryBaseComponent base : m_aBases)
 		{
+			if (!base)
+				continue;
+
 			if (base.GetCallsign() == callsign)
 				return base;
 		}
@@ -875,6 +878,9 @@ class SCR_CampaignMilitaryBaseManager
 	{
 		foreach (SCR_CampaignMilitaryBaseComponent base : m_aBases)
 		{
+			if (!base)
+				continue;
+
 			if (base.GetOwner().GetOrigin() == position)
 				return base;
 		}
@@ -1219,8 +1225,6 @@ class SCR_CampaignMilitaryBaseManager
 				basesInRange.Insert(base);
 			}
 
-			bool targetCoversControlPoint;
-
 			foreach (SCR_CampaignMilitaryBaseComponent controlPoint : m_aControlPoints)
 			{
 				if (!controlPoint.IsInitialized() || controlPoint.IsHQ())
@@ -1319,6 +1323,10 @@ class SCR_CampaignMilitaryBaseManager
 		if (!campaignBase)
 			return;
 
+		// HQ candidates are unregistered before active bases is set
+		if (campaignBase.CanBeHQ() && !campaignBase.IsHQ() && (m_iTargetActiveBases <= 0 || m_Campaign.IsProxy()))
+			return;
+
 		string factionKey = campaignBase.GetBuiltFaction();
 		if (campaignBase.GetBuiltByPlayers() && !factionKey.IsEmpty())
 			m_mFactionEstablishedBasesAmount.Set(factionKey, m_mFactionEstablishedBasesAmount.Get(factionKey) - 1);
@@ -1332,8 +1340,6 @@ class SCR_CampaignMilitaryBaseManager
 	{
 		if (!m_bAllBasesInitialized)
 			return;
-
-		UpdateBases();
 
 		if (!m_Campaign.IsProxy())
 		{
@@ -1369,6 +1375,7 @@ class SCR_CampaignMilitaryBaseManager
 			GetGame().GetCallqueue().CallLater(RecalculateRadioCoverageForced, SCR_GameModeCampaign.MINIMUM_DELAY, false, m_Campaign.GetFactionByEnum(SCR_ECampaignFaction.OPFOR));
 		}
 
+		UpdateBases(true);
 		SetFactionBaseEstablished(base.GetFaction());
 
 		if (m_OnBaseBuilt)

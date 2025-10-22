@@ -126,16 +126,21 @@ class SCR_MapCommandCursor
 	//------------------------------------------------------------------------------------------------
 	protected void OnMapClose(MapConfiguration config)
 	{
-		DisableSelection();
+		DisableSelection(false);// toggleOffCursors param is disabled here, because cursors are reset in the SCR_MapCursorModule
 	}
 
 	//------------------------------------------------------------------------------------------------
-	void DisableSelection()
+	void DisableSelection(bool toggleOffCursors = true)
 	{
 		SCR_MapEntity.GetOnSelection().Remove(OnSelection);
 		SCR_MapEntity.GetOnMapClose().Remove(OnMapClose);
-		TogglePositiveCursor(false);
-		ToggleNegativeCursor(false);
+
+		if (toggleOffCursors)
+		{
+			TogglePositiveCursor(false);
+			ToggleNegativeCursor(false);
+		}
+
 		GetGame().GetCallqueue().Remove(UpdateCursor);
 	}
 

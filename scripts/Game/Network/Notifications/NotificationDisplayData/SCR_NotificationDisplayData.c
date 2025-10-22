@@ -419,10 +419,6 @@ class SCR_NotificationDisplayData
 	//~ Returns group name, or callsign if no name assigned
 	protected bool GetGroupNameFromGroupID(int playerGroupId, out string groupName)
 	{
-		//~ Name already assigned
-		if (!groupName.IsEmpty())
-			return true;
-		
 		SCR_GroupsManagerComponent groupsManager = SCR_GroupsManagerComponent.GetInstance();
 		if (!groupsManager)
 			return false;

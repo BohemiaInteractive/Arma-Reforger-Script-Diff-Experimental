@@ -52,4 +52,11 @@ class PlatformService
 	\return		Returns true if activity successfully started
 	*/
 	proto native bool EndSingleplayerActivity(string ObjectID, string Outcome);
+	
+	/*!
+	Change avilability of platform specific activity
+	\param activities array of activity ids
+	\return Returns true if activity successfully started
+	*/
+	proto native bool ChangeAvailabilitySingleplayerActivity(array<string> activities, array<string> removeActivities);
 }

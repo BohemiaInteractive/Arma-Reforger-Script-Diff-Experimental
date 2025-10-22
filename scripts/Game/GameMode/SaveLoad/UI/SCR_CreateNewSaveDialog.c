@@ -42,7 +42,11 @@ class SCR_CreateNewSaveDialog : SCR_EditorSaveDialog
 		}
 		*/
 
-		GetGame().GetSaveGameManager().RequestSavePoint(ESaveGameType.MANUAL, m_sSaveName);
+		ESaveGameRequestFlags flags;
+		if (RplSession.Mode() == RplMode.None)
+			flags = ESaveGameRequestFlags.BLOCKING;
+
+		GetGame().GetSaveGameManager().RequestSavePoint(ESaveGameType.MANUAL, m_sSaveName, flags);
 		m_OnConfirm.Invoke(this);
 		Close();
 	}

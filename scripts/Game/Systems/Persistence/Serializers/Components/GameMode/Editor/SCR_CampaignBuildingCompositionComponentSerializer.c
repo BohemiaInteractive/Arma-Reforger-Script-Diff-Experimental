@@ -45,7 +45,16 @@ class SCR_CampaignBuildingCompositionComponentSerializer : ScriptedComponentSeri
 
 		SCR_CampaignBuildingLayoutComponent layout = buildableCompostion.GetCompositionLayout();
 		if (layout)
+		{
 			layout.SetBuildingValue(layout.GetToBuildValue() * progress);
+		}
+		else if (float.AlmostEqual(progress, 1.0))
+		{
+			// If no layout exists, its not buildable in phases and we want to construct it instantly via link component
+			SCR_EditorLinkComponent linkComponent = SCR_EditorLinkComponent.Cast(owner.FindComponent(SCR_EditorLinkComponent));
+			if (linkComponent)
+				linkComponent.SpawnComposition();
+		}
 
 		return true;
 	}

@@ -33,10 +33,9 @@ class SCR_PersistenceBinSaveContext : SCR_BinSaveContext
 {
 	void SCR_PersistenceBinSaveContext(bool skipEmptyObjects = true)
 	{
+		ConfigureTypeDiscriminator();
+		EnableTypeDiscriminator(true);
 		ConfigureObjectSeeking(true);
-
-		ConfigureCompression(true);
-		ConfigureNameValidation(false);
 	}
 }
 
@@ -45,9 +44,8 @@ class SCR_PersistenceBinLoadContext : SCR_BinLoadContext
 {
 	void SCR_PersistenceBinLoadContext(bool skipEmptyObjects = true)
 	{
+		ConfigureTypeDiscriminator();
+		EnableTypeDiscriminator(true);
 		ConfigureObjectSeeking(true);
-
-		ConfigureCompression(true);
-		ConfigureNameValidation(false);
 	}
 }

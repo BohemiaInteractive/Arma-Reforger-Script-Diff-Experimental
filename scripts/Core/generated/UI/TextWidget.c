@@ -23,8 +23,6 @@ sealed class TextWidget: Widget
 	proto external float GetRotation();
 	//! Sets pivot around which the widget will rotate
 	proto external void SetPivot(float x, float y);
-	//! Sets text for the widget. String-table entries are translated.
-	proto external void SetText(string text);
 	/*!
 	Sets top-left corner where text begins in widget. For RALIGN the horizontal offset is from the right.
 	\param xoff Offset from left
@@ -114,6 +112,8 @@ sealed class TextWidget: Widget
 	//! Returns text size in pixels in reference resolution
 	proto void GetTextSize(out float sx, out float sy);
 	proto void GetShadowOffset(out float sx, out float sy);
+	//! Sets text for the widget. String-table entries are translated.
+	proto external void SetText(string text);
 }
 
 /*!

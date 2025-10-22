@@ -12,8 +12,8 @@ class SCR_CampaignMenuUI : SCR_SuperMenuBase
 		if (buttonBack)
 			buttonBack.m_OnActivated.Insert(Close);
 		
-		//Here: check isContentDisabled TODO BURAK
-		PrepareTiles();
+		bool disableContent = GetGame().GetGameInstallStatus() != 1.0;
+		PrepareTiles(disableContent);
 		
 		if (System.GetPlatform() == EPlatform.PS5 || System.GetPlatform() == EPlatform.PS4 || System.GetPlatform() == EPlatform.PS5_PRO)
 		{

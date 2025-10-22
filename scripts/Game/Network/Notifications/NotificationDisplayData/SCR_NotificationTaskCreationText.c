@@ -11,7 +11,11 @@ class SCR_NotificationTaskCreationText : SCR_NotificationDisplayData
 	{
 		RplId taskRplId;
 		data.GetParams(taskRplId);
-		data.SetNotificationTextEntries(GetTaskCreationText(taskRplId));
+		string creationText = GetTaskCreationText(taskRplId);
+		if (creationText.IsEmpty())
+			return string.Empty;
+
+		data.SetNotificationTextEntries(creationText);
 		return super.GetText(data);
 	}
 

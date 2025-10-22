@@ -20,34 +20,31 @@ class SCR_RewindToolbarAction: SCR_EditorToolbarAction
 		{
 			SCR_RewindComponent rewindManager = SCR_RewindComponent.GetInstance();
 			rewindManager.DeleteRewindPoint();
-			
-			SCR_PauseGameTimeEditorComponent pauseManager = SCR_PauseGameTimeEditorComponent.Cast(SCR_PauseGameTimeEditorComponent.GetInstance(SCR_PauseGameTimeEditorComponent));
-			if (pauseManager)
-				pauseManager.SetPause(true);
+			return;
 		}
-		else
-		{
-			new SCR_RewindDialog();
-		}
+
+		new SCR_RewindDialog();
 	}
 
 	//---------------------------------------------------------------------------------------------
 	override void OnInit(SCR_ActionsToolbarEditorUIComponent toolbar)
 	{
 		m_Toolbar = toolbar;
-		GetGame().GetSaveGameManager().GetOnSaveGameCreated().Insert(OnSaveChanged);
-		GetGame().GetSaveGameManager().GetOnSaveGameDeleted().Insert(OnSaveChanged);
+		SCR_RewindComponent rewindManager = SCR_RewindComponent.GetInstance();
+		if (rewindManager)
+			rewindManager.GetOnRewindPointChanged().Insert(OnRewindPointChanged);
 	}
 
 	//---------------------------------------------------------------------------------------------
 	override void OnExit(SCR_ActionsToolbarEditorUIComponent toolbar)
 	{
-		GetGame().GetSaveGameManager().GetOnSaveGameCreated().Remove(OnSaveChanged);
-		GetGame().GetSaveGameManager().GetOnSaveGameDeleted().Remove(OnSaveChanged);
+		SCR_RewindComponent rewindManager = SCR_RewindComponent.GetInstance();
+		if (rewindManager)
+			rewindManager.GetOnRewindPointChanged().Remove(OnRewindPointChanged);
 	}
 
 	//---------------------------------------------------------------------------------------------
-	protected void OnSaveChanged(SaveGame save)
+	protected void OnRewindPointChanged()
 	{
 		if (m_Toolbar)
 			m_Toolbar.MarkForRefresh();

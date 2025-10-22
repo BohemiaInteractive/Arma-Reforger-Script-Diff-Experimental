@@ -57,8 +57,11 @@ class MainMenuUI : ChimeraMenuBase
 		if (!bottomContent || !descriptionRoot || !footer)
 			return;
 
-		//Here: check isContentDisabled TODO BURAK
-		PrepareTiles();
+		bool disableContent = GetGame().GetGameInstallStatus() != 1.0;
+		PrepareTiles(disableContent);
+		
+		if (disableContent)
+			GetGame().m_OnGameInstallComplete.Insert(PrepareTiles);
 
 		// Listen to buttons in grid
 		Widget child = bottomContent.GetChildren();
@@ -127,17 +130,7 @@ class MainMenuUI : ChimeraMenuBase
 			logo.m_OnClicked.Insert(OnLogoClicked);
 		}
 
-		// Hide news menu button (top right corner) on PS
-		if (GetGame().GetPlatformService().GetLocalPlatformKind() == PlatformKind.PSN)
-		{
-			Widget newsButton = w.FindAnyWidget("NewsButton");
-			if (newsButton)
-			{
-				newsButton.SetVisible(false);
-				newsButton.SetEnabled(false);
-			}
-		}
-		else
+		if (!GetGame().GetPlatformService().GetLocalPlatformKind() == PlatformKind.PSN)
 		{
 			// Get the entries for the first time
 			GetNewsEntries(null);
@@ -200,14 +193,14 @@ class MainMenuUI : ChimeraMenuBase
 		if (m_FocusedTile)
 			GetGame().GetWorkspace().SetFocusedWidget(m_FocusedTile.GetRootWidget(), true);
 
-		//Here: check isContentDisabled TODO BURAK
-		PrepareTiles();
+		bool disableContent = GetGame().GetGameInstallStatus() != 1.0;
+		PrepareTiles(disableContent);
 		
 		super.OnMenuFocusGained();
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	protected void LoadTutorial(SCR_MainMenuConfiguration menuConfig, notnull Widget root)
+	protected void LoadTutorial(SCR_MainMenuConfiguration menuConfig, notnull Widget root, bool isContentDisabled = false)
 	{
 		return;
 		WorkshopApi workshopAPI = GetGame().GetBackendApi().GetWorkshop();
@@ -228,17 +221,27 @@ class MainMenuUI : ChimeraMenuBase
 		}
 
 		bool canShowTutorial = !playedTutorial && playedTutorialCount < playedTutorialMax;
-		if (canShowTutorial)
+		//we do show tutorial as a first one in case of content still loading
+		if (canShowTutorial || isContentDisabled)
 			CreateTile(tutorial, root, isContentDisabled: false);
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	protected void LoadMenuTiles(SCR_MainMenuConfiguration menuConfig, notnull Widget root)
+	protected void LoadMenuTiles(SCR_MainMenuConfiguration menuConfig, notnull Widget root, bool isContentDisabled = false)
 	{
 		array<ResourceName> customTiles = menuConfig.m_aMainMenuCustomTiles;
+		Widget tileWidget;
+		ImageWidget background;
 		foreach(ResourceName tile: customTiles)
 		{
-			GetGame().GetWorkspace().CreateWidgets(tile, root);
+			tileWidget = GetGame().GetWorkspace().CreateWidgets(tile, root);
+			if (!tileWidget)
+				continue;
+			
+			tileWidget.SetEnabled(!isContentDisabled);
+			background = ImageWidget.Cast(tileWidget.FindAnyWidget("Image"));
+			if (background && isContentDisabled)
+				background.SetSaturation(0);
 		}
 	}
 
@@ -256,14 +259,17 @@ class MainMenuUI : ChimeraMenuBase
 		Widget childWidget = GetGame().GetWorkspace().CreateWidgets(TILES_LAYOUT, root);
 		if (!childWidget)
 			return;
+		
+		childWidget.SetEnabled(!isContentDisabled);
 
 		SCR_MainMenuTileComponent tile = SCR_MainMenuTileComponent.Cast(childWidget.GetChildren().FindHandler(SCR_MainMenuTileComponent));
 		if (!tile)
 			return;
 
-		tile.ShowMission(item, isRecommended);
 		if (isContentDisabled)
 			tile.DisableTile();
+		
+		tile.ShowMission(item, isRecommended);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -286,10 +292,10 @@ class MainMenuUI : ChimeraMenuBase
 		SCR_WidgetHelper.RemoveAllChildren(root);
 		
 		// Tutorial Missions
-		LoadTutorial(menuConfig, root);
+		LoadTutorial(menuConfig, root, isContentDisabled);
 		
 		// Menu Tiles
-		LoadMenuTiles(menuConfig, root);
+		LoadMenuTiles(menuConfig, root, isContentDisabled);
 
 		// Get missions from Workshop API
 		array<MissionWorkshopItem> missionItemsAll = {};
@@ -333,7 +339,7 @@ class MainMenuUI : ChimeraMenuBase
 		foreach (MissionWorkshopItem item : missionItemsAll)
 		{
 			SCR_MissionMetaData newItem = new SCR_MissionMetaData(item, 0);
-
+			
 			int score = 0;
 			foreach (SCR_MainMenuConfigEntry entry : missionsRecommended)
 			{
@@ -345,7 +351,7 @@ class MainMenuUI : ChimeraMenuBase
 				}
 			}
 			
-			if (item.IsFavorite())
+ 			if (item.IsFavorite())
 			{
 				score = score + 2;
 				newItem.m_bFavorite = true;
@@ -387,7 +393,7 @@ class MainMenuUI : ChimeraMenuBase
 		foreach (SCR_MissionMetaData p : topMissions)
 		{
 			// check if missions can be available when loading in progress
-			bool disabled;
+			bool disabled = 1;
 			foreach (SCR_MainMenuConfigEntry entry : missionsRecommended)
 			{
 				if (!entry || entry.m_sScenarioName != p.m_Item.Id())
@@ -398,6 +404,37 @@ class MainMenuUI : ChimeraMenuBase
 			}
 			CreateTile(p.m_Item.Id(), root, p.m_bRecommended, isContentDisabled : disabled && isContentDisabled);
 		}
+		
+		//check if MP and Workshop should be accessible
+		
+		HandleEntry("Multiplayer", isContentDisabled);
+		HandleEntry("Workshop", isContentDisabled);
+		HandleEntry("MainTile", isContentDisabled );
+		
+		Widget warning = GetRootWidget().FindAnyWidget("WarningDownloading");
+			if (warning)
+				warning.SetVisible(isContentDisabled);
+		
+		Widget presets = GetRootWidget().FindAnyWidget("PresetsButton");
+		if (presets)
+		{
+			presets.SetEnabled(!isContentDisabled);
+			presets.SetVisible(!isContentDisabled);
+		}
+		
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	protected void HandleEntry(string tileName, bool isContentDisabled)
+	{
+		Widget widget = GetRootWidget().FindAnyWidget(tileName);
+		if (!widget)
+			return;
+		
+		widget.SetEnabled(!isContentDisabled);
+		ImageWidget background = ImageWidget.Cast(widget.FindAnyWidget("ImageDefault"));
+		if (background)
+			background.SetSaturation(!isContentDisabled);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -519,9 +556,6 @@ class MainMenuUI : ChimeraMenuBase
 			if (item)
 				m_aNews.Insert(new SCR_NewsEntry(item));
 		}
-	//!
-	//! \param[out] entries
-	//! \return
 
 		if (entries)
 			entries = m_aNews;
@@ -544,8 +578,7 @@ class MainMenuUI : ChimeraMenuBase
 		for (int i, cnt = GetGame().GetBackendApi().GetNotifyCount(); i < cnt; i++)
 		{
 			NewsFeedItem item = GetGame().GetBackendApi().GetNotifyItem(i);
-	//!
-	//! \return
+
 			if (item)
 				m_aNews.Insert(new SCR_NewsEntry(item));
 		}
@@ -610,5 +643,12 @@ class MainMenuUI : ChimeraMenuBase
 			return;
 
 		SCR_ServicesStatusDialogUI.OpenIfServicesAreNotOK();
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	override void OnMenuClose()
+	{
+		super.OnMenuClose();
+		GetGame().m_OnGameInstallComplete.Remove(PrepareTiles);
 	}
 }

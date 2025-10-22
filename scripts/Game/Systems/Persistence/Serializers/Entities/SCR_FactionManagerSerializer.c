@@ -101,6 +101,7 @@ class SCR_FactionManagerSerializer : ScriptedEntitySerializer
 	override protected bool Deserialize(notnull IEntity entity, notnull BaseSerializationLoadContext context)
 	{
 		SCR_FactionManager factionManager = SCR_FactionManager.Cast(entity);
+		SCR_DelegateFactionManagerComponent delegateFactionManager = SCR_DelegateFactionManagerComponent.GetInstance();
 
 		int version;
 		context.Read(version);
@@ -120,7 +121,16 @@ class SCR_FactionManagerSerializer : ScriptedEntitySerializer
 				continue;
 
 			if (faction.IsPlayable() != changedFaction.m_bPlayable)
+			{
 				faction.SetIsPlayable(changedFaction.m_bPlayable, false);
+				if (delegateFactionManager)
+				{
+					// Make visible for GM editing UI
+					SCR_EditableFactionComponent delegate = delegateFactionManager.GetFactionDelegate(faction);
+					if (delegate)
+						delegate.SetVisible(changedFaction.m_bPlayable);
+				}
+			}
 
 			bool anyChanged = false;
 			foreach (auto otherFaction : factions)

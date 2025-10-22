@@ -61,7 +61,7 @@ class SCR_GameModeCampaignSerializer : ScriptedEntitySerializer
 			foreach (FactionKey factionKey, UUID commanderId : factionCommanders)
 			{
 				Tuple1<FactionKey> ctx(factionKey);
-				PersistenceWhenAvailableTask task(ctx, OnPlayerAvailable);
+				PersistenceWhenAvailableTask task(OnPlayerAvailable,  ctx);
 				GetSystem().WhenAvailable(commanderId, task, m_fMaxCommanderReconnectTime);
 			}
 		}
@@ -70,7 +70,7 @@ class SCR_GameModeCampaignSerializer : ScriptedEntitySerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnPlayerAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnPlayerAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto playerController = PlayerController.Cast(instance);
 		if (!playerController)

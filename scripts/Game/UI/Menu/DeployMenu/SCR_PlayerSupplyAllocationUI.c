@@ -40,21 +40,24 @@ class SCR_PlayerSupplyAllocationUI : ScriptedWidgetComponent
 	{
 		super.HandlerAttached(w);
 
-		if (SCR_Global.IsEditMode())
+		if (SCR_Global.IsEditMode() || !m_PlayerController)
+		{
+			w.SetVisible(false);
 			return;
-
-		m_wSuppliesText = RichTextWidget.Cast(w.GetParent().FindAnyWidget(m_sSuppliesText));
-
-		if (!m_PlayerController)
-			return;
+		}
 
 		m_PlayerSupplyAllocationComponent = SCR_PlayerSupplyAllocationComponent.Cast(m_PlayerController.FindComponent(SCR_PlayerSupplyAllocationComponent));
-		if (m_PlayerSupplyAllocationComponent)
+		if (!m_PlayerSupplyAllocationComponent || !SCR_ArsenalManagerComponent.IsMilitarySupplyAllocationEnabled())
 		{
-			w.SetVisible(true);
-			m_PlayerSupplyAllocationComponent.GetOnAvailableAllocatedSuppliesChanged().Insert(OnAvailableAllocatedSuppliesChanged);
-			m_PlayerSupplyAllocationComponent.GetOnMilitarySupplyAllocationChanged().Insert(OnMilitarySupplyAllocationChanged);
+			w.SetVisible(false);
+			return;
 		}
+
+		w.SetVisible(true);
+		m_wSuppliesText = RichTextWidget.Cast(w.GetParent().FindAnyWidget(m_sSuppliesText));
+
+		m_PlayerSupplyAllocationComponent.GetOnAvailableAllocatedSuppliesChanged().Insert(OnAvailableAllocatedSuppliesChanged);
+		m_PlayerSupplyAllocationComponent.GetOnMilitarySupplyAllocationChanged().Insert(OnMilitarySupplyAllocationChanged);
 
 		SetPlayerCurrentAndLimitAllocation(w);
 	}
@@ -82,8 +85,6 @@ class SCR_PlayerSupplyAllocationUI : ScriptedWidgetComponent
 
 		m_iAvailableSuppliesAmount = m_PlayerSupplyAllocationComponent.GetPlayerAvailableAllocatedSupplies();
 		m_iMaxAvailableSuppliesAmount = m_PlayerSupplyAllocationComponent.GetPlayerMilitarySupplyAllocation();
-		
-		w.SetVisible(m_iMaxAvailableSuppliesAmount > 0);
 		
 		UpdateSupplyAmountText();
 	}

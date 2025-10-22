@@ -5,11 +5,11 @@ Do not modify, this script is generated
 */
 
 /*!
-\addtogroup Components
+\addtogroup Buildings
 \{
 */
 
-class BaseFlattenGrassComponent: GameComponent
+class MapDescriptorComponentClass: GameComponentClass
 {
 }
 

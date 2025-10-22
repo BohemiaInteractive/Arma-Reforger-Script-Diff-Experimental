@@ -9,9 +9,8 @@ Do not modify, this script is generated
 \{
 */
 
-enum ESaveGameType
+sealed enum ESaveGameType
 {
-	NONE,
 	MANUAL,
 	AUTO,
 	SHUTDOWN,

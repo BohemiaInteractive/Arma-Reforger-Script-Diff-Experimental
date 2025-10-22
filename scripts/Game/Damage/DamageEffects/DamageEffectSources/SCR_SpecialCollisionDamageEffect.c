@@ -15,6 +15,12 @@ class SCR_SpecialCollisionDamageEffect : SCR_PersistentDamageEffect
 	protected int m_iDamageSoundEvent = 0;
 
 	//------------------------------------------------------------------------------------------------
+	string GetDamageSoundEvent()
+	{
+		return m_sOnDamageSoundEvent;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected override void HandleConsequences(SCR_ExtendedDamageManagerComponent dmgManager, DamageEffectEvaluator evaluator)
 	{
 		super.HandleConsequences(dmgManager, evaluator);
@@ -115,6 +121,28 @@ class SCR_SpecialCollisionDamageEffect : SCR_PersistentDamageEffect
 		
 		characterDamageMgr.PlaySoundEvent(m_sOnDamageSoundEvent);
 	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Coppies the necessary informations from the entity which caused this damage effect
+	//! \param[in] srcEnt
+	protected void CopyDataFromSourceEntity(notnull IEntity srcEnt)
+	{
+		SCR_SpecialCollisionHandlerComponent specialCollisionComp = SCR_SpecialCollisionHandlerComponent.Cast(srcEnt.FindComponent(SCR_SpecialCollisionHandlerComponent));
+		if (!specialCollisionComp)
+			return;
+
+		array<SCR_SpecialCollisionDamageEffect> damageEffects = {};
+		specialCollisionComp.GetSpecialCollisionDamageEffects(damageEffects);
+		typename thisType = Type();
+		foreach (SCR_SpecialCollisionDamageEffect effect : damageEffects)
+		{
+			if (effect.Type() != thisType)
+				continue;
+
+			m_sOnDamageSoundEvent = effect.GetDamageSoundEvent();
+			break;
+		}
+	}
 	
 	//------------------------------------------------------------------------------------------------
 	override bool Save(ScriptBitWriter w)
@@ -153,9 +181,14 @@ class SCR_SpecialCollisionDamageEffect : SCR_PersistentDamageEffect
 			r.ReadRplId(reponsibleEntRplId);
 			RplComponent reponsibleEntRplComp = RplComponent.Cast(Replication.FindItem(reponsibleEntRplId));
 			if (reponsibleEntRplComp)
+			{
 				m_ResponsibleEntity = reponsibleEntRplComp.GetEntity();
+				CopyDataFromSourceEntity(m_ResponsibleEntity);
+			}
 			else
+			{
 				m_ResponsibleEntity = null;
+			}
 		}
 
 		return true;

@@ -21,11 +21,8 @@ class ValidateFBXPlugin: WorkbenchPlugin
 	[Attribute("0", UIWidgets.ComboBox, "", "", enums: GetAssetTypes(), category: "Asset Type")]
 	int Type;
 	
-	[Attribute("", uiwidget: UIWidgets.FileNamePicker, desc: "Path to folder where your log file will be created", params: "folders FileNameFormat=absolute", category: "Path")]
+	[Attribute("", uiwidget: UIWidgets.FileNamePicker, desc: "Must be defined if FBX report is wanted!! Path to a folder where temporary log file will be stored.", params: "folders FileNameFormat=absolute", category: "Path")]
 	string log_file_folder_path;
-	
-	[Attribute("1", UIWidgets.CheckBox, "", "")]
-	bool Validate_materials
 	
 	static ref array<string> allFbxs = new array<string>;
 	
@@ -81,6 +78,7 @@ class ValidateFBXPlugin: WorkbenchPlugin
 	
 	override void OnResourceContextMenu(notnull array<ResourceName> resources) 
 	{
+		ValidateMaterialPlugin.materials.Clear();
 		FillAssetTypes();
 		if (Workbench.ScriptDialog("Validate FBXs", "Select one FBX file you want to validate, also possible to select whole folder", this))
 		{
@@ -104,12 +102,16 @@ class ValidateFBXPlugin: WorkbenchPlugin
 			if (fbxPath.EndsWith(".xob"))
 				fbxPath.Replace(".xob", ".fbx");
 			// Clean log file from previous report
-			string logFilePath = log_file_folder_path + "/MQA_Log.txt";
-			
-			logFilePath.Replace("\\","/");
-			if (FileIO.FileExists(logFilePath))
+			string log_file = log_file_folder_path;
+			if(log_file != "")
 			{
-				FileIO.DeleteFile(logFilePath);
+				log_file += "/MQA_Log.txt";
+			}
+
+			log_file.Replace("\\","/");
+			if (FileIO.FileExists(log_file))
+			{
+				FileIO.DeleteFile(log_file);
 			}
 
 			// Blender Validation
@@ -119,24 +121,6 @@ class ValidateFBXPlugin: WorkbenchPlugin
 			}
 			else
 			{
-				BlenderOperatorDescription operatorDescription = new BlenderOperatorDescription("modelqa");
-				operatorDescription.blIDName = "ebt.mqa_report_background";
-				operatorDescription.AddParam("log_file_path",logFilePath);
-				operatorDescription.AddParam("fbx_path", fbxPath); 
-				operatorDescription.AddParam("asset_type", s_AssetTypes.Get(Type).m_Key);
-				StartBlenderWithOperator(operatorDescription, true);	
-			}
-						
-			
-			if(Validate_materials)
-			{
-				string toolPath;
-				const string TOOL_NAME = "/ValidateResource.exe";
-				string rootPath;
-				Workbench.GetCwd(rootPath);
-				toolPath = rootPath + TOOL_NAME; 
-				string command =  "\"" + toolPath + "\"";
-				
 				map<string, ResourceName> materials = new map<string, ResourceName>();
 				EBTEmatUtils ematUtils = new EBTEmatUtils();
 				bool meta = ematUtils.GetMaterials(resources[0].GetPath(), materials);
@@ -146,15 +130,21 @@ class ValidateFBXPlugin: WorkbenchPlugin
 					ValidateMaterialPlugin.materials.Insert(materials.Get(materials.GetKey(i)));
 				}
 				
-				command += " --matCount " + ValidateMaterialPlugin.materials.Count();
-				command += " --slot --dep --res --imp --st --rgb --type --def --uv --uvMax 5 --uvMin 0 --ext --extMax 95 --extMin 5 -pl Material";
-				Workbench.RunProcess(command);
+				BlenderOperatorDescription operatorDescription = new BlenderOperatorDescription("modelqa");
+				operatorDescription.blIDName = "ebt.mqa_report_background";
+				operatorDescription.AddParam("log_file_path",log_file);
+				operatorDescription.AddParam("fbx_path", fbxPath); 
+				operatorDescription.AddParam("asset_type", s_AssetTypes.Get(Type).m_Key);
+				operatorDescription.AddParam("mat_count", ValidateMaterialPlugin.materials.Count());
+				StartBlenderWithOperator(operatorDescription, true);	
 			}
+
 		}
 	}
 	
 	override void Run()
 	{
+		ValidateMaterialPlugin.materials.Clear();
 		FillAssetTypes();
 		if (Workbench.ScriptDialog("Validate FBXs", "Select one or multiple FBX files you want to validate, also possible to select whole folder", this))
 		{
@@ -177,16 +167,22 @@ class ValidateFBXPlugin: WorkbenchPlugin
 			// fbxPath
 			string fbxPath;
 			Workbench.GetAbsolutePath(resources[0].GetPath(),fbxPath);
-
+			
 			if (fbxPath.EndsWith(".xob"))
 				fbxPath.Replace(".xob", ".fbx");
 			// Clean log file from previous report
-			string logFilePath = log_file_folder_path + "/MQA_Log.txt";
-			logFilePath.Replace("\\","/");
-			if (FileIO.FileExists(logFilePath))
+			string log_file = log_file_folder_path;
+			if(log_file != "")
 			{
-				FileIO.DeleteFile(logFilePath);
+				log_file += "/MQA_Log.txt";
 			}
+
+			log_file.Replace("\\","/");
+			if (FileIO.FileExists(log_file))
+			{
+				FileIO.DeleteFile(log_file);
+			}
+
 			
 			// Blender Validation
 			if (!EBTConfigPlugin.HasBlenderRegistered())
@@ -195,25 +191,6 @@ class ValidateFBXPlugin: WorkbenchPlugin
 			}
 			else
 			{
-				BlenderOperatorDescription operatorDescription = new BlenderOperatorDescription("modelqa");
-				operatorDescription.blIDName = "ebt.mqa_report_background";	
-					
-				operatorDescription.AddParam("log_file_path",logFilePath);
-				operatorDescription.AddParam("fbx_path", fbxPath); 
-				operatorDescription.AddParam("asset_type", s_AssetTypes.Get(Type).m_Key);
-				StartBlenderWithOperator(operatorDescription, true);	
-			}
-			
-			
-			if(Validate_materials)
-			{
-				string toolPath;
-				const string TOOL_NAME = "/ValidateResource.exe";
-				string rootPath;
-				Workbench.GetCwd(rootPath);
-				toolPath = rootPath + TOOL_NAME; 
-				string command =  "\"" + toolPath + "\"";
-				
 				map<string, ResourceName> materials = new map<string, ResourceName>();
 				EBTEmatUtils ematUtils = new EBTEmatUtils();
 				bool meta = ematUtils.GetMaterials(resources[0].GetPath(), materials);
@@ -222,11 +199,15 @@ class ValidateFBXPlugin: WorkbenchPlugin
 				{
 					ValidateMaterialPlugin.materials.Insert(materials.Get(materials.GetKey(i)));
 				}
-				
-				command += " --matCount " + ValidateMaterialPlugin.materials.Count();
-				command += " --slot --dep --res --imp --st --rgb --type --def --uv --uvMax 5 --uvMin 0 --ext --extMax 95 --extMin 5 -pl Material";
-				Workbench.RunProcess(command);
+				BlenderOperatorDescription operatorDescription = new BlenderOperatorDescription("modelqa");
+				operatorDescription.blIDName = "ebt.mqa_report_background";
+				operatorDescription.AddParam("log_file_path",log_file);
+				operatorDescription.AddParam("fbx_path", fbxPath); 
+				operatorDescription.AddParam("asset_type", s_AssetTypes.Get(Type).m_Key);
+				operatorDescription.AddParam("mat_count", ValidateMaterialPlugin.materials.Count());
+				StartBlenderWithOperator(operatorDescription, true);		
 			}
+
 		}
 	}
 	
@@ -280,33 +261,62 @@ class FBXReportToolMessage: NetApiHandler
 		
 		FileHandle fRead = FileIO.OpenFile(req.logFile, FileMode.READ);
 		
-		Print(req.logFile);
-	    string fLine;
-		while (fRead.ReadLine(fLine) != -1)
+		
+		array<string> errors = new array<string>;
+		int warning_count = 0;
+		int info_count = 0;
+		if(req.logFile)
 		{
-			string logLevel = fLine.Substring(0,3);
-			LogLevel level;
-			string reportLine = fLine.Substring(3,fLine.Length()-3);
-			
-			switch(logLevel)
+			PrintFormat("FBX Mesh Report:", level:LogLevel.DEBUG);
+		    string fLine;
+			while (fRead.ReadLine(fLine) != -1)
 			{
-				case "[W]":
-					level = LogLevel.WARNING;
-					break;
-				case "[I]":
-					level = LogLevel.DEBUG;
-					break;
-				case "[E]":
-					level = LogLevel.ERROR;
-					break;
-				default:
-					level = LogLevel.NORMAL;
-					break;
+				string logLevel = fLine.Substring(0,3);
+				LogLevel level;
+				string reportLine = fLine.Substring(3,fLine.Length()-3);
+				reportLine.Replace("'",string.Empty);
+				
+				switch(logLevel)
+				{
+					case "[W]":
+						level = LogLevel.WARNING;
+						warning_count += 1;
+						break;
+					case "[I]":
+						level = LogLevel.DEBUG;
+						info_count += 1;
+						break;
+					case "[E]":
+						level = LogLevel.ERROR;
+						errors.Insert(reportLine);
+						break;
+					default:
+						level = LogLevel.NORMAL;
+						break;
+				}
+	
+				Print(string.ToString(reportLine),level);
 			}
-
-			Print(string.ToString(reportLine),level);
+			fRead.Close();
+			
+			string summary = "\n";
+			
+			summary += string.ToString("------------ VALIDATION SUMMARY ------------\n");
+			summary += string.ToString("Errors - (" + errors.Count() + ")\n");
+			
+			Print(string.ToString("------------ VALIDATION SUMMARY ------------"));
+			Print(string.ToString("Errors - (" + errors.Count() + ")"), LogLevel.ERROR);
+			for (int i = 0; i < errors.Count(); i++)
+			{
+				summary += string.ToString(errors[i] + "\n");
+				Print(string.ToString(errors[i]),LogLevel.ERROR);
+			}
+			summary += string.ToString("Warnings - (" + warning_count + ")\n");
+			summary += string.ToString("Infos - (" + info_count + ")\n");
+			Print(string.ToString("Warnings - (" + warning_count + ")"), LogLevel.WARNING);
+			Print(string.ToString("Infos - (" + info_count + ")"), LogLevel.DEBUG);
+			System.ExportToClipboard(summary);
 		}
-		fRead.Close();
 		return response;
 	}
 }

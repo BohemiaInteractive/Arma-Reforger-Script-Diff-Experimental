@@ -1,12 +1,14 @@
 class SCR_TaskData
 {
-	string m_sID;	
-	ref SCR_TaskUIInfo m_UIInfo;	
+	string m_sID;
+	ref SCR_TaskUIInfo m_UIInfo;
 	vector m_vPosition;
 	
-	ref array<ref SCR_TaskExecutor> m_aAssignees;	
-	ref array<string> m_aOwnerFactionKeys;	
-	ref array<int> m_aOwnerGroupIDs;	
+	int m_iAuthorId;
+	
+	ref array<ref SCR_TaskExecutor> m_aAssignees;
+	ref array<string> m_aOwnerFactionKeys;
+	ref array<int> m_aOwnerGroupIDs;
 	ref array<ref SCR_TaskExecutor> m_aOwnerExecutors;
 	
 	SCR_ETaskState m_eState;
@@ -45,6 +47,8 @@ class SCR_TaskData
 		data.m_UIInfo.CopyFrom(m_UIInfo);
 			
 		data.m_vPosition = m_vPosition;
+		
+		data.m_iAuthorId = m_iAuthorId;
 
 		if (m_aAssignees && !m_aAssignees.IsEmpty())
 		{

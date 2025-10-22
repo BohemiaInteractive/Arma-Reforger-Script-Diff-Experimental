@@ -182,38 +182,26 @@ class SCR_ScenarioFrameworkArea : SCR_ScenarioFrameworkLayerBase
 
 	//------------------------------------------------------------------------------------------------
 	//! Spawns a trigger entity with specified resource, sets its radius, and attaches an activation event.
-	void SpawnTrigger()
+	protected void SetupTrigger()
 	{
-		Resource resource = Resource.Load(m_sTriggerResource);
-		if (!resource)
-			return;
+		if (!m_Trigger)
+		{
+			EntitySpawnParams spawnParams = new EntitySpawnParams();
+			spawnParams.TransformMode = ETransformMode.WORLD;
+			GetOwner().GetWorldTransform(spawnParams.Transform);
+			m_Trigger = SCR_BaseTriggerEntity.Cast(GetGame().SpawnEntityPrefabEx(m_sTriggerResource, false, params: spawnParams));
+		}
 
-		EntitySpawnParams spawnParams = new EntitySpawnParams();
-		spawnParams.TransformMode = ETransformMode.WORLD;
-		GetOwner().GetWorldTransform(spawnParams.Transform);
-
-		//--- Apply rotation
-		vector angles = Math3D.MatrixToAngles(spawnParams.Transform);
-		Math3D.AnglesToMatrix(angles, spawnParams.Transform);
-
-
-		//--- Spawn the prefab
-		BaseResourceObject resourceObject = resource.GetResource();
-		if (!resourceObject)
-			return;
-
-		string resourceName = resourceObject.GetResourceName();
-		m_Trigger = SCR_BaseTriggerEntity.Cast(GetGame().SpawnEntityPrefab(resource, GetGame().GetWorld(), spawnParams));
 		if (!m_Trigger)
 			return;
 
 		m_Trigger.SetSphereRadius(m_fAreaRadius);
 		m_Trigger.GetOnActivate().Insert(OnAreaTriggerActivated);
 
-		SCR_ScenarioFrameworkTriggerEntity characterTrigger = SCR_ScenarioFrameworkTriggerEntity.Cast(m_Trigger);
-		if (characterTrigger)
-			characterTrigger.SetOnce(m_bOnce);
-		
+		SCR_ScenarioFrameworkTriggerEntity sfTrigger = SCR_ScenarioFrameworkTriggerEntity.Cast(m_Trigger);
+		if (sfTrigger)
+			sfTrigger.SetOnce(m_bOnce);
+
 		if (m_Trigger)
 		{
 			foreach (SCR_ScenarioFrameworkActionBase triggerAction : m_aTriggerActions)
@@ -407,9 +395,8 @@ class SCR_ScenarioFrameworkArea : SCR_ScenarioFrameworkLayerBase
 	override void AfterAllChildrenSpawned(SCR_ScenarioFrameworkLayerBase layer)
 	{
 		super.AfterAllChildrenSpawned(layer);
-		
-		if (!SCR_StringHelper.IsEmptyOrWhiteSpace(m_sTriggerResource))
-			SpawnTrigger();
+
+		SetupTrigger();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -582,7 +569,9 @@ class SCR_ScenarioFrameworkArea : SCR_ScenarioFrameworkLayerBase
 		{
 			if (child.GetActivationType() == SCR_ScenarioFrameworkEActivationType.ON_INIT)
 			{
-				child.Init(this, SCR_ScenarioFrameworkEActivationType.ON_INIT);
+				if (scenarioFrameworkSystem && scenarioFrameworkSystem.IsMaster())
+					child.Init(this, SCR_ScenarioFrameworkEActivationType.ON_INIT);
+
 				child.SetActivationType(SCR_ScenarioFrameworkEActivationType.SAME_AS_PARENT);
 			}
 			

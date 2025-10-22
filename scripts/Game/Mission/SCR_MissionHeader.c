@@ -30,6 +30,9 @@ class SCR_MissionHeader : MissionHeader
 	[Attribute("1", UIWidgets.EditBox, "The count of players for this mission")]
 	int m_iPlayerCount;
 
+	[Attribute("0", UIWidgets.Flags, "If all save types are disabled, the entire persistence system is disabled", enumType: ESaveGameType)]
+	ESaveGameType m_eSaveTypes;
+
 	[Attribute("0", uiwidget: UIWidgets.Flags, "Editable Game Flags", "", ParamEnumArray.FromEnum(EGameFlags))]
 	EGameFlags m_eEditableGameFlags;
 

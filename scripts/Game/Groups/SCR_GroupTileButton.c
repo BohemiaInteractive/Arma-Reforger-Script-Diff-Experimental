@@ -676,7 +676,7 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 		SCR_GadgetManagerComponent gadgetManager;
 		TextWidget playerName, playerFrequency;
 		ImageWidget taskIcon, muteIcon, background, loadoutIcon;
-		string m_sTaskText;
+		//string m_sTaskText;
 		SizeLayoutWidget m_wTaskLayout;
 		ButtonWidget playerButton;
 		SCR_TaskExecutor taskExecutor;

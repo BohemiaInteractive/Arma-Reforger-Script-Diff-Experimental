@@ -71,6 +71,18 @@ class SCR_DotDamageEffect : DotDamageEffect
 		SkipRegenDelay(false);
 		return skip;
 	}
+
+	//------------------------------------------------------------------------------------------------
+	override float GetCustomDamageValue()
+	{
+		return GetDPS();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Method called locally by SCR_DamageSufferingSystem to allow local computation of the DPS
+	//! \param[in] timeSlice
+	//! \param[in] dmgManager
+	void RecalculateDPS(float timeSlice, notnull SCR_ExtendedDamageManagerComponent dmgManager);
 }
 
 /*!

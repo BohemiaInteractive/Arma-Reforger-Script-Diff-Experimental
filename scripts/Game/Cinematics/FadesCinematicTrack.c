@@ -24,12 +24,20 @@ class FadesCinematicTrack : CinematicTrackBase
 	
 	void DestroyScreen()
 	{
-		if (m_bDestroyBlackscreenOnTimelineEnd && m_wBlackScreen)
+		SCR_BaseGameMode gamemode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			
+		if (gamemode)
+			gamemode.GetOnGameEnd().Remove(DestroyScreen);
+
+		if (m_wBlackScreen)
 			m_wBlackScreen.RemoveFromHierarchy();
 	}
 	
 	override void OnFinish()
 	{
+		if (!m_bDestroyBlackscreenOnTimelineEnd)
+			return;
+		
 		if (m_iDestroyLaterInSeconds == 0)
 			DestroyScreen();
 		else
@@ -39,7 +47,14 @@ class FadesCinematicTrack : CinematicTrackBase
 	override void OnInit(World world)
 	{		
 		if (!m_wBlackScreen)
+		{
 			m_wBlackScreen = GetGame().GetWorkspace().CreateWidgets(FADEOUT_LAYOUT);
+			
+			SCR_BaseGameMode gamemode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			
+			if (gamemode)
+				gamemode.GetOnGameEnd().Insert(DestroyScreen);
+		}
 	}
 	
 	override void OnApply(float time)

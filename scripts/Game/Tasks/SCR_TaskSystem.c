@@ -1492,7 +1492,7 @@ class SCR_TaskSystem : GameSystem
 	//! \param[in] desc
 	//! \param[in] position
 	//! \return
-	SCR_Task CreateTask(ResourceName taskResourceName, string taskID, string name, string desc, vector position = vector.Zero)
+	SCR_Task CreateTask(ResourceName taskResourceName, string taskID, string name, string desc, vector position = vector.Zero, int playerId = -1)
 	{
 		if (Replication.IsClient())
 		{
@@ -1532,9 +1532,10 @@ class SCR_TaskSystem : GameSystem
 		{
 			Print("SCR_TaskSystem: Failed to create task with ID: " + taskID, LogLevel.WARNING);
 			return null;
-		}		
+		}
 		
 		task.SetTaskID(taskID);
+		task.SetAuthorID(playerId);
 		
 		if (!SCR_StringHelper.IsEmptyOrWhiteSpace(name))
 			task.SetTaskName(name);

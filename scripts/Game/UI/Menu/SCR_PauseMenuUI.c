@@ -504,7 +504,7 @@ class PauseMenuUI : ChimeraMenuBase
 		if (IsSavingOnExit())
 		{
 			//--- Close only after the save file was created
-			GetGame().GetSaveGameManager().RequestSavePoint(ESaveGameType.AUTO, callback: new SaveGameOperationCb(handler: OnExitSaveResult))
+			GetGame().GetSaveGameManager().RequestSavePoint(ESaveGameType.SHUTDOWN, flags: ESaveGameRequestFlags.BLOCKING, callback: new SaveGameOperationCb(OnExitSaveResult))
 		}
 		else
 		{
@@ -514,7 +514,7 @@ class PauseMenuUI : ChimeraMenuBase
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnExitSaveResult(Managed context, bool success)
+	protected void OnExitSaveResult(bool success)
 	{
 		if (success)
 		{
@@ -717,7 +717,9 @@ class PauseMenuUI : ChimeraMenuBase
 	private void OnRestartConfirm()
 	{
 		GetGame().GetMenuManager().CloseAllMenus();
-		GameStateTransitions.RequestScenarioRestart();
+
+		auto manager = GetGame().GetSaveGameManager();
+		manager.StartPlaythrough(manager.GetCurrentMissionResource());
 	}
 
 	//------------------------------------------------------------------------------------------------

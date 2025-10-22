@@ -60,7 +60,7 @@ class SCR_AmbientVehicleSpawnPointComponentSerializer : ScriptedComponentSeriali
 		if (context.Read(vehicleId) && !vehicleId.IsNull())
 		{
 			Tuple1<SCR_AmbientVehicleSpawnPointComponent> ctx(ambientVehicle);
-			PersistenceWhenAvailableTask task(ctx, OnVehicleAvailable);
+			PersistenceWhenAvailableTask task(OnVehicleAvailable, ctx);
 			GetSystem().WhenAvailable(vehicleId, task);
 		}
 
@@ -76,7 +76,7 @@ class SCR_AmbientVehicleSpawnPointComponentSerializer : ScriptedComponentSeriali
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnVehicleAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnVehicleAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto vehicle = Vehicle.Cast(instance);
 		if (!vehicle)

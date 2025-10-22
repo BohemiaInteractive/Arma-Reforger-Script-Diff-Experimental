@@ -515,10 +515,11 @@ class SCR_CharacterFactionAffiliationComponent : FactionAffiliationComponent
 			m_PerceivedFaction = GetGame().GetFactionManager().GetFactionByIndex(m_iOutfitFactionIndex);
 		}
 
+		m_bHasPerceivedFaction = m_PerceivedFaction != null;
+
 		if (m_OnPerceivedFactionChanged)
 				m_OnPerceivedFactionChanged.Invoke(m_PerceivedFaction);
-				
-		
+
 		Faction affiliatedFaction = GetAffiliatedFaction();
 		
 		//~ Local player changed perceived faction

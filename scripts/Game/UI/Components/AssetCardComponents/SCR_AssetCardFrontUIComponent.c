@@ -402,11 +402,11 @@ class SCR_AssetCardFrontUIComponent : SCR_ScriptedWidgetComponent
 		m_wAssetCardName.GetScreenSize(width, height);
 		
 		// Checks if content does not fit before starting animation
-		if (hoverEntered && !m_HorizontalScrollComponent.GetContentFit() && width > 0)
+		if (hoverEntered && !m_HorizontalScrollComponent.GetContentFitX() && width > 0)
 		{
 			m_HorizontalScrollComponent.AnimationStart();
 		}
-		else if (!hoverEntered || m_HorizontalScrollComponent.GetContentFit() || width <= 0)
+		else if (!hoverEntered || m_HorizontalScrollComponent.GetContentFitX() || width <= 0)
 		{
 			m_HorizontalScrollComponent.AnimationStop();
 			m_HorizontalScrollComponent.ResetPosition();

@@ -2,8 +2,18 @@
 [BaseContainerProps(), SCR_BaseContainerCustomTitleUIInfo("m_Info")]
 class SCR_TeleportCameraContextAction : SCR_GeneralContextAction
 {
+	[Attribute("0", desc: "Determines if this action will be available if the current Editor mode is Limited")]
+	bool m_bIsUnlimitedOnly;
+	
 	override bool CanBeShown(SCR_EditableEntityComponent hoveredEntity, notnull set<SCR_EditableEntityComponent> selectedEntities, vector cursorWorldPosition, int flags)
 	{
+		if (m_bIsUnlimitedOnly)
+		{
+			SCR_EditorManagerEntity editorManager = SCR_EditorManagerEntity.GetInstance();
+			if (!editorManager || editorManager.IsLimited())
+				return false;
+		}
+
 		return CanBePerformed(hoveredEntity, selectedEntities, cursorWorldPosition, flags);
 	}
 	

@@ -28,6 +28,10 @@ class DamageManagerComponent: HitZoneContainerComponent
 	proto external void EnableDamageHandling(bool enable);
 	//Returns true if this damage manager and its hitzones can take damage
 	proto external bool IsDamageHandlingEnabled();
+	//! Call to enable damage system's on frame
+	proto external void EnableDamageSystemOnFrame();
+	//! Call to disable damage system's on frame
+	proto external void DisableDamageSystemOnFrame();
 	//! Sets the movement damage modifier
 	//! \warning Only usable by ChimeraCharacters and Vehicles.
 	proto external void SetMovementDamage(float damage);

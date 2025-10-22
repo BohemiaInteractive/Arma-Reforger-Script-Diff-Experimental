@@ -47,7 +47,7 @@ class ArmaReforgerScripted : ChimeraGame
 
 	//! Object responsible for managing and providing game modes with list of available loadouts.
 	protected SCR_LoadoutManager m_pLoadoutManager;
-	
+
 	//! Object responsible for tracking and connecting to the database for Career Profile
 	protected SCR_DataCollectorComponent m_DataCollectorComponent;
 
@@ -66,19 +66,20 @@ class ArmaReforgerScripted : ChimeraGame
 	protected ref ScriptInvoker m_OnWorldSimulatePhysicsInvoker = new ScriptInvoker();
 	protected ref ScriptInvoker<int, int, bool> m_OnWindowResizeInvoker = new ScriptInvoker();
 	protected ref ScriptInvokerVoid m_OnHUDManagerChanged = new ScriptInvokerVoid();
+	ref ScriptInvoker<bool> m_OnGameInstallComplete = new ScriptInvoker();
 
 	protected ref ScriptCallQueue m_Callqueue = new ScriptCallQueue();
 
 	protected ref SCR_ResourceGrid m_ResourceGrid;
 	protected ref SCR_ResourceSystemSubscriptionManager m_ResourceSystemSubscriptionManager;
-	
+
 	//------------------------------------------------------------------------------------------------
 	// destructor
 	void ~ArmaReforgerScripted()
 	{
 		g_ARGame = null;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! Spawn entity or potential entity variant
 	//! \param[in] prefab Entity prefab to spawn
@@ -91,10 +92,10 @@ class ArmaReforgerScripted : ChimeraGame
 		Resource prefabResource = Resource.Load(prefab);
 		if (!prefabResource.IsValid())
 			return null;
-		
+
 		if (!randomizeEditableVariant)
 			return SpawnEntityPrefab(prefabResource, world, params);
-		
+
 		return SpawnEntityPrefab(Resource.Load(SCR_EditableEntityComponentClass.GetRandomVariant(prefab)), world, params);
 	}
 
@@ -117,17 +118,17 @@ class ArmaReforgerScripted : ChimeraGame
 	{
 		if (!m_ResourceGrid)
 			m_ResourceGrid = new SCR_ResourceGrid();
-		
+
 		return m_ResourceGrid;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! \return
 	SCR_ResourceSystemSubscriptionManager GetResourceSystemSubscriptionManager()
 	{
 		if (!m_ResourceSystemSubscriptionManager)
 			m_ResourceSystemSubscriptionManager = new SCR_ResourceSystemSubscriptionManager();
-		
+
 		return m_ResourceSystemSubscriptionManager;
 	}
 
@@ -141,10 +142,10 @@ class ArmaReforgerScripted : ChimeraGame
 			Print("Trying to register a SCR_DataCollectorComponent, but one is already registered!", LogLevel.ERROR);
 			return;
 		}
-		
+
 		m_DataCollectorComponent = instance;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//!
 	//! \param[in] manager
@@ -154,7 +155,7 @@ class ArmaReforgerScripted : ChimeraGame
 		if (m_BuildingDestructionManager == manager)
 			m_BuildingDestructionManager = null;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//!
 	//! \param[in] manager
@@ -165,17 +166,17 @@ class ArmaReforgerScripted : ChimeraGame
 			Print("Trying to register a SCR_BuildingDestructionManagerComponent, but one is already registered!", LogLevel.ERROR);
 			return;
 		}
-		
+
 		m_BuildingDestructionManager = manager;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! \return
 	SCR_BuildingDestructionManagerComponent GetBuildingDestructionManager()
 	{
 		return m_BuildingDestructionManager;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! Returns currently registered SCR_LoadoutManager if any is present.
 	//! \return Reference to loadout manager or null if none.
@@ -183,27 +184,27 @@ class ArmaReforgerScripted : ChimeraGame
 	{
 		return m_pLoadoutManager;
 	}
-			
+
 	//------------------------------------------------------------------------------------------------
 	//! \return
 	SCR_SettingsManager GetSettingsManager()
 	{
 		if (!m_SettingsManager)
 			m_SettingsManager = new SCR_SettingsManager();
-		
+
 		return m_SettingsManager;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! \return
 	SCR_ProfaneFilter GetProfanityFilter()
 	{
 		if (!m_ProfanityFilter)
 			m_ProfanityFilter = new SCR_ProfaneFilter();
-		
+
 		return m_ProfanityFilter;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! \return
 	bool GetHasKeyboard()
@@ -245,7 +246,7 @@ class ArmaReforgerScripted : ChimeraGame
 	{
 		return m_OnWorldSimulatePhysicsInvoker;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! \return
 	ScriptInvoker OnWindowResizeInvoker()
@@ -261,8 +262,14 @@ class ArmaReforgerScripted : ChimeraGame
 		SCR_MissionHeader pHeader = SCR_MissionHeader.Cast(mission);
 		if (pHeader)
 			SetGameFlags(pHeader.m_eDefaultGameFlags, false);
-		
+
 		GameSessionStorage.s_Data["m_iRejoinAttempt"] = "0";
+
+		ESaveGameType enabledSaveTypes = 0;
+		if (pHeader)
+			enabledSaveTypes = pHeader.m_eSaveTypes;
+
+		GetSaveGameManager().SetEnabledSaveTypes(enabledSaveTypes);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -275,6 +282,12 @@ class ArmaReforgerScripted : ChimeraGame
 	override void OnCinematicEnd()
 	{
 		Print("Cinematic end", LogLevel.DEBUG);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	override void OnGameInstallComplete()
+	{
+		m_OnGameInstallComplete.Invoke(false);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -291,7 +304,7 @@ class ArmaReforgerScripted : ChimeraGame
 			}
 		}
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! Called after player was kicked from game back to main menu, providing reason for the kick.
 	override protected void OnKickedFromGame(KickCauseCode kickCode)
@@ -299,13 +312,13 @@ class ArmaReforgerScripted : ChimeraGame
 		KickCauseGroup2 groupInt;
 		int reasonInt;
 		string group, reason;
-		
+
 		//~ Get the kick reason ID
 		GetFullKickReason(kickCode, groupInt, reasonInt, group, reason);
 
 		// Detail
 		const string format = "Kick cause code: group=%1 '%2', reason=%3 '%4'";
-		string strDetail = string.Format(format , groupInt, group, reasonInt, reason);
+		string strDetail = string.Format(format, groupInt, group, reasonInt, reason);
 		Print(strDetail, LogLevel.NORMAL);
 
 		//  Set dialog tag
@@ -316,7 +329,7 @@ class ArmaReforgerScripted : ChimeraGame
 			dialogTag = "DEFAULT_ERROR";
 		else
 		{
-			// No specific reason in group 
+			// No specific reason in group
 			if (reason == "<unknown>")
 			{
 				dialogTag = group;
@@ -325,11 +338,11 @@ class ArmaReforgerScripted : ChimeraGame
 
 		// Set msg
 		SCR_KickDialogs.CreateKickErrorDialog(dialogTag, group, strDetail);
-		
+
 		// Add rejoin attempt
 		AddRejoinAttempt();
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! Convert KickCauseCode into proper kick reason variables
 	//! \param[in] kickCode Kick code to convert
@@ -342,14 +355,14 @@ class ArmaReforgerScripted : ChimeraGame
 	{
 		groupInt = KickCauseCodeAPI.GetGroup(kickCode);
 		reasonInt = KickCauseCodeAPI.GetReason(kickCode);
-		
+
 		group = "<unknown>";
 		reason = "<unknown>";
-		switch(groupInt)
+		switch (groupInt)
 		{
 			case RplKickCauseGroup.REPLICATION:
 				group = "REPLICATION";
-				switch(reasonInt)
+				switch (reasonInt)
 				{
 					case RplError.SYSTEM_FAILURE: reason = "SYSTEM_FAILURE"; return true;
 					case RplError.DISCONNECTION: reason = "DISCONNECTION"; return true;
@@ -366,7 +379,7 @@ class ArmaReforgerScripted : ChimeraGame
 
 			case KickCauseGroup.BATTLEYE_INIT:
 				group = "BATTLEYE_INIT";
-				switch(reasonInt)
+				switch (reasonInt)
 				{
 					case BattlEyeInitError.LOAD_ERROR: reason = "LOAD_ERROR"; return true;
 					case BattlEyeInitError.UNSUPPORTED_VERSION: reason = "UNSUPPORTED_VERSION"; return true;
@@ -376,7 +389,7 @@ class ArmaReforgerScripted : ChimeraGame
 
 			case KickCauseGroup.BATTLEYE:
 				group = "BATTLEYE";
-				switch(reasonInt)
+				switch (reasonInt)
 				{
 					case BattlEyeKickReason.CLIENT_NOT_RESPONDING: reason = "CLIENT_NOT_RESPONDING"; return true;
 					case BattlEyeKickReason.QUERY_TIMEOUT: reason = "QUERY_TIMEOUT"; return true;
@@ -395,7 +408,7 @@ class ArmaReforgerScripted : ChimeraGame
 
 			case KickCauseGroup.DATA:
 				group = "DATA";
-				switch(reasonInt)
+				switch (reasonInt)
 				{
 					case DataError.VERSION_MISMATCH: reason = "VERSION_MISMATCH"; return true;
 					case DataError.RDB_MISMATCH: reason = "RDB_MISMATCH"; return true;
@@ -409,7 +422,7 @@ class ArmaReforgerScripted : ChimeraGame
 
 			case KickCauseGroup2.PLATFORM:
 				group = "PLATFORM";
-				switch(reasonInt)
+				switch (reasonInt)
 				{
 					case PlatformKickReason.ACTIVE_USER_LOST: reason = "ACTIVE_USER_LOST"; return true;
 					case PlatformKickReason.NO_MP_PRIVILEGE: reason = "NO_MP_PRIVILEGE"; return true;
@@ -434,7 +447,7 @@ class ArmaReforgerScripted : ChimeraGame
 				}
 			break;
 		}
-		
+
 		return false;
 	}
 
@@ -444,13 +457,13 @@ class ArmaReforgerScripted : ChimeraGame
 		// Get count
 		string strAttempt = GameSessionStorage.s_Data["m_iRejoinAttempt"];
 		int attempt = 0;
-		
+
 		// Setup number
 		if (strAttempt.IsEmpty())
 		{
 			GameSessionStorage.s_Data["m_iRejoinAttempt"] = "0";
-		}	
-		else 
+		}
+		else
 		{
 			attempt = strAttempt.ToInt();
 		}
@@ -459,13 +472,13 @@ class ArmaReforgerScripted : ChimeraGame
 		attempt++;
 		GameSessionStorage.s_Data["m_iRejoinAttempt"] = attempt.ToString();
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	protected override void OnWorldPostProcess(World world)
 	{
 		if (m_CoresManager)
 			m_CoresManager.OnWorldPostProcess(world);
-		
+
 		if (GetGameMode())
 			GetGameMode().OnWorldPostProcess(world);
 	}
@@ -476,7 +489,7 @@ class ArmaReforgerScripted : ChimeraGame
 	protected override void ShowErrorMessage(string msg)
 	{
 		m_aErrorStack.Push(new SCR_GameErrorMessage(msg, "Error"));
- 	}
+	}
 
 	//------------------------------------------------------------------------------------------------
 	//! If no error dialogue is currently shown try to pop it
@@ -596,14 +609,15 @@ class ArmaReforgerScripted : ChimeraGame
 	override bool OnGameStart()
 	{
 		m_bGameStarted = true;
+		const RplMode currentMode = RplSession.Mode();
 
 		#ifdef ENABLE_DIAG
-		if (RplSession.Mode() != RplMode.Client)
+		if (currentMode != RplMode.Client)
 		{
 			DiagMenu.RegisterMenu(SCR_DebugMenuID.DEBUGUI_DEPLOYABLE_SPAWNPOINTS, "Deployable SpawnPoints", "Game");
 			DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_DEPLOYABLE_SPAWNPOINTS_ENABLE_DIAG, "", "Show Exclusion Zones", "Deployable SpawnPoints");
-		}		
-		
+		}
+
 		DiagMenu.RegisterItem(SCR_DebugMenuID.DEBUGUI_INPUT_MANAGER, "", "Show input manager", "GameCode", "disabled,active,all");
 
 		// Game
@@ -615,18 +629,18 @@ class ArmaReforgerScripted : ChimeraGame
 		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_UI_CLOSE_ALL_MENUS, "", "Close All Menus", "UI");
 		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_UI_OPEN_MAIN_MENU, "", "Open Main Menu", "UI");
 		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_UI_LOG_UNDER_CURSOR, "", "Log widgets under cursor", "UI");
-		
+
 		//Scripted systems
 		DiagMenu.RegisterMenu(SCR_DebugMenuID.DEBUGUI_SCRIPTS_MENU, "Scripts", "Physics");
 		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SHOW_INTERIOR_BOUNDING_BOX, "", "Show interior bounding box", "Scripts");
 		#endif
 
-		if (!GetWorldEntity() || RplSession.Mode() != RplMode.Client)
+		if (!GetWorldEntity() || currentMode != RplMode.Client)
 		{
 			m_bAreGameFlagsObtained = true;
 			InvokeGameFlags();
 		}
-		
+
 		AddActionListeners();
 
 		if (GetGame().InPlayMode() && m_CoresManager)
@@ -637,10 +651,10 @@ class ArmaReforgerScripted : ChimeraGame
 #ifndef PLATFORM_CONSOLE
 		if (System.IsCLIParam("listScenarios"))
 			SCR_GameLogHelper.LogScenariosConfPaths();
-		
+
 		m_bHasKeyboard = true;
 #endif
-		
+
 #ifdef PLATFORM_CONSOLE
 		SCR_SettingsManager settingsManager = GetSettingsManager();
 
@@ -648,7 +662,7 @@ class ArmaReforgerScripted : ChimeraGame
 		if (settingsManager)
 		{
 			SCR_SettingsManagerVideoModule settingsVideoModule = SCR_SettingsManagerVideoModule.Cast(settingsManager.GetModule(ESettingManagerModuleType.SETTINGS_MANAGER_VIDEO));
-			
+
 			if (settingsVideoModule)
 			{
 				int lastUsedPresetID = -1;
@@ -664,14 +678,18 @@ class ArmaReforgerScripted : ChimeraGame
 						settingsVideoModule.SetConsolePreset(EVideoQualityPreset.PS5_PERFORMANCE);
 					else if (lastUsedPresetID == -1 && System.GetPlatform() == EPlatform.PS5_PRO)
 						settingsVideoModule.SetConsolePreset(EVideoQualityPreset.PS5_PRO_PERFORMANCE);
-					
+
 					if (lastUsedPresetID != -1)
 						settingsVideoModule.SetConsolePreset(lastUsedPresetID);
 				}
 			}
 		}
 #endif
-		
+
+		const SCR_AdditionalGameModeSettingsComponent additionalSettingsComp = SCR_AdditionalGameModeSettingsComponent.GetInstance();
+		if (additionalSettingsComp && (currentMode == RplMode.None || (currentMode == RplMode.Listen || currentMode == RplMode.Dedicated) && System.IsCLIParam("forceDisableNightGrain")))
+			additionalSettingsComp.SetNightNoiseEffectState_S(true);
+
 		return true;
 	}
 
@@ -730,7 +748,7 @@ class ArmaReforgerScripted : ChimeraGame
 		MenuBase menu = menuManager.FindMenuByPreset(ChimeraMenuPreset.PlayerListMenu);
 		if (!menu)
 			menu = menuManager.OpenMenu(ChimeraMenuPreset.PlayerListMenu);
-		
+
 		return SCR_PlayerListMenu.Cast(menu);
 	}
 
@@ -742,15 +760,15 @@ class ArmaReforgerScripted : ChimeraGame
 		SCR_GroupsManagerComponent groupManager = SCR_GroupsManagerComponent.GetInstance();
 		if (!groupManager || !groupManager.IsGroupMenuAllowed())
 			return null;
-		
+
 		SCR_Faction playerFaction;
 		SCR_FactionManager factionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 		if (factionManager)
 			playerFaction = SCR_Faction.Cast(factionManager.GetLocalPlayerFaction());
-		
+
 		if (!playerFaction)
 			return null;
-		
+
 		MenuManager menuManager = GetGame().GetMenuManager();
 		if (menuManager.IsAnyDialogOpen())
 			return null; // We don't want to open this menu behind any dialogs.
@@ -758,13 +776,13 @@ class ArmaReforgerScripted : ChimeraGame
 		MenuBase playerMenu = menuManager.FindMenuByPreset(ChimeraMenuPreset.PlayerListMenu);
 		if (playerMenu)
 			return null;
-		
+
 		MenuBase menu = menuManager.FindMenuByPreset(ChimeraMenuPreset.GroupMenu);
 		if (!menu)
 			GetGame().GetMenuManager().OpenMenu(ChimeraMenuPreset.GroupMenu, 0, false, false);
-		else	
+		else
 			GetGame().GetMenuManager().CloseMenu(menu);
-		
+
 		return SCR_GroupMenu.Cast(menu);
 	}
 
@@ -774,7 +792,7 @@ class ArmaReforgerScripted : ChimeraGame
 		m_bAreGameFlagsObtained = false;
 		Event_OnObtainedGameFlags.Clear();
 		GetGame().GetMenuManager().CloseAllMenus();
-		
+
 		RemoveActionListeners();
 
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGameMode());
@@ -784,7 +802,7 @@ class ArmaReforgerScripted : ChimeraGame
 		if (GetGame().InPlayMode() && m_CoresManager)
 			m_CoresManager.OnGameEnd();
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	override void OnUserSettingsChangedEvent()
 	{
@@ -813,13 +831,13 @@ class ArmaReforgerScripted : ChimeraGame
 	{
 		m_OnWorldSimulatePhysicsInvoker.Invoke(timeSlice);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	override event void OnWindowResize(int w, int h, bool windowed)
 	{
 		m_OnWindowResizeInvoker.Invoke(w, h, windowed);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//!
 	void AddActionListeners()
@@ -828,12 +846,12 @@ class ArmaReforgerScripted : ChimeraGame
 		inputManager.AddActionListener("ShowScoreboard", EActionTrigger.DOWN, OnShowPlayerList);
 		inputManager.AddActionListener("ShowGroupMenu", EActionTrigger.DOWN, OnShowGroupMenu);
 		inputManager.AddActionListener(UIConstants.MENU_ACTION_OPEN, EActionTrigger.DOWN, OnMenuOpen);
-		
+
 		#ifdef WORKBENCH
 			inputManager.AddActionListener(UIConstants.MENU_ACTION_OPEN_WB, EActionTrigger.DOWN, OnMenuOpen);
 		#endif
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//!
 	void RemoveActionListeners()
@@ -842,7 +860,7 @@ class ArmaReforgerScripted : ChimeraGame
 		inputManager.RemoveActionListener("ShowScoreboard", EActionTrigger.DOWN, OnShowPlayerList);
 		inputManager.RemoveActionListener("ShowGroupMenu", EActionTrigger.DOWN, OnShowGroupMenu);
 		inputManager.RemoveActionListener(UIConstants.MENU_ACTION_OPEN, EActionTrigger.DOWN, OnMenuOpen);
-		
+
 		#ifdef WORKBENCH
 			inputManager.RemoveActionListener(UIConstants.MENU_ACTION_OPEN_WB, EActionTrigger.DOWN, OnMenuOpen);
 		#endif
@@ -856,14 +874,14 @@ class ArmaReforgerScripted : ChimeraGame
 	{
 		if (!ent)
 			return false;
-		
+
 		EntityPrefabData prefabData = ent.GetPrefabData();
 		if (!prefabData)
 			return false;
-		
+
 		name = prefabData.GetPrefabName();
 		tree = "";
-		
+
 		BaseContainer cont = prefabData.GetPrefab();
 		while (cont)
 		{
@@ -873,15 +891,15 @@ class ArmaReforgerScripted : ChimeraGame
 				tree += contName;
 				if (!tree.IsEmpty())
 					tree += "\n";
-				
+
 				if (name.IsEmpty())
 					name = contName;
 			}
-			
+
 			cont = cont.GetAncestor();
 		}
-		
-		return true;	
+
+		return true;
 	}
 	#endif
 
@@ -941,11 +959,11 @@ class ArmaReforgerScripted : ChimeraGame
 						// Name
 						string name = ent.GetName();
 						string pname;
-						if( name.IsEmpty() )
+						if (name.IsEmpty())
 							pname = "Unnamed entity";
 						else
 							pname = "Name: " + name;
-							
+
 						// Draw text
 						DbgUI.Text(pname);
 
@@ -954,23 +972,23 @@ class ArmaReforgerScripted : ChimeraGame
 						string pepos;
 						if (GetQueryTargetInfo(ent, prfab, ptree))
 						{
-							pepos = "Position: <" + pos[0] + ", " + pos[1] + ", " + pos[2] + ">";						
-							
+							pepos = "Position: <" + pos[0] + ", " + pos[1] + ", " + pos[2] + ">";
+
 							Physics phys = ent.GetPhysics();
-							if( phys && phys.GetVelocity().Length() > 0 )
+							if (phys && phys.GetVelocity().Length() > 0)
 							{
 								string pevel = "Velocity: " + phys.GetVelocity().Length();
 								pepos += ", ";
 								pepos += pevel;
 							}
 							DbgUI.Text(pepos);
-								
+
 							DbgUI.Text("Prefab: " + prfab);
 							DbgUI.Text("Prefab Inheritance Tree: " + ptree);
 						}
 						DbgUI.Spacer(32);
 						string infoText = string.Format("%1\n%2\nPrefab: \"%3\"\nPrefab Inheritance Tree: \"%4\"", pname, pepos, prfab, ptree);
-						
+
 						if (DbgUI.Button("Copy to clipboard"))
 						{
 							System.ExportToClipboard(infoText);
@@ -1012,11 +1030,11 @@ class ArmaReforgerScripted : ChimeraGame
 						// Name
 						string name = ent.GetName();
 						string pname;
-						if( name.IsEmpty() )
+						if (name.IsEmpty())
 							pname = "Unnamed entity";
 						else
 							pname = "Name: " + name;
-							
+
 						// Draw text
 						DbgUI.Text(pname);
 
@@ -1025,17 +1043,17 @@ class ArmaReforgerScripted : ChimeraGame
 						string pepos;
 						if (GetQueryTargetInfo(ent, prfab, ptree))
 						{
-							pepos = "Position: <" + pos[0] + ", " + pos[1] + ", " + pos[2] + ">";						
-							
+							pepos = "Position: <" + pos[0] + ", " + pos[1] + ", " + pos[2] + ">";
+
 							Physics phys = ent.GetPhysics();
-							if( phys && phys.GetVelocity().Length() > 0 )
+							if (phys && phys.GetVelocity().Length() > 0)
 							{
 								string pevel = "Velocity: " + phys.GetVelocity().Length();
 								pepos += ", ";
 								pepos += pevel;
 							}
 							DbgUI.Text(pepos);
-								
+
 							DbgUI.Text("Prefab: " + prfab);
 							DbgUI.Text("Prefab Inheritance Tree: " + ptree);
 						}
@@ -1242,7 +1260,11 @@ class ArmaReforgerScripted : ChimeraGame
 			Print(string.Format("PlayGameConfig: Empty resource passed!"), LogLevel.NORMAL);
 			return;
 		}
-		
+
+		SaveGameManager savegameManager = GetSaveGameManager();
+		if (savegameManager && !savegameManager.GetActiveSave())
+			savegameManager.StartPlaythrough(sResource, transition: false);
+
 		if (GameStateTransitions.RequestScenarioChangeTransition(sResource, string.Empty, addonsList))
 			GetGame().GetMenuManager().CloseAllMenus();
 		else
@@ -1253,7 +1275,7 @@ class ArmaReforgerScripted : ChimeraGame
 	override void HostGameConfig()
 	{
 		bool success = GameStateTransitions.RequestPublicServerTransition(null);
-		
+
 		if (success)
 			GetGame().GetMenuManager().CloseAllMenus();
 		else
@@ -1285,10 +1307,10 @@ class ArmaReforgerScripted : ChimeraGame
 		array<ResourceName> resources = {};
 
 		entries.Get("m_aDefaultScenarios", resources);
-		
+
 		return resources;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! Check that scenario isn't in list when adding new scenario
 	//! \param[in] scenario
@@ -1300,7 +1322,7 @@ class ArmaReforgerScripted : ChimeraGame
 			if (scenario == r)
 				return;
 		}
-		
+
 		resources.Insert(scenario);
 	}
 
@@ -1366,7 +1388,7 @@ class ArmaReforgerScripted : ChimeraGame
 
 		return sightsComponent.IsScreenPositionInSights(screenPosition);
 	}
-	
+
 	//-------------------------------------------------------------------------------------------
 	//! \return true if current client platform is console
 	bool IsPlatformGameConsole()
@@ -1377,7 +1399,7 @@ class ArmaReforgerScripted : ChimeraGame
 			return false;
 		#endif
 	}
-	
+
 	//-------------------------------------------------------------------------------------------
 	//! Open gamepad disconnected warning dialog
 	//! \param[in] isConnected is false on disconnection, true on re-connection.
@@ -1393,7 +1415,7 @@ class ArmaReforgerScripted : ChimeraGame
 		}
 		#endif
 	}
-	
+
 	override void OnUserSignedOut()
 	{
 		GetGame().GetMenuManager().OpenMenu(ChimeraMenuPreset.MainMenu);
@@ -1405,8 +1427,8 @@ ArmaReforgerScripted g_ARGame;
 //------------------------------------------------------------------------------------------------
 Game CreateGame()
 {
-    g_ARGame = new ArmaReforgerScripted;
-    return g_ARGame;
+	g_ARGame = new ArmaReforgerScripted;
+	return g_ARGame;
 }
 
 //------------------------------------------------------------------------------------------------

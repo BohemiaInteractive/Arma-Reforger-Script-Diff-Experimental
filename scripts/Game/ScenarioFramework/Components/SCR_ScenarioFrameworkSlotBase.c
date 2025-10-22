@@ -141,10 +141,7 @@ class SCR_ScenarioFrameworkSlotBase : SCR_ScenarioFrameworkLayerBase
 	//! \return the display name of the spawned entity or overridden display name if provided, otherwise returns an empty string.
 	string GetSpawnedEntityDisplayName()
 	{
-		if (!m_Entity)
-			return string.Empty;
-
-		if (!m_sOverrideObjectDisplayName.IsEmpty())
+		if (!m_Entity || !m_sOverrideObjectDisplayName.IsEmpty())
 			return m_sOverrideObjectDisplayName;
 
 		SCR_EditableEntityComponent editableEntityComp = SCR_EditableEntityComponent.Cast(m_Entity.FindComponent(SCR_EditableEntityComponent));

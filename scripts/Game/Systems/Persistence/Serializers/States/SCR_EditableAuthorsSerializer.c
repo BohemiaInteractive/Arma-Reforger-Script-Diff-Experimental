@@ -71,7 +71,7 @@ class SCR_EditableEntityCoreSerializer : ScriptedStateSerializer
 				core.RegisterAuthorServer(author);
 
 				Tuple1<SCR_EditableEntityAuthor> authorContext(author);
-				PersistenceWhenAvailableTask task(authorContext, OnAuthorAvailable);
+				PersistenceWhenAvailableTask task(OnAuthorAvailable, authorContext);
 				GetSystem().WhenAvailable(authorData.m_sIdentity, task);
 			}
 		}
@@ -80,7 +80,7 @@ class SCR_EditableEntityCoreSerializer : ScriptedStateSerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnAuthorAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnAuthorAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto playerController = PlayerController.Cast(instance);
 		if (!playerController)

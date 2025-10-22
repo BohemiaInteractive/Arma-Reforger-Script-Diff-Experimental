@@ -12,7 +12,7 @@ Do not modify, this script is generated
 class PersistentState: ScriptAndConfig
 {
 	//! Created and maintained only through persistence system configuration.
-	protected void PersistentState();
+	private void PersistentState();
 
 }
 

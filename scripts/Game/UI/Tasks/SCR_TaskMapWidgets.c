@@ -37,43 +37,49 @@ class SCR_TaskMapWidgets
 	RichTextWidget m_wTaskTitle;
 	HorizontalLayoutWidget m_wAssignedPlayers;
 	TextWidget m_wAssigneesCount;
+	HorizontalLayoutWidget m_wAuthorLayout;
+	ImageWidget m_wPlatformIcon;
+	TextWidget m_wMarkerAuthor;
 
 	//------------------------------------------------------------------------------------------------
 	bool Init(notnull Widget root)
 	{
 		m_wSizeLayout = SizeLayoutWidget.Cast(root.FindWidget("m_wSizeLayout"));
-		m_wHorizontalLayout = HorizontalLayoutWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout"));
+		m_wHorizontalLayout = HorizontalLayoutWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout"));
 
-		m_wTaskIconButton = ButtonWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton"));
+		m_wTaskIconButton = ButtonWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton"));
 		m_TaskIconButtonComponent = SCR_ModularButtonComponent.Cast(m_wTaskIconButton.FindHandler(SCR_ModularButtonComponent));
 
-		m_wTaskIcon = SizeLayoutWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon"));
-		m_wIconOverlay = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wIconOverlay"));
-		m_wTaskIconBackground = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wIconOverlay.m_wTaskIconBackground"));
-		m_wTaskIconOutline = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wIconOverlay.m_wTaskIconOutline"));
-		m_wTaskIconSymbol = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wIconOverlay.m_wTaskIconSymbol"));
-		m_wOverlayTaskStates = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates"));
-		m_wIconOverlayFailed = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFailed"));
-		m_wTaskIconFailedBG = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFailed.m_wTaskIconFailedBG"));
-		m_wTaskIconFailed = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFailed.m_wTaskIconFailed"));
-		m_wIconOverlayFinished = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFinished"));
-		m_wTaskIconFinishedBG = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFinished.m_wTaskIconFinishedBG"));
-		m_wTaskIconFinished = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFinished.m_wTaskIconFinished"));
-		m_wIconOverlayCancelled = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayCancelled"));
-		m_wTaskIconCancelledBG = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayCancelled.m_wTaskIconCancelledBG"));
-		m_wTaskIconCancelled = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayCancelled.m_wTaskIconCancelled"));
+		m_wTaskIcon = SizeLayoutWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon"));
+		m_wIconOverlay = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wIconOverlay"));
+		m_wTaskIconBackground = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wIconOverlay.m_wTaskIconBackground"));
+		m_wTaskIconOutline = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wIconOverlay.m_wTaskIconOutline"));
+		m_wTaskIconSymbol = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wIconOverlay.m_wTaskIconSymbol"));
+		m_wOverlayTaskStates = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates"));
+		m_wIconOverlayFailed = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFailed"));
+		m_wTaskIconFailedBG = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFailed.m_wTaskIconFailedBG"));
+		m_wTaskIconFailed = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFailed.m_wTaskIconFailed"));
+		m_wIconOverlayFinished = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFinished"));
+		m_wTaskIconFinishedBG = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFinished.m_wTaskIconFinishedBG"));
+		m_wTaskIconFinished = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayFinished.m_wTaskIconFinished"));
+		m_wIconOverlayCancelled = OverlayWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayCancelled"));
+		m_wTaskIconCancelledBG = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayCancelled.m_wTaskIconCancelledBG"));
+		m_wTaskIconCancelled = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskIconButton.m_wTaskIcon.OverlayTaskIcon.m_wOverlayTaskStates.m_wIconOverlayCancelled.m_wTaskIconCancelled"));
 
-		m_wTaskTitleButton = ButtonWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskTitleButton"));
+		m_wTaskTitleButton = ButtonWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskTitleButton"));
 		m_TaskTitleButtonComponent = SCR_ModularButtonComponent.Cast(m_wTaskTitleButton.FindHandler(SCR_ModularButtonComponent));
 
-		m_wTitleSize = SizeLayoutWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize"));
+		m_wTitleSize = SizeLayoutWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize"));
 
-		m_wTitleFrame = FrameWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize.Overlay.HorizontalLayout.SizeLayout.m_wTitleFrame"));
+		m_wTitleFrame = FrameWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize.Overlay.HorizontalLayout.SizeLayout.m_wTitleFrame"));
 		m_TitleFrameComponent = SCR_HorizontalScrollAnimationComponent.Cast(m_wTitleFrame.FindHandler(SCR_HorizontalScrollAnimationComponent));
 
-		m_wTaskTitle = RichTextWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize.Overlay.HorizontalLayout.SizeLayout.m_wTitleFrame.ContentWrapper.m_wTaskTitle"));
-		m_wAssignedPlayers = HorizontalLayoutWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize.Overlay.HorizontalLayout.m_wAssignedPlayers"));
-		m_wAssigneesCount = TextWidget.Cast(root.FindWidget("m_wSizeLayout.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize.Overlay.HorizontalLayout.m_wAssignedPlayers.m_wAssigneesCount"));
+		m_wTaskTitle = RichTextWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize.Overlay.HorizontalLayout.SizeLayout.m_wTitleFrame.ContentWrapper.m_wTaskTitle"));
+		m_wAssignedPlayers = HorizontalLayoutWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize.Overlay.HorizontalLayout.m_wAssignedPlayers"));
+		m_wAssigneesCount = TextWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wHorizontalLayout.m_wTaskTitleButton.m_wTitleSize.Overlay.HorizontalLayout.m_wAssignedPlayers.m_wAssigneesCount"));
+		m_wAuthorLayout = HorizontalLayoutWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wAuthorLayout"));
+		m_wPlatformIcon = ImageWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wAuthorLayout.m_wPlatformIcon"));
+		m_wMarkerAuthor = TextWidget.Cast(root.FindWidget("m_wSizeLayout.VerticalLayout0.m_wAuthorLayout.m_wMarkerAuthor"));
 
 		return true;
 	}

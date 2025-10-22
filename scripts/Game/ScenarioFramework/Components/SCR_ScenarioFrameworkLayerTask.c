@@ -369,6 +369,8 @@ class SCR_ScenarioFrameworkLayerTask : SCR_ScenarioFrameworkLayerBase
 	void SetSlotTask(SCR_ScenarioFrameworkSlotTask slotTask)
 	{
 		m_SlotTask = slotTask;
+		if (m_Task)
+			m_Task.SetSlotTask(slotTask);
 	}
 
 	//------------------------------------------------------------------------------------------------

@@ -13,6 +13,7 @@ sealed class PersistenceCollection: ScriptAndConfig
 {
 	//! Only constructed through the persistence system
 	private void PersistenceCollection();
+	private void ~PersistenceCollection();
 
 }
 

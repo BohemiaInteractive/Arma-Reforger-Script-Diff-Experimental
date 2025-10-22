@@ -266,6 +266,9 @@ class DedicatedServerPluginCLI_Server : DedicatedServerPluginCLI
 	[Attribute(desc: "Mission configuration, can enable settings like metabolism / vehicles, set loading screen image, etc.", uiwidget: UIWidgets.ResourceNamePicker, params: "conf class=SCR_MissionHeader")]
 	protected ResourceName m_MissionHeader;
 
+	[Attribute(desc: "Systems configuration to be run if not using the .gproj default one.", uiwidget: UIWidgets.ResourceNamePicker, params: "conf class=SystemSettings")]
+	protected ResourceName m_SystemsConfig;
+
 	[Attribute(desc: "Optional password for logging-in as administrator (in game, type '#login <password>' in chat)")]
 	protected string m_sAdminPassword;
 
@@ -276,10 +279,13 @@ class DedicatedServerPluginCLI_Server : DedicatedServerPluginCLI
 		if (!worldPath)
 			api.GetWorldPath(worldPath);
 
+		outParam = string.Format("-server \"%1\"", worldPath.GetPath());
+
 		if (m_MissionHeader)
-			outParam = string.Format("-server \"%1\" -MissionHeader \"%2\"", worldPath.GetPath(), m_MissionHeader.GetPath());
-		else
-			outParam = string.Format("-server \"%1\"", worldPath.GetPath());
+			outParam += string.Format(" -MissionHeader \"%1\"", m_MissionHeader.GetPath());
+
+		if (m_SystemsConfig)
+			outParam += string.Format(" -worldSystemsConfig \"%1\"", m_SystemsConfig.GetPath());
 
 		if (m_sAdminPassword)
 			outParam += string.Format(" -adminPassword %1", m_sAdminPassword);

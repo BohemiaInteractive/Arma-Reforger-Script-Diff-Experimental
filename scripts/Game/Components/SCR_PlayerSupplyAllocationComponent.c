@@ -30,34 +30,24 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 
 		m_PlayerController = SCR_PlayerController.Cast(owner);
 
-		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
-		if (gameMode)
+		if (m_bIsEnabled)
 		{
-			gameMode.GetOnPlayerConnected().Insert(OnPlayerConnected);
-			gameMode.GetOnPlayerKilled().Insert(OnPlayerKilled);
-			gameMode.GetOnPlayerSpawned().Insert(OnPlayerSpawned);
+			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			if (gameMode)
+			{
+				gameMode.GetOnPlayerConnected().Insert(OnPlayerConnected);
+				gameMode.GetOnPlayerKilled().Insert(OnPlayerKilled);
+				gameMode.GetOnPlayerSpawned().Insert(OnPlayerSpawned);
+			}
+
+			SetSupplyAllocationValuesByRank();
+			SCR_ResourcePlayerControllerInventoryComponent.GetOnArsenalItemRequested().Insert(OnArsenalRequestItem);
 		}
-
-		SCR_PlayerXPHandlerComponent playerXPHandlerComponent = SCR_PlayerXPHandlerComponent.Cast(owner.FindComponent(SCR_PlayerXPHandlerComponent));
-		if (!playerXPHandlerComponent)
-			return;
-
-		SCR_FactionManager factionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
-		if (!factionManager)
-			return;
-
-		SCR_ECharacterRank defaultPlayerRank = factionManager.GetRankByXP(playerXPHandlerComponent.GetPlayerXP());
-		if (defaultPlayerRank)
-			SetSupplyAllocationValuesByRank(defaultPlayerRank);
-		
-		SCR_ResourcePlayerControllerInventoryComponent.GetOnArsenalItemRequested().Insert(OnArsenalRequestItem);
 
 		#ifdef ENABLE_DIAG
 		ConnectToDiagSystem(owner);
 		DiagMenu.RegisterMenu(SCR_DebugMenuID.DEBUGUI_CAMPAIGN_MILITARY_SUPPLY_ALLOCATION, "Military Supply Allocation", "Conflict");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_CAMPAIGN_MILITARY_SUPPLY_ALLOCATION_ENABLE, "", "Enable MSA", "Military Supply Allocation");
 		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_CAMPAIGN_MILITARY_SUPPLY_ALLOCATION_DEBUG, "", "Enable MSA debug", "Military Supply Allocation");
-		DiagMenu.SetValue(SCR_DebugMenuID.DEBUGUI_CAMPAIGN_MILITARY_SUPPLY_ALLOCATION_ENABLE, m_bIsEnabled);
 		#endif
 	}
 
@@ -71,11 +61,14 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 		if (!arsenalManagerComponent)
 			return false;
 
+		m_MilitarySupplyAllocationConfig = arsenalManagerComponent.GetMilitarySupplyApplicationConfigData();
+		if (!m_MilitarySupplyAllocationConfig)
+			return false;
+
 		m_bIsEnabled = arsenalManagerComponent.IsMilitarySupplyAllocationEnabled();
 		arsenalManagerComponent.GetOnMilitarySupplyAllocationToggle().Insert(OnMilitarySupplyAllocationEnabledChanged);
 
-		m_MilitarySupplyAllocationConfig = arsenalManagerComponent.GetMilitarySupplyApplicationConfigData();
-		return m_MilitarySupplyAllocationConfig != null;
+		return true;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -134,7 +127,7 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 	//! \param[in] amount
 	void AddPlayerAvailableAllocatedSupplies(int amount)
 	{
-		if (IsProxy())
+		if (!m_bIsEnabled || IsProxy())
 			return;
 
 		if (amount == 0)
@@ -156,7 +149,7 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 	//! \param[in] amount
 	void SetPlayerMilitarySupplyAllocation(int amount)
 	{
-		if (IsProxy())
+		if (!m_bIsEnabled || IsProxy())
 			return;
 
 		if (amount == m_iPlayerMilitarySupplyAllocation)
@@ -200,7 +193,7 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 	//! Start replenishment timer and listen to player rank changes
 	//! \param[in] playerId
 	//! \param[in] controlledEntity
-	void OnPlayerSpawned(int playerId, IEntity controlledEntity)
+	protected void OnPlayerSpawned(int playerId, IEntity controlledEntity)
 	{
 		if (m_PlayerController.GetMainEntity() != controlledEntity)
 			return;
@@ -210,6 +203,9 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 		{
 			playerXPHandler.GetOnPlayerXPChanged().Remove(OnUnspawnedPlayerXPChanged);
 		}
+
+		if (!m_bIsEnabled)
+			return;
 
 		SCR_CharacterRankComponent rankComp = SCR_CharacterRankComponent.Cast(controlledEntity.FindComponent(SCR_CharacterRankComponent));
 		if (!rankComp)
@@ -262,10 +258,17 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 	//! Reset Available Allocated Supplies value to value of Military Supply Allocation
 	//! Stops Available Allocated Supplies replenishment timer
 	//! \param[in] investigatorContextData
-	void OnPlayerKilled(SCR_InstigatorContextData investigatorContextData)
+	protected void OnPlayerKilled(SCR_InstigatorContextData investigatorContextData)
 	{
-		if (m_PlayerController.GetMainEntity() != investigatorContextData.GetVictimEntity())
+		IEntity victim = investigatorContextData.GetVictimEntity();
+		if (!m_bIsEnabled || m_PlayerController.GetMainEntity() != victim)
 			return;
+
+		SCR_CharacterRankComponent rankComp = SCR_CharacterRankComponent.Cast(victim.FindComponent(SCR_CharacterRankComponent));
+		if (!rankComp)
+			return;
+
+		rankComp.s_OnRankChanged.Remove(OnRankChanged);
 
 		ClearEventMask(GetOwner(), EntityEvent.FRAME);
 		m_fAvailableAllocatedSuppliesReplenishmentTimer = -1;
@@ -278,7 +281,7 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 	//! \param[in] newRank
 	//! \param[in] owner
 	//! \param[in] silent
-	void OnRankChanged(SCR_ECharacterRank prevRank, SCR_ECharacterRank newRank, IEntity owner, bool silent)
+	protected void OnRankChanged(SCR_ECharacterRank prevRank, SCR_ECharacterRank newRank, IEntity owner, bool silent)
 	{
 		if (m_PlayerController.GetMainEntity() != owner || prevRank == newRank)
 			return;
@@ -287,11 +290,27 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Sets new Military Supply Allocation value corresponding to new rank
-	//! \param[in] rank
-	protected void SetSupplyAllocationValuesByRank(SCR_ECharacterRank rank)
+	//! Sets new Military Supply Allocation value corresponding to player rank
+	//! \param[in] playerRank
+	protected void SetSupplyAllocationValuesByRank(SCR_ECharacterRank playerRank = SCR_ECharacterRank.INVALID)
 	{
-		SetPlayerMilitarySupplyAllocation(m_MilitarySupplyAllocationConfig.GetMilitarySupplyAllocationValueAtRank(rank));
+		if (!m_bIsEnabled)
+			return;
+
+		if (playerRank == SCR_ECharacterRank.INVALID)
+		{
+			SCR_PlayerXPHandlerComponent playerXPHandlerComponent = SCR_PlayerXPHandlerComponent.Cast(GetOwner().FindComponent(SCR_PlayerXPHandlerComponent));
+			if (!playerXPHandlerComponent)
+				return;
+
+			SCR_FactionManager factionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
+			if (!factionManager)
+				return;
+
+			playerRank = factionManager.GetRankByXP(playerXPHandlerComponent.GetPlayerXP());
+		}
+
+		SetPlayerMilitarySupplyAllocation(m_MilitarySupplyAllocationConfig.GetMilitarySupplyAllocationValueAtRank(playerRank));
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -301,9 +320,9 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 	//! \param[in] inventoryStorageComponent
 	//! \param[in] resourceType
 	//! \param[in] itemCost
-	void OnArsenalRequestItem(notnull SCR_ResourceComponent resourceComponent, ResourceName resourceName, IEntity requesterEntity, notnull BaseInventoryStorageComponent inventoryStorageComponent, EResourceType resourceType, int itemCost)
+	protected void OnArsenalRequestItem(notnull SCR_ResourceComponent resourceComponent, ResourceName resourceName, IEntity requesterEntity, notnull BaseInventoryStorageComponent inventoryStorageComponent, EResourceType resourceType, int itemCost)
 	{
-		if (itemCost == 0 || resourceType != EResourceType.SUPPLIES)
+		if (!m_bIsEnabled || itemCost == 0 || resourceType != EResourceType.SUPPLIES)
 			return;
 
 		SCR_PlayerController playerController = SCR_PlayerController.Cast(requesterEntity);
@@ -352,41 +371,71 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Enables or disables Military Supply Allocation by Rank
-	//! \param[in] enable
-	protected void SetEnabled(bool enable)
-	{
-		if (m_bIsEnabled == enable)
-			return;
-
-		m_bIsEnabled = enable;
-		Rpc(RpcAsk_SetEnabled, enable);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_SetEnabled(bool enable)
-	{
-		SCR_ArsenalManagerComponent arsenalManagerComponent;
-		SCR_ArsenalManagerComponent.GetArsenalManager(arsenalManagerComponent);
-
-		if (!arsenalManagerComponent)
-			return;
-
-		arsenalManagerComponent.SetMilitarySupplyAllocationEnabled(enable);
-		m_bIsEnabled = enable;
-	}
-
-	//------------------------------------------------------------------------------------------------
 	protected void OnMilitarySupplyAllocationEnabledChanged(bool enable)
 	{
 		if (m_bIsEnabled == enable)
 			return;
 
 		m_bIsEnabled = enable;
-		#ifdef ENABLE_DIAG
-		DiagMenu.SetValue(SCR_DebugMenuID.DEBUGUI_CAMPAIGN_MILITARY_SUPPLY_ALLOCATION_ENABLE, enable);
-		#endif
+		OnEnabled(enable);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Sets up the component if case Military Supply Allocation by Rank has been enabled or disabled
+	//! \param[in] if Military Supply Allocation by Rank is enabled or disabled
+	protected void OnEnabled(bool enable)
+	{
+		IEntity controlledEntity = m_PlayerController.GetControlledEntity();
+		if (enable)
+		{
+			SetSupplyAllocationValuesByRank();
+
+			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			if (gameMode)
+			{
+				gameMode.GetOnPlayerConnected().Insert(OnPlayerConnected);
+				gameMode.GetOnPlayerKilled().Insert(OnPlayerKilled);
+				gameMode.GetOnPlayerSpawned().Insert(OnPlayerSpawned);
+			}
+
+			SCR_ResourcePlayerControllerInventoryComponent.GetOnArsenalItemRequested().Insert(OnArsenalRequestItem);
+
+			if (!controlledEntity)
+				return;
+
+			SCR_CharacterRankComponent rankComp = SCR_CharacterRankComponent.Cast(controlledEntity.FindComponent(SCR_CharacterRankComponent));
+			if (!rankComp)
+				return;
+
+			rankComp.s_OnRankChanged.Insert(OnRankChanged);
+
+			SetEventMask(GetOwner(), EntityEvent.FRAME);
+			m_fAvailableAllocatedSuppliesReplenishmentTimer = m_MilitarySupplyAllocationConfig.GetAvailableAllocatedSuppliesReplenishmentTimer();
+		}
+		else
+		{
+			ClearEventMask(GetOwner(), EntityEvent.FRAME);
+			m_fAvailableAllocatedSuppliesReplenishmentTimer = -1;
+
+			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			if (gameMode)
+			{
+				gameMode.GetOnPlayerConnected().Remove(OnPlayerConnected);
+				gameMode.GetOnPlayerKilled().Remove(OnPlayerKilled);
+				gameMode.GetOnPlayerSpawned().Remove(OnPlayerSpawned);
+			}
+
+			SCR_ResourcePlayerControllerInventoryComponent.GetOnArsenalItemRequested().Remove(OnArsenalRequestItem);
+
+			if (!controlledEntity)
+				return;
+
+			SCR_CharacterRankComponent rankComp = SCR_CharacterRankComponent.Cast(controlledEntity.FindComponent(SCR_CharacterRankComponent));
+			if (!rankComp)
+				return;
+
+			rankComp.s_OnRankChanged.Remove(OnRankChanged);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -430,16 +479,10 @@ class SCR_PlayerSupplyAllocationComponent : ScriptComponent
 		#endif
 	}
 
-	#ifdef ENABLE_DIAG	
+	#ifdef ENABLE_DIAG
 	//------------------------------------------------------------------------------------------------
 	override void EOnDiag(IEntity owner, float timeSlice)
 	{
-		if (DiagMenu.GetBool(SCR_DebugMenuID.DEBUGUI_CAMPAIGN_MILITARY_SUPPLY_ALLOCATION_ENABLE) && !m_bIsEnabled)
-			SetEnabled(true);
-
-		if (!DiagMenu.GetBool(SCR_DebugMenuID.DEBUGUI_CAMPAIGN_MILITARY_SUPPLY_ALLOCATION_ENABLE) && m_bIsEnabled)
-			SetEnabled(false);
-
 		if (!DiagMenu.GetBool(SCR_DebugMenuID.DEBUGUI_CAMPAIGN_MILITARY_SUPPLY_ALLOCATION_DEBUG))
 			return;
 

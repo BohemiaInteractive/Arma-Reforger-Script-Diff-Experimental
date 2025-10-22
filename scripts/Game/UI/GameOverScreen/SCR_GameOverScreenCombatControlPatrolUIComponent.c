@@ -43,12 +43,18 @@ class SCR_GameOverScreenCombatControlPatrolUIComponent: SCR_GameOverScreenConten
 		taskSystem.GetTasksByState(allTasks, SCR_ETaskState.COMPLETED);
 		
 		string tasksToShow = "<br/>";
+		SCR_TaskUIInfo taskUiInfo;
+		
 		foreach (SCR_Task task : allTasks)
 		{
+			taskUiInfo = task.GetTaskUIInfo();
+			if (!taskUiInfo)
+				continue;
+			
 			if (tasksToShow == "<br/>")
-				tasksToShow = tasksToShow + string.Format(WidgetManager.Translate(task.GetTaskName()));
+				tasksToShow = tasksToShow + taskUiInfo.GetTranslatedName();
 			else 
-				tasksToShow = tasksToShow + "<br/>" + string.Format(WidgetManager.Translate(task.GetTaskName()));
+				tasksToShow = tasksToShow + "<br/>" + taskUiInfo.GetTranslatedName();
 		}
 		
 		if (tasksWidget)

@@ -69,7 +69,7 @@ class SCR_EditableEntityComponentSerializer : ScriptedComponentSerializer
 		if (!parentId.IsNull())
 		{
 			Tuple1<SCR_EditableEntityComponent> parentContext(editable);
-			PersistenceWhenAvailableTask parentTask(parentContext, OnParentAvailable);
+			PersistenceWhenAvailableTask parentTask(OnParentAvailable, parentContext);
 			GetSystem().WhenAvailable(parentId, parentTask);
 		}
 
@@ -106,7 +106,7 @@ class SCR_EditableEntityComponentSerializer : ScriptedComponentSerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnParentAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnParentAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto parentEntity = IEntity.Cast(instance);
 		if (!parentEntity)

@@ -47,6 +47,7 @@ enum ENotification
 	
 	//PLAYER
 	PLAYER_LOADOUT_NOT_SAVED_NOT_ENOUGH_MSA = 150, //!< Player loadout was not saved due to player not having enough Military Supply Allocation for loadout
+	PLAYER_LOADOUT_NOT_SAVED_INSUFFICIENT_RANK = 151, //!< Player loadout was not saved as player has insufficient rank for one or more weapons
 	
 	//RIGHTS
 	EDITOR_EDITOR_RIGHTS_ASSIGNED = 200, //!< Player got rights assigned - (param1 = GameMasterID, param2 = TargetPlayerID))

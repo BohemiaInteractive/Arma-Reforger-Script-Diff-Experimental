@@ -218,9 +218,6 @@ class SCR_ChimeraCharacter : ChimeraCharacter
 
 				RemoveOldContact(m_aContacts[i]);
 			}
-
-			if (m_aContacts.IsEmpty())
-				m_aContacts = null;
 		}
 
 		SCR_SpecialCollisionHandlerComponent specialCollisionComponent;
@@ -320,6 +317,9 @@ class SCR_ChimeraCharacter : ChimeraCharacter
 	//------------------------------------------------------------------------------------------------
 	protected void RemoveOldContact(IEntity oldContact = null)
 	{
+		if (!m_aContacts)
+			return;
+
 		m_aContacts.RemoveItemOrdered(oldContact);
 
 		RplComponent characterRplComp = GetRplComponent();

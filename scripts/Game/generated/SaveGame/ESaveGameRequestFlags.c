@@ -5,12 +5,14 @@ Do not modify, this script is generated
 */
 
 /*!
-\addtogroup Components
+\addtogroup SaveGame
 \{
 */
 
-class TagComponent: GameComponent
+sealed enum ESaveGameRequestFlags
 {
+	BLOCKING,
+	SHUTDOWN,
 }
 
 /*!

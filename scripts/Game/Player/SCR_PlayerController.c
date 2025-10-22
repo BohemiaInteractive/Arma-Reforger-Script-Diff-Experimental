@@ -91,11 +91,23 @@ class SCR_PlayerController : PlayerController
 				SCR_EditorManagerCore managerCore = SCR_EditorManagerCore.Cast(SCR_EditorManagerCore.GetInstance(SCR_EditorManagerCore));
 				managerCore.Event_OnEditorManagerInitOwner.Insert(OnPlayerRegistered);
 			}
-		}			
+		}
+
+		SCR_DamageSufferingSystem.GetInstance().StartObservingControlledEntityChanges(this, changing, becameOwner);
 		
 		m_OnOwnershipChangedInvoker.Invoke(changing, becameOwner);
 	}
 
+	//------------------------------------------------------------------------------------------------
+	override protected void OnInit(IEntity owner)
+	{
+		if (!GetGame().InPlayMode())
+			return;
+
+		if (Replication.IsServer()) // this is here because listen server or SP client will not call OnOwnershipChanged as there is no transfer of ownership
+			SCR_DamageSufferingSystem.GetInstance().StartObservingControlledEntityChanges(this, false, true);
+	}
+	
 	//------------------------------------------------------------------------------------------------
 	void OnPlayerRegistered(SCR_EditorManagerEntity managerEntity)
 	{

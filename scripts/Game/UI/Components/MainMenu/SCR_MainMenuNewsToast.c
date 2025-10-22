@@ -64,6 +64,9 @@ class SCR_MainMenuNewsToast : SCR_ScriptedWidgetComponent
 		m_MoreInfoButton = SCR_InputButtonComponent.Cast(buttonWidget.FindHandler(SCR_InputButtonComponent));
 		if (m_MoreInfoButton)
 			m_MoreInfoButton.m_OnActivated.Insert(OnMoreInfo);
+		
+		if (GetGame().GetGameInstallStatus() != 1.0)
+			m_wRoot.SetVisible(0);
 	}
 	
 	//------------------------------------------------------------------------------------------------

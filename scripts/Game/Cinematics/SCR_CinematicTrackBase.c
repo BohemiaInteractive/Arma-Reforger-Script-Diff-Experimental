@@ -20,7 +20,7 @@ class SCR_CinematicTrackBase : CinematicTrackBase
 		TStringArray strs = new TStringArray;
 		GetTrackName().Split("_", strs, true);
 		
-		return IEntity.Cast(m_World.FindEntityByName(strs.Get(0)));
+		return m_World.FindEntityByName(strs.Get(0));
 	}
 	
 	IEntity FindOwner(string ownerName)
@@ -30,6 +30,6 @@ class SCR_CinematicTrackBase : CinematicTrackBase
 			return null;
 		}
 				
-		return IEntity.Cast(m_World.FindEntityByName(ownerName));
+		return m_World.FindEntityByName(ownerName);
 	}
 }

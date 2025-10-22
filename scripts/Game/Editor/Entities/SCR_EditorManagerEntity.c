@@ -592,6 +592,15 @@ class SCR_EditorManagerEntity : SCR_EditorBaseEntity
 			Event_OnLimitedChange.Invoke(m_bIsLimited);
 	}
 
+	void EnableCameraNwkSimulation(bool enable)
+	{
+		NwkMovementComponent nwkComponent = NwkMovementComponent.Cast(FindComponent(NwkMovementComponent));
+		if(nwkComponent)
+		{
+			nwkComponent.EnableSimulation(enable);
+		}
+	}
+
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//--- Events
 

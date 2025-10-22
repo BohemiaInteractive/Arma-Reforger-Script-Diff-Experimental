@@ -18,6 +18,11 @@ enum ECampaignClientNotificationID
 void OnBaseCapturedDelegate(SCR_CampaignMilitaryBaseComponent base, int playerId);
 typedef func OnBaseCapturedDelegate;
 
+//~ Supplies transfer invoker
+void ScriptInvokerTransferSuppliesMethod(EResourcePlayerInteractionType interactionType, SCR_ResourceComponent resourceComponentFrom, SCR_ResourceComponent resourceComponentTo, EResourceType resourceType, float resourceValue);
+typedef func ScriptInvokerTransferSuppliesMethod;
+typedef ScriptInvokerBase<ScriptInvokerTransferSuppliesMethod> ScriptInvokerTransferSupplies;
+
 //! Takes care of Campaign-specific server <> client communication and requests
 class SCR_CampaignNetworkComponent : ScriptComponent
 {
@@ -37,6 +42,7 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 
 	protected static ref ScriptInvokerInt3 s_OnSuppliesDelivered;
 	protected static ref ScriptInvokerBase<OnBaseCapturedDelegate> s_OnBaseCaptured; // <base, playerID>
+	protected static ref ScriptInvokerTransferSupplies s_OnSuppliesTransferred;
 
 	static const int SUPPLY_DELIVERY_XP_PERCENT = 100; // Decimal fraction used in formula to calculate XP reward
 	static const int SUPPLY_DELIVERY_THRESHOLD_SQ = 200 * 200;
@@ -102,6 +108,16 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 			s_OnSuppliesDelivered = new ScriptInvokerInt3();
 
 		return s_OnSuppliesDelivered;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! \return
+	static ScriptInvokerTransferSupplies GetOnTransferSupplies()
+	{
+		if (!s_OnSuppliesTransferred)
+			s_OnSuppliesTransferred = new ScriptInvokerTransferSupplies();
+ 
+		return s_OnSuppliesTransferred;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1100,19 +1116,24 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	//! \param[in] alive
 	void OnPlayerAliveStateChanged(bool alive)
 	{
-		Rpc(RpcDo_PlayerEnableShowingSpawnPosition, alive);	
-		SCR_CampaignFeedbackComponent comp = SCR_CampaignFeedbackComponent.Cast(GetOwner().FindComponent(SCR_CampaignFeedbackComponent));
-
-		if (!comp)
-			return;
-
 		IEntity player = m_PlayerController.GetControlledEntity();
-		
+		if (alive && player)
+		{
+			Rpc(RpcDo_UpdatePlayerSpawnHint, alive, player.GetOrigin());	
+		}
+		else
+		{
+			Rpc(RpcDo_UpdatePlayerSpawnHint, false, vector.Zero);	
+		}
+
 		if (!player)
 			return;
 
-		EventHandlerManagerComponent eventHandlerManagerComponent = EventHandlerManagerComponent.Cast(player.FindComponent(EventHandlerManagerComponent));
+		SCR_CampaignFeedbackComponent comp = SCR_CampaignFeedbackComponent.Cast(GetOwner().FindComponent(SCR_CampaignFeedbackComponent));
+		if (!comp)
+			return;
 
+		EventHandlerManagerComponent eventHandlerManagerComponent = EventHandlerManagerComponent.Cast(player.FindComponent(EventHandlerManagerComponent));
 		if (!eventHandlerManagerComponent)
 			return;
 
@@ -1128,19 +1149,13 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] enable
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
-	void RpcDo_PlayerEnableShowingSpawnPosition(bool enable)
+	void RpcDo_UpdatePlayerSpawnHint(bool show, vector position)
 	{
-		// Adds function to queue. Sometimes, game is not fast enough to spawn player entity
 		SCR_CampaignFeedbackComponent comp = SCR_CampaignFeedbackComponent.GetInstance();
-			GetGame().GetCallqueue().CallLater(comp.EnablePlayerSpawnHint, 100, true, enable);
-		
-		if (!enable)
-			comp.PauseHintQueue();
+		comp.UpdatePlayerSpawnHint(show, position);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	protected void HandleRadioRespawnTimer(RplId spawnPointId)
 	{
@@ -1188,7 +1203,6 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 		float suicidePenalty;
 		
 		SCR_CampaignClientData data = campaign.GetClientData(playerId);
-		
 		if (data)
 			suicidePenalty = data.GetRespawnPenalty();
 		
@@ -1296,6 +1310,8 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	{
 		if (!playerController || !resourceComponentFrom || !resourceComponentTo)
 			return;
+		
+		GetOnTransferSupplies().Invoke(interactionType, resourceComponentFrom, resourceComponentTo, resourceType, resourceValue);
 
 		vector pos = resourceComponentFrom.GetOwner().GetOrigin();
 

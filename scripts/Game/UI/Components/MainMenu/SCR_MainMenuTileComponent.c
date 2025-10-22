@@ -106,6 +106,11 @@ class SCR_MainMenuTileComponent: SCR_TileBaseComponent
 		m_Play.SetEnabled(false);
 		m_Continue.SetEnabled(false);
 		m_Restart.SetEnabled(false);
+		
+		SCR_ButtonImageComponent comp = SCR_ButtonImageComponent.Cast(m_wRoot.FindHandler(SCR_ButtonImageComponent));
+		if (comp)
+			 comp.SetImageSaturation(!m_bDisabled);
+		
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -172,7 +177,11 @@ class SCR_MainMenuTileComponent: SCR_TileBaseComponent
 		{
 			ResourceName texture = GetTexture();
 			if (!texture.IsEmpty())
+			{
 				comp.SetImage(texture);
+				comp.SetImageSaturation(!m_bDisabled);
+			}
+			
 		}
 
 		SCR_ScenarioUICommon.UpdateInputButtons(m_Item, {m_Play, m_Continue, m_Restart}, m_bFocused);

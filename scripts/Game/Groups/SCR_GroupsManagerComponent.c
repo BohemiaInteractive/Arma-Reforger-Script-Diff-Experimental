@@ -508,6 +508,24 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! \param[in] groupRole
+	//! \param[in] faction
+	//! \return Returns required character rank for given group role
+	SCR_ECharacterRank GetRequiredRank(SCR_EGroupRole groupRole, notnull SCR_Faction faction)
+	{
+		array<SCR_GroupRolePresetConfig> groupRolePresetConfigs = {};
+		faction.GetGroupRolePresetConfigs(groupRolePresetConfigs);
+
+		foreach (SCR_GroupRolePresetConfig preset : groupRolePresetConfigs)
+		{
+			if (preset.GetGroupRole() == groupRole)
+				return preset.GetRequiredRank();
+		}
+
+		return SCR_ECharacterRank.PRIVATE;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! \param[in] faction
 	//! \param[in] creatableByPlayerFilter With this filter only returns groups that can be created by the player
 	//! \return group roles from config
@@ -589,6 +607,54 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 		}
 
 		return availableGroupRoles;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \param[in] groupRole
+	//! \param[in] faction
+	//! \return
+	bool CanCreateGroupWithLocalPlayerRank(SCR_EGroupRole groupRole, notnull Faction faction)
+	{
+		PlayerController pc = GetGame().GetPlayerController();
+		int playerId;
+		if (pc)
+			playerId = pc.GetPlayerId();
+
+		SCR_Faction scrFaction = SCR_Faction.Cast(faction);
+		if (!scrFaction)
+			return true;
+
+		array<SCR_GroupRolePresetConfig> availableGroupRolePresetConfigs = {};
+		scrFaction.GetGroupRolePresetConfigs(availableGroupRolePresetConfigs);
+		foreach (SCR_GroupRolePresetConfig preset : availableGroupRolePresetConfigs)
+		{
+			if (preset.GetGroupRole() != groupRole || !preset.CanBeCreatedByPlayer())
+				continue;
+
+			if (HasPlayerRequiredRank(preset, playerId, false))
+				return true;
+		}
+
+		return false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \param[in] groupRole
+	//! \param[in] faction
+	//! \return
+	bool AreAllGroupsMajorityFull(SCR_EGroupRole groupRole, notnull Faction faction)
+	{
+		array<SCR_AIGroup> playableGroups = GetPlayableGroupsByFaction(faction);
+		foreach (SCR_AIGroup group : playableGroups)
+		{
+			if (!group || group.IsPrivate() || group.GetGroupRole() != groupRole)
+				continue;
+
+			if (group.GetPlayerCount() <= (group.GetMaxMembers() * 0.5))
+				return false;
+		}
+
+		return true;
 	}
 
 	//------------------------------------------------------------------------------------------------

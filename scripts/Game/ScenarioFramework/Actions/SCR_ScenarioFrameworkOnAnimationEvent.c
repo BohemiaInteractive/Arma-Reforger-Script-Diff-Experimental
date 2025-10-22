@@ -18,11 +18,11 @@ class SCR_ScenarioFrameworkActionOnAnimationEvent : SCR_ScenarioFrameworkActionB
 		if (!CanActivate())
 			return;
 		
-		IEntity m_Entity;
-		if (!ValidateInputEntity(object, m_Getter, m_Entity))
+		IEntity entity;
+		if (!ValidateInputEntity(object, m_Getter, entity))
 			return;
 		
-		m_CharController = SCR_CharacterControllerComponent.Cast(m_Entity.FindComponent(SCR_CharacterControllerComponent));
+		m_CharController = SCR_CharacterControllerComponent.Cast(entity.FindComponent(SCR_CharacterControllerComponent));
 
 		if (m_CharController)
 		{

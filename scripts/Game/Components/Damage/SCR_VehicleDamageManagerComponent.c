@@ -1382,7 +1382,7 @@ class SCR_VehicleDamageManagerComponent : SCR_DamageManagerComponent
 		if (!m_CurrentCollisions)
 		{
 			m_CurrentCollisions = new array<ref SCR_CollisionDamageContainer>();
-			GetGame().GetCallqueue().CallLater(Activate, param1: owner);
+			GetGame().GetCallqueue().CallLater(EnableDamageSystemOnFrame);
 		}
 
 		SCR_CollisionDamageContainer existingCollisionInstance;
@@ -1472,7 +1472,7 @@ class SCR_VehicleDamageManagerComponent : SCR_DamageManagerComponent
 			if (m_LastFrameCollisions && !m_LastFrameCollisions.IsEmpty())
 				m_LastFrameCollisions.Clear();
 
-			Deactivate(owner);
+			DisableDamageSystemOnFrame();
 			return;
 		}
 

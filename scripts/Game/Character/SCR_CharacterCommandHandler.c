@@ -151,8 +151,5 @@ class SCR_CharacterCommandHandlerComponent : CharacterCommandHandlerComponent
 	
 	protected ref SCR_CharacterCommandLoiter m_CmdLoiter;
 	
-	protected ref CharacterCommandMoveSettings m_MoveSettings = new CharacterCommandMoveSettings();
-	protected ref CharacterCommandClimbSettings m_ClimbSettings = new CharacterCommandClimbSettings();
-	
 	protected ref ScriptInvokerInt m_OnCommandActivate;
 }

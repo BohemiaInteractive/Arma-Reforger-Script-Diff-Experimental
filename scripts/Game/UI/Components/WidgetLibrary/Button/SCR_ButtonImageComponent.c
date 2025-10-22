@@ -66,6 +66,18 @@ class SCR_ButtonImageComponent : SCR_ButtonBaseComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
+	void SetImageSaturation(float saturation)
+	{
+		m_wImage.SetSaturation(saturation);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	float GetImageSaturation()
+	{
+		return m_wImage.GetSaturation();
+	}
+	
+	//------------------------------------------------------------------------------------------------
 	void SetImage(ResourceName imageSet, string imageName)
 	{
 		if (!m_wImage)

@@ -3,6 +3,11 @@ enum SCR_ERadialMenuType
 	DEFAULT,
 	ADD_COMMANDS_MENU
 }
+
+void ScriptInvokerSelectionMenuEntryMethod(SCR_SelectionMenuEntry entry);
+typedef func ScriptInvokerSelectionMenuEntryMethod;
+typedef ScriptInvokerBase<ScriptInvokerSelectionMenuEntryMethod> ScriptInvokerSelectionMenuEntry;
+
 //------------------------------------------------------------------------------------------------
 /*!
 Radial menu class specifing behavior and interaction for circular interface
@@ -41,7 +46,17 @@ class SCR_RadialMenu : SCR_SelectionMenu
 	
 	SCR_ERadialMenuType m_eRadialType = SCR_ERadialMenuType.DEFAULT;
 
-	
+	protected ref ScriptInvokerSelectionMenuEntry m_OnEntryPerformed;
+
+	//------------------------------------------------------------------------------------------------
+	ScriptInvokerSelectionMenuEntry GetOnEntryPerformed()
+	{
+		if (!m_OnEntryPerformed)
+			m_OnEntryPerformed = new ScriptInvokerSelectionMenuEntry();
+
+		return m_OnEntryPerformed;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	protected void InvokeOnDisplaySizeChange(float size)
 	{
@@ -290,6 +305,9 @@ class SCR_RadialMenu : SCR_SelectionMenu
 			if (m_ControllerInputs.m_bCloseOnPerform)
 				Close();
 		}
+
+		if (m_OnEntryPerformed)
+			m_OnEntryPerformed.Invoke(m_SelectedEntry);
 	}
 
 	//------------------------------------------------------------------------------------------------

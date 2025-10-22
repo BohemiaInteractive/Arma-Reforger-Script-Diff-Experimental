@@ -220,6 +220,13 @@ class SCR_CameraEditorComponent : SCR_BaseEditorComponent
 	{
 		return m_CameraPrefab;
 	}
+
+	SCR_EditorManagerEntity GetEditorManagerEntity()
+	{
+		SCR_EditorManagerEntity editorManagerEntity = SCR_EditorManagerEntity.Cast(GetOwner().GetParent());		
+		//NOTE @JK: Maybe I could do SCR_EditorManagerEntity.GetInstance() but I'm not 100% sure if it would be the right thing to do.
+		return editorManagerEntity;
+	}
 	
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//--- Default functions
@@ -232,6 +239,10 @@ class SCR_CameraEditorComponent : SCR_BaseEditorComponent
 	{
 		m_CameraManager = GetGame().GetCameraManager();
 		m_CameraData = SCR_CameraDataEditorComponent.Cast(SCR_CameraDataEditorComponent.GetInstance(SCR_CameraDataEditorComponent, true));
+
+		SCR_EditorManagerEntity editorManagerEntity = GetEditorManagerEntity();
+		if (editorManagerEntity)
+			editorManagerEntity.EnableCameraNwkSimulation(false);
 	}
 	override protected void EOnEditorPreActivate()
 	{
@@ -251,23 +262,35 @@ class SCR_CameraEditorComponent : SCR_BaseEditorComponent
 		if (editorCore)
 			editorManagerEntity = editorCore.GetEditorManager(GetGame().GetPlayerController().GetPlayerId());
 		
+		SCR_EditorManagerEntity editorManagerEntity = GetEditorManagerEntity();
+		if (editorManagerEntity)
+			editorManagerEntity.EnableCameraNwkSimulation(true);
+
 		//TryCreateCamera(); //--- Don't try to create camera just yet, wait for GUI to initialize in its own EOnEditorPostActivate
 	}
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
+		// Tell server where camera is located by moving the EditorManagerEntity
+		SCR_EditorManagerEntity editorManagerEntity = GetEditorManagerEntity();		
+		if(!editorManagerEntity)
+			return;
+
+		//if editor isn't open we shouldn't worry about it
+		if(!editorManagerEntity.IsOpened())
+			return;
+	
+		//if(editorManagerEntity)
 		if (!m_Camera)
 			TryCreateCamera();
 		
 		TryForceCamera();
 		
-		// Tell server where camera is located by moving the EditorManagerEntity
-		IEntity editorManagerEntity = GetOwner().GetParent();
-		if (m_Camera && editorManagerEntity)
-		{
-			vector mat[4];
-			m_Camera.GetWorldTransform(mat);
-			editorManagerEntity.SetWorldTransform(mat);
-		}	
+		if (!m_Camera)
+			return;
+		
+		vector mat[4];
+		m_Camera.GetWorldTransform(mat);
+		editorManagerEntity.SetWorldTransform(mat);
 	}
 	override protected void EOnEditorDeactivate()
 	{
@@ -276,6 +299,10 @@ class SCR_CameraEditorComponent : SCR_BaseEditorComponent
 		
 		if (m_Camera)
 			m_Camera.Terminate();
+
+		SCR_EditorManagerEntity editorManagerEntity = GetEditorManagerEntity();
+		if (editorManagerEntity)
+			editorManagerEntity.EnableCameraNwkSimulation(false);
 	}
 	override protected void EOnEditorPostDeactivate()
 	{

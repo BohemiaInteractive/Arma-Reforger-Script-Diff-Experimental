@@ -65,9 +65,10 @@ class SCR_ActionToolbarItemEditorUIComponent : SCR_BaseToolbarItemEditorUICompon
 					m_ToggleAction.GetInfoToggled().SetIconTo(m_ToggleWidget);
 				else
 					info.SetIconTo(m_ToggleWidget);
-				
+
 				m_ToggleAction.GetOnToggleChange().Insert(OnToggleChange);
 				m_ToggleAction.Track();
+				OnToggleChange(m_ToggleAction.GetCurrentValue(), m_ToggleAction.GetCurrentHighlight());
 			}
 		}
 	}

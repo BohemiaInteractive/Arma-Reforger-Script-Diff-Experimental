@@ -363,6 +363,10 @@ class SCR_VonDisplay : SCR_InfoDisplayExtended
 
 			data.m_Widgets.m_wName.SetVisible(true);
 
+			SCR_PlayerController playerController = SCR_PlayerController.Cast(GetGame().GetPlayerController());
+			if (playerController)
+				playerController.SetPlatformImageTo(data.m_iPlayerID, data.m_Widgets.m_wPlatformImage, data.m_Widgets.m_wPlatformImageGlow);
+
 			bool sameFaction = playerFaction == data.m_Faction && !data.m_bIsSenderEditor;
 			if (!sameFaction)
 			{
@@ -398,10 +402,6 @@ class SCR_VonDisplay : SCR_InfoDisplayExtended
 
 			data.m_Widgets.m_wRole.SetVisible(false);
 			data.m_Widgets.m_wSquadLeaderIcon.SetVisible(isSquadLeader);
-
-			SCR_PlayerController playerController = SCR_PlayerController.Cast(GetGame().GetPlayerController());
-			if (playerController)
-				playerController.SetPlatformImageTo(data.m_iPlayerID, data.m_Widgets.m_wPlatformImage, data.m_Widgets.m_wPlatformImageGlow);
 		}
 		else	// outgoing
 		{
@@ -435,7 +435,7 @@ class SCR_VonDisplay : SCR_InfoDisplayExtended
 				}
 
 				SCR_GroupTaskManagerComponent groupTaskManager = SCR_GroupTaskManagerComponent.GetInstance();
-				if (groupTaskManager && playerFaction)
+				if (groupTaskManager && groupTaskManager.IsEnabledAssigningFrequencies() && playerFaction)
 				{
 					SCR_Task task = groupTaskManager.GetTaskByFrequency(playerFaction, frequency);
 					if (task)

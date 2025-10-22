@@ -272,6 +272,9 @@ class SCR_AIUtilityComponent : SCR_AIBaseUtilityComponent
 			
 			int leaderId = masterGroup.GetLeaderID();
 			IEntity leaderEntity = GetGame().GetPlayerManager().GetPlayerControlledEntity(leaderId);
+			if (!leaderEntity)
+					return null;
+			
 			AIControlComponent controlComp = AIControlComponent.Cast(leaderEntity.FindComponent(AIControlComponent));
 			
 			if (!controlComp)

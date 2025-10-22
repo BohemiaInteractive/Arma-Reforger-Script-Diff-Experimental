@@ -40,7 +40,9 @@ class SCR_DeathScreenUIComponent : SCR_ScriptedWidgetComponent
 	protected void RestartPopupConfirm()
 	{
 		OnButtonPressed();
-		GameStateTransitions.RequestScenarioRestart();
+		
+		auto manager = GetGame().GetSaveGameManager();
+		manager.StartPlaythrough(manager.GetCurrentMissionResource());
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -56,12 +58,20 @@ class SCR_DeathScreenUIComponent : SCR_ScriptedWidgetComponent
 	//------------------------------------------------------------------------------------------------
 	protected void LoadPopupConfirm()
 	{
-		Print("LOADING LOGIC NOT YET ADDED! MISSION IS RESTARTED INSTEAD!", LogLevel.WARNING);
+		OnButtonPressed();
 
-		RestartPopupConfirm();
+		auto manager = GetGame().GetSaveGameManager();
+		const SaveGame activeSave = manager.GetActiveSave();
+		if (activeSave)
+		{
+			manager.Load(activeSave);
+			return;
+		}
+
+		// Restart and stay on same playthrough
+		GameStateTransitions.RequestScenarioRestart();
 	}
-	
-	
+
 	//------------------------------------------------------------------------------------------------
 	protected void OnButtonPressed()
 	{

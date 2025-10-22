@@ -1,5 +1,5 @@
 [BaseContainerProps(), SCR_ContainerActionTitle()]
-class SCR_ScenarioFrameworkPlugin : ScriptAndConfig
+class SCR_ScenarioFrameworkPlugin : BaseContainerObject
 {
 	[Attribute(desc: "If set to true, when this Plugin performs certain methods, it will break the breakpoint in the Script Editor in respective methods. This can be also set during runtime via Debug Menu > ScenarioFramework > Plugin Inspector")]
 	bool m_bDebug;

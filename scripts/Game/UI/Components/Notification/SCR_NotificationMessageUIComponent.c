@@ -1,4 +1,4 @@
-class SCR_NotificationMessageUIComponent: ScriptedWidgetComponent
+class SCR_NotificationMessageUIComponent : ScriptedWidgetComponent
 {
 	[Attribute()]
 	protected string m_sIcon;
@@ -68,25 +68,9 @@ class SCR_NotificationMessageUIComponent: ScriptedWidgetComponent
 		TextWidget notificationText = TextWidget.Cast(m_wRoot.FindAnyWidget(m_sNotificationText));
 		if (!notificationText)
 			return;
-		
-		string notificationMessage = data.GetText();
-		string param1, param2, param3, param4, param5, param6;
-		
-		if (notificationMessage != string.Empty)
-			data.GetNotificationTextEntries(param1, param2, param3, param4, param5, param6);
-		else 
-			notificationMessage = typename.EnumToString(ENotification, data.GetID());
-		
-		if (!displayData.MergeParam1With2())
-		{
-			notificationText.SetTextFormat(notificationMessage, param1, param2, param3, param4, param5, param6);
-		}
-		else 
-		{
-			string mergeParams = WidgetManager.Translate(param2, param1);
-			notificationText.SetTextFormat(notificationMessage, param1, mergeParams, param3, param4, param5, param6);
-		}
-		
+
+		UpdateText();
+
 		SCR_UINotificationInfo uiInfo;
 		ENotificationColor notificationColorEnum;
 		displayData.GetDisplayVisualizationData(data, uiInfo, notificationColorEnum);
@@ -167,7 +151,47 @@ class SCR_NotificationMessageUIComponent: ScriptedWidgetComponent
 		m_wRoot.SetOpacity(0);
 		AnimateWidget.Opacity(m_wRoot, 1, FADE_IN_SPEED);
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	//! Update message text
+	void UpdateText()
+	{
+		if (!m_Data)
+			return;
+
+		string notificationMessage = m_Data.GetText();
+		if (notificationMessage.IsEmpty())
+		{
+			ForceRemoveNotification();
+			return;
+		}
+
+		SCR_NotificationDisplayData displayData = m_Data.GetDisplayData();
+		if (!displayData)
+			return;
+
+		TextWidget notificationText = TextWidget.Cast(m_wRoot.FindAnyWidget(m_sNotificationText));
+		if (!notificationText)
+			return;
+
+		string param1, param2, param3, param4, param5, param6;
+
+		if (notificationMessage != string.Empty)
+			m_Data.GetNotificationTextEntries(param1, param2, param3, param4, param5, param6);
+		else
+			notificationMessage = typename.EnumToString(ENotification, m_Data.GetID());
+
+		if (!displayData.MergeParam1With2())
+		{
+			notificationText.SetTextFormat(notificationMessage, param1, param2, param3, param4, param5, param6);
+		}
+		else
+		{
+			string mergeParams = WidgetManager.Translate(param2, param1);
+			notificationText.SetTextFormat(notificationMessage, param1, mergeParams, param3, param4, param5, param6);
+		}
+	}
+
 	//======================== SET COLOR ========================\\
 
 	//------------------------------------------------------------------------------------------------

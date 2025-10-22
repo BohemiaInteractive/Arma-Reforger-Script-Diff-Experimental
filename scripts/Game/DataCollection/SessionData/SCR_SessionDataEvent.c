@@ -12,4 +12,9 @@ class SCR_SessionDataEvent
 	int num_players_in_squad;
 	int num_players_kick_voted;
 	int num_players_kick_proposed;
+	string array_supplies_from_prefab;
+	string array_supplies_to_prefab;
+	string array_supplies_from_type;
+	string array_supplies_to_type;
+	string array_supplies_values;
 }

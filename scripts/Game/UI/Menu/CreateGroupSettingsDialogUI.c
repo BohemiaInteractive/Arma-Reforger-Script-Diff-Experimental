@@ -1,5 +1,6 @@
 class CreateGroupSettingsDialogUI : DialogUI
 {
+	protected Widget m_RulesDescriptionSize;
 	protected SCR_EditBoxComponent m_Description;
 	protected SCR_ComboBoxComponent m_GroupStatus;
 	protected SCR_ComboBoxComponent m_GroupRole;
@@ -42,6 +43,12 @@ class CreateGroupSettingsDialogUI : DialogUI
 		if (!w)
 			return;
 
+		m_RulesDescriptionSize = w.FindAnyWidget("RulesDescriptionSize");
+		if (!m_RulesDescriptionSize)
+			return;
+
+		m_RulesDescriptionSize.SetVisible(!SCR_FactionCommanderPlayerComponent.IsLocalPlayerCommander());
+
 		m_GroupStatus = SCR_ComboBoxComponent.GetComboBoxComponent("Type", w);
 		if (!m_GroupStatus)
 			return;
@@ -58,24 +65,22 @@ class CreateGroupSettingsDialogUI : DialogUI
 		if (!m_GroupDescription)
 			return;
 
-		if (result == UserPrivilegeResult.ALLOWED)
-		{
-			m_GroupName.SetEnabled(true);
-			m_GroupName.SetValue("");
+		m_bHasPrivilege = result == UserPrivilegeResult.ALLOWED;
+		bool canEdit = m_bHasPrivilege && !SCR_FactionCommanderPlayerComponent.IsLocalPlayerCommander();
+		string unavailable = WidgetManager.Translate("#AR-UserActionUnavailable"); // Translate is used because to change language the CreateGroupSettingsDialogUI has to be closed and then opened so it will renew.
 
-			m_GroupDescription.SetEnabled(true);
+		m_GroupName.SetEnabled(canEdit);
+		m_GroupDescription.SetEnabled(canEdit);
+
+		if (canEdit)
+		{
+			m_GroupName.SetValue("");
 			m_GroupDescription.SetValue("");
-			m_bHasPrivilege = true;
 		}
 		else
 		{
-			m_GroupName.SetEnabled(false);
-			m_GroupName.SetValue(WidgetManager.Translate("#AR-UserActionUnavailable"));
-			m_GroupDescription.SetEnabled(false);
-			m_GroupDescription.SetValue(WidgetManager.Translate("#AR-UserActionUnavailable"));
-			m_bHasPrivilege = false;
-
-			// Translate is used because to change language the CreateGroupSettingsDialogUI has to be closed and then opened so it will renew.
+			m_GroupName.SetValue(unavailable);
+			m_GroupDescription.SetValue(unavailable);
 		}
 
 		SetupGroupStatusCombo();
@@ -112,8 +117,16 @@ class CreateGroupSettingsDialogUI : DialogUI
 			if (configuredGroupRoles.IsIndexValid(currentIndex) && availableGroupRoles.Contains(configuredGroupRoles[currentIndex]))
 			{
 				bool joinGroup = !SCR_FactionCommanderPlayerComponent.IsLocalPlayerCommander();
-				bool deleteIfNoPlayer = !SCR_FactionCommanderPlayerComponent.IsLocalPlayerCommander();
-				groupController.RequestCreateGroupWithData(configuredGroupRoles[currentIndex], isPrivate, m_GroupName.GetValue(), m_GroupDescription.GetValue(), joinGroup, deleteIfNoPlayer);
+				
+				string groupName = string.Empty;
+				if (m_GroupName.IsEnabled())
+					groupName = m_GroupName.GetValue();
+				
+				string groupDescription = string.Empty;
+				if (m_GroupDescription.IsEnabled())
+					groupDescription = m_GroupDescription.GetValue();
+				
+				groupController.RequestCreateGroupWithData(configuredGroupRoles[currentIndex], isPrivate, groupName, groupDescription, joinGroup, true);
 			}
 			else
 			{
@@ -178,18 +191,38 @@ class CreateGroupSettingsDialogUI : DialogUI
 		array<SCR_EGroupRole> configuredGroupRoles = m_GroupsManager.GetConfiguredGroupRoles(m_LocalFaction, true);
 		array<SCR_EGroupRole> availableGroupRoles = m_GroupsManager.GetAvailableGroupRoles(m_LocalFaction);
 
-		int itemsCount = m_GroupRole.GetNumItems();
+		array<Widget> comboBoxWidgets = {};
+		int itemsCount = m_GroupRole.GetElementWidgets(comboBoxWidgets);
+
+		SCR_SquadRoleComboBoxElement squadRoleComboBoxElement;
 		bool isAvailable = false;
+		bool isPlayerCommander = SCR_FactionCommanderPlayerComponent.IsLocalPlayerCommander();
 
 		// set element availability in combobox
 		for (int i = 0; i < itemsCount; i++)
 		{
+			SCR_EGroupRole configuredGroupRole = configuredGroupRoles[i];
 			if (configuredGroupRoles.IsIndexValid(i))
-				isAvailable = availableGroupRoles.Contains(configuredGroupRoles[i]);
+				isAvailable = availableGroupRoles.Contains(configuredGroupRole);
 			else
 				isAvailable = false;
 
 			m_GroupRole.SetElementWidgetEnabled(i, isAvailable, false);
+
+			squadRoleComboBoxElement = SCR_SquadRoleComboBoxElement.Cast(comboBoxWidgets[i].FindHandler(SCR_SquadRoleComboBoxElement));
+			if (!squadRoleComboBoxElement)
+				continue;
+
+			bool isRequiredRankVisible = !isPlayerCommander && !m_GroupsManager.CanCreateGroupWithLocalPlayerRank(configuredGroupRole, m_LocalFaction);
+			squadRoleComboBoxElement.SetVisibleInsufficientRank(isRequiredRankVisible);
+			if (isRequiredRankVisible)
+			{
+				SCR_ECharacterRank requiredRank = m_GroupsManager.GetRequiredRank(configuredGroupRole, m_LocalFaction);
+				squadRoleComboBoxElement.SetRankImage(m_LocalFaction.GetRankInsignia(requiredRank));
+			}
+
+			bool isNotEnoughFullGroupVisible = !isPlayerCommander && !m_GroupsManager.AreAllGroupsMajorityFull(configuredGroupRole, m_LocalFaction);
+			squadRoleComboBoxElement.SetVisibleNotEnoughFullGroup(isNotEnoughFullGroupVisible);
 		}
 	}
 

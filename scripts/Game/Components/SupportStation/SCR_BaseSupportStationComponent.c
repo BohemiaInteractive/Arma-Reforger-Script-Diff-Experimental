@@ -248,9 +248,15 @@ class SCR_BaseSupportStationComponent : ScriptComponent
 			if (soundComponent.GetEventIndex(audioConfig.m_sSoundEventName) > 0)
 			{
 				if (action)
+				{
+					vector mat[4] = {vector.Right, vector.Up, vector.Forward, action.GetWorldPositionAction()};
+					soundComponent.SetTransformation(mat); // this is necessary as otherwise sound system may use some old position, which might be far enough, that the sound is going to fail audibility test
 					soundComponent.SoundEventOffset(audioConfig.m_sSoundEventName, action.GetLocalPositionAction());
-				else 
+				}
+				else
+				{
 					soundComponent.SoundEventOffset(audioConfig.m_sSoundEventName, audioConfig.m_vOffset);
+				}
 
 				return;
 			}

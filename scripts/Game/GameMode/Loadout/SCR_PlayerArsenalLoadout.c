@@ -367,7 +367,7 @@ class SCR_PlayerArsenalLoadout : SCR_FactionPlayerLoadout
 			BaseInventoryStorageComponent storage;
 			foreach (BaseInventoryStorageComponent candidate : storageCandiates)
 			{
-				const string componentId = GetComponentIdentifier(owner, GenericComponent.Cast(candidate));
+				const string componentId = GetComponentIdentifier(owner, candidate);
 				if (componentId == id)
 				{
 					storage = candidate;

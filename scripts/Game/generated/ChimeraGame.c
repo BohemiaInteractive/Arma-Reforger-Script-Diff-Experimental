@@ -80,6 +80,8 @@ class ChimeraGame: Game
 	\param msec gap in milliseconds at which time the log/calculate FPS is calculated. <= 0 to disable it.
 	*/
 	proto external void LogFPS(int msec);
+	//! Efective on game consoles, where parts of game may be installled in the background.
+	proto external float GetGameInstallStatus();
 	/*!
 	Checks is a prefab can be spawned localy. Required for multiplayer
 	*/
@@ -97,6 +99,8 @@ class ChimeraGame: Game
 	event void OnCinematicStart();
 	event void OnCinematicEnd();
 	event void OnCinematicBlending(float blendFactor, vector cameraPosition);
+	//! Called when game is fully installed. Used on game consoles, where parts of game may be installled in the background.
+	event void OnGameInstallComplete();
 	/*!
 	\brief Called when a mission header is set (to both a valid one or to null as well)
 	\param mission can be passed in as null when mission is cleared, make sure to nullptr check!

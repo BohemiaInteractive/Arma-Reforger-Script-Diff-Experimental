@@ -339,22 +339,39 @@ class SCR_BaseUseSupportStationAction : SCR_ScriptedUserAction
 	{
 		//~ Action can be performed server only
 		if (!m_bIsMaster)
+		{
+			if (!m_bLoopAction) // if we arent looping, then whatever will happen, action user is no longer valid
+				m_ActionUser = null;
+
 			return;
+		}
 
 		//~ Resets all references so server grabs them all fresh
 		ResetReferencesOnServer();
 
 		if (!CanBeShownScript(pUserEntity))
+		{
+			if (!m_bLoopAction)
+				m_ActionUser = null;
+
 			return;
+		}
 
 		if (!CanBePerformedScript(pUserEntity))
+		{
+			if (!m_bLoopAction)
+				m_ActionUser = null;
+
 			return;
+		}
 
 		//Execute Supply station
 		m_SupportStationComponent.OnExecutedServer(pOwnerEntity, pUserEntity, this);
 
 		//~ Update supplies
 		m_iAvailableSupplies = m_SupportStationComponent.GetMaxAvailableSupplies();
+		if (!m_bLoopAction)
+			m_ActionUser = null;
 	}
 
 	//------------------------------------------------------------------------------------------------

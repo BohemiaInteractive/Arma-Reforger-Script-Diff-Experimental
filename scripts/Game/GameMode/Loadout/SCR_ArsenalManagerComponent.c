@@ -1126,6 +1126,7 @@ class SCR_ArsenalManagerComponent : SCR_BaseGameModeComponent
 
 		int invalidItemCount = 0;
 		int loadoutMilitarySupplyAllocationCost;
+		SCR_ECharacterRank requiredRank = SCR_ECharacterRank.RENEGADE;
 		
 		foreach (IEntity item : allPlayerItems)
 		{			
@@ -1184,11 +1185,13 @@ class SCR_ArsenalManagerComponent : SCR_BaseGameModeComponent
 			}
 			//~ Check item catalog(s)
 			else if (!itemCatalogs.IsEmpty())
-			{						
+			{
 				bool itemFound;
+				SCR_EntityCatalogEntry itemEntry;
 				foreach(SCR_EntityCatalog itemCatalog : itemCatalogs)
 				{
-					if (itemCatalog.GetEntryWithPrefab(resourceName))
+					itemEntry = itemCatalog.GetEntryWithPrefab(resourceName);
+					if (itemEntry)
 					{
 						itemFound = true;
 						break;
@@ -1207,6 +1210,13 @@ class SCR_ArsenalManagerComponent : SCR_BaseGameModeComponent
 					invalidItemCount++;
 					continue;
 				}
+
+				if (AreItemsRankLocked())
+				{
+					SCR_ArsenalItem arsenalItemData = SCR_ArsenalItem.Cast(itemEntry.GetEntityDataOfType(SCR_ArsenalItem));
+					if (arsenalItemData)
+						requiredRank = Math.Max(requiredRank, arsenalItemData.GetRequiredRank());
+				}
 			}
 		}
 		
@@ -1214,10 +1224,21 @@ class SCR_ArsenalManagerComponent : SCR_BaseGameModeComponent
 		if (invalidItemCount > 0 && sendNotificationOnFailed)
 			SCR_NotificationsComponent.SendToPlayer(playerId, ENotification.PLAYER_LOADOUT_NOT_SAVED_INVALID_ITEMS, invalidItemCount);
 
-		int playerMilitarySupplyAllocationValue;
+		SCR_PlayerController playerController = SCR_PlayerController.Cast(GetGame().GetPlayerManager().GetPlayerController(playerId));
+		if (playerController && AreItemsRankLocked())
+		{
+			SCR_PlayerXPHandlerComponent xpHandler = SCR_PlayerXPHandlerComponent.Cast(playerController.FindComponent(SCR_PlayerXPHandlerComponent));
+			if (xpHandler && xpHandler.GetPlayerRankByXP() < requiredRank)
+			{
+				if (sendNotificationOnFailed)
+					SCR_NotificationsComponent.SendToPlayer(playerId, ENotification.PLAYER_LOADOUT_NOT_SAVED_INSUFFICIENT_RANK);
+
+				return false;
+			}
+		}
 
 		//~ Get the Military Supply Allocation cost of the player current loadout
-		SCR_PlayerController playerController = SCR_PlayerController.Cast(GetGame().GetPlayerManager().GetPlayerController(playerId));
+		int playerMilitarySupplyAllocationValue;
 		if (playerController)
 		{
 			SCR_PlayerSupplyAllocationComponent playerSupplyAllocationComponent = SCR_PlayerSupplyAllocationComponent.Cast(playerController.FindComponent(SCR_PlayerSupplyAllocationComponent));
@@ -1229,7 +1250,8 @@ class SCR_ArsenalManagerComponent : SCR_BaseGameModeComponent
 		if (m_bUseMilitarySupplyAllocation && loadoutMilitarySupplyAllocationCost > playerMilitarySupplyAllocationValue)
 		{
 			if (sendNotificationOnFailed)
-			SCR_NotificationsComponent.SendToPlayer(playerId, ENotification.PLAYER_LOADOUT_NOT_SAVED_NOT_ENOUGH_MSA);
+				SCR_NotificationsComponent.SendToPlayer(playerId, ENotification.PLAYER_LOADOUT_NOT_SAVED_NOT_ENOUGH_MSA);
+
 			return false;
 		}
 

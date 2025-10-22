@@ -9,7 +9,7 @@ Do not modify, this script is generated
 \{
 */
 
-class PersistenceCallback: Managed
+sealed class PersistenceCallback: Managed
 {
 }
 

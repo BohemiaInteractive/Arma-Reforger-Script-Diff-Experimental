@@ -66,7 +66,7 @@ class SCR_VONMenu
 		}
 
 		SCR_GroupTaskManagerComponent groupTaskManager = SCR_GroupTaskManagerComponent.GetInstance();
-		if (!groupTaskManager)
+		if (!groupTaskManager || !groupTaskManager.IsEnabledAssigningFrequencies())
 			return string.Empty;
 
 		SCR_Task foundTask = groupTaskManager.GetTaskByFrequency(milFaction, frequency);

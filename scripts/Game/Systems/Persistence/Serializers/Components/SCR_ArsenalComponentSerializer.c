@@ -20,7 +20,7 @@ class SCR_ArsenalComponentSerializer : ScriptedComponentSerializer
 		const SCR_EArsenalSaveType saveType = arsenal.GetArsenalSaveType();
 		SCR_EArsenalSaveType saveTypeDefault = 0;
 		if (source)
-			source.Get("m_bArsenalEnabled", saveTypeDefault);
+			source.Get("m_eArsenalSaveType", saveTypeDefault);
 
 		const SCR_EArsenalItemType supportedItemTypes = arsenal.GetSupportedArsenalItemTypes();
 		SCR_EArsenalItemType supportedItemTypesDefault = 0;

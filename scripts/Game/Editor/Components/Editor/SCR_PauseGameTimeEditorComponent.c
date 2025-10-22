@@ -10,16 +10,14 @@ class SCR_PauseGameTimeEditorComponent : SCR_BaseEditorComponent
 	[Attribute("0", desc: "When enabled, the editor will be paused when opened.")]
 	protected bool m_bPauseOnOpen;
 
-	protected ChimeraWorld m_World;
-	protected bool m_bPendingUnpause;
-
 	//------------------------------------------------------------------------------------------------
 	/*!
 	Toggle pause mode, e.g., pause the game when it's not paused.
 	*/
 	void TogglePause()
 	{
-		SetPause(!m_World.IsGameTimePaused());
+		const ChimeraWorld world = ChimeraWorld.CastFrom(GetGame().GetWorld());
+		SetPause(!world.IsGameTimePaused());
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -29,16 +27,12 @@ class SCR_PauseGameTimeEditorComponent : SCR_BaseEditorComponent
 	*/
 	void SetPause(bool pause)
 	{
-		//--- Unpausing game, create a rewind point
+		// Unpausing game, create a rewind point
 		if (!pause)
 		{
 			SCR_RewindComponent rewindManager = SCR_RewindComponent.GetInstance();
 			if (rewindManager && rewindManager.CanRewind() && !rewindManager.HasRewindPoint())
-			{
-				m_bPendingUnpause = true;
 				rewindManager.CreateRewindPoint();
-				return;
-			}
 		}
 
 		DoPause(pause);
@@ -72,47 +66,53 @@ class SCR_PauseGameTimeEditorComponent : SCR_BaseEditorComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnSaved(SaveGame save)
-	{
-		if (m_bPendingUnpause)
-		{
-			m_bPendingUnpause = false;
-			DoPause(false);
-			return;
-		}
-
-		if (save.GetType() == ESaveGameType.MANUAL)
-			DoPause(true);
-	}
-
-	//------------------------------------------------------------------------------------------------
 	override protected void EOnEditorOpen()
 	{
-		GetGame().GetSaveGameManager().GetOnSaveGameCreated().Insert(OnSaved);
+		EventProvider.ConnectEvent(GetGame().GetSaveGameManager().OnSaveCreated, OnSaved);
 
-		if (m_bPauseOnOpen)
+		// Pause game time when the editor is opened (only after a delay, to give player camera chance to iniliazed after rewinding)
+		bool pause = m_bPauseOnOpen;
+
+		// Pause once on first init of if we are loading a save (account for call queue delay with 5 seconds of grace period)
+		if (!pause && SCR_PersistenceSystem.IsLoadInProgress(5000))
 		{
-			//--- Pause game time when the editor is opened (only after a delay, to give player camera chance to iniliazed after rewinding)
-			GetGame().GetCallqueue().Call(SetPause, true);
+			SCR_EditorManagerEntity editorManagerEntity = SCR_EditorManagerEntity.GetInstance();
+			if (editorManagerEntity)
+			{
+				const EEditorMode mode = editorManagerEntity.GetCurrentMode();
+				if (SCR_Enum.HasFlag(mode, EEditorMode.EDIT))
+					pause = true;
+			}
 		}
+
+		if (pause)
+			GetGame().GetCallqueue().Call(SetPause, true);
 	}
 
 	//------------------------------------------------------------------------------------------------
 	override protected void EOnEditorClose()
 	{
-		GetGame().GetSaveGameManager().GetOnSaveGameCreated().Remove(OnSaved);
+		EventProvider.DisconnectEvent(GetGame().GetSaveGameManager().OnSaveCreated, OnSaved);
 
-		//--- Always unpause the game when leaving the editor
-		SetPause(false);
+		// Always unpause for when returning back to gameplay.
+		const ChimeraWorld world = ChimeraWorld.CastFrom(GetGame().GetWorld());
+		if (world.IsGameTimePaused())
+			SetPause(false);
 	}
 
 	//------------------------------------------------------------------------------------------------
 	override protected void EOnEditorInit()
 	{
-		m_World = GetGame().GetWorld();
-
-		//--- Don't pause on open when disabled by CLI param in the dev version
-		if (GetGame().IsDev() && System.IsCLIParam("editorDoNotPauseOnOpen"))
+		// Don't pause on open when disabled by CLI param in the dev version
+		if (m_bPauseOnOpen && GetGame().IsDev() && System.IsCLIParam("editorDoNotPauseOnOpen"))
 			m_bPauseOnOpen = false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[ReceiverAttribute()]
+	protected void OnSaved(SaveGame save)
+	{
+		if (save.GetType() == ESaveGameType.MANUAL)
+			DoPause(true);
 	}
 }

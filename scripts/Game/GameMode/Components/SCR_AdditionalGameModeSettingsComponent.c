@@ -328,6 +328,14 @@ class SCR_AdditionalGameModeSettingsComponent : SCR_BaseGameModeComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void SetNightNoiseEffectState_S(bool disabled)
+	{
+		m_bDisableNightNoiseEffect = disabled;
+		OnNightNoiseSettingChanged();
+		Replication.BumpMe();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void OnNightNoiseSettingChanged()
 	{
 		SCR_NoiseFilterEffect.SetNightNoiseEffectState(m_bDisableNightNoiseEffect);
@@ -337,17 +345,6 @@ class SCR_AdditionalGameModeSettingsComponent : SCR_BaseGameModeComponent
 	override protected void OnPostInit(IEntity owner)
 	{
 		SetEventMask(owner, EntityEvent.INIT);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	override protected void EOnInit(IEntity owner)
-	{
-		RplMode currentMode = RplSession.Mode();
-		if (currentMode == RplMode.None || (currentMode == RplMode.Listen || currentMode == RplMode.Dedicated) && System.IsCLIParam("forceDisableNightGrain"))
-		{
-			m_bDisableNightNoiseEffect = true;
-			OnNightNoiseSettingChanged();
-		}
 	}
 
 	//------------------------------------------------------------------------------------------------

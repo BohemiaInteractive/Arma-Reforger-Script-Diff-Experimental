@@ -91,7 +91,7 @@ class SCR_ScenarioUICommon
 		GetGame().GetSaveGameManager().GetSaves(saves, scenario.Id());
 
 		Tuple2<int, MissionWorkshopItem> sharedCtx(saves.Count(), scenario);
-		SaveGameOperationCb callback(sharedCtx, OnRestartScenarioCleanupComplete);
+		SaveGameOperationCb callback(OnRestartScenarioCleanupComplete, sharedCtx);
 		foreach (SaveGame save : saves)
 		{
 			GetGame().GetSaveGameManager().Delete(save, callback);
@@ -101,7 +101,7 @@ class SCR_ScenarioUICommon
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnRestartScenarioCleanupComplete(Managed context, bool success)
+	protected static void OnRestartScenarioCleanupComplete(bool success, Managed context)
 	{
 		auto sharedCtx = Tuple2<int, MissionWorkshopItem>.Cast(context);
 		if (!success || !sharedCtx.param2)

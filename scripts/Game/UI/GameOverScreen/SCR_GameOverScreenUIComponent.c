@@ -216,9 +216,21 @@ class SCR_GameOverScreenUIComponent: ScriptedWidgetComponent
 	protected void BackToMainMenuPopupConfirm()
 	{
 		OnGameEnd();
+		UnpauseTime();
 		GameStateTransitions.RequestGameplayEndTransition();
 	}
-	
+
+	//-----------------------------------------------------------------------------------------------
+	protected void UnpauseTime()
+	{
+		ChimeraWorld world = GetGame().GetWorld();
+
+		if (!world || !world.IsGameTimePaused())
+			return;
+
+		world.PauseGameTime(false);
+	}
+
 	//~ Removes itself from hierargy on game end just in cause
 	protected void OnGameEnd()
 	{
@@ -348,6 +360,7 @@ class SCR_GameOverScreenUIComponent: ScriptedWidgetComponent
 			}
 		}
 		
+		GetGame().GetSaveGameManager().StartPlaythrough(sequenceHeader.m_sNextScenario, transition: false);
 		GameStateTransitions.RequestScenarioChangeTransition(sequenceHeader.m_sNextScenario, MissionHeader.ReadMissionHeader(sequenceHeader.m_sNextScenario).GetWorldSystemsConfig(), addonGUIDs);
 	}
 };

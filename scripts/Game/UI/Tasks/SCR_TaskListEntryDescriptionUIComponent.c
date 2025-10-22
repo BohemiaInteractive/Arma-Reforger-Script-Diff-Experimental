@@ -56,11 +56,11 @@ class SCR_TaskListEntryDescriptionUIComponent : SCR_ScriptedWidgetComponent
 
 		m_Widgets.Init(m_wRoot);
 
-		if (m_Widgets.m_ButtonAssignTaskComponent)
-			m_Widgets.m_ButtonAssignTaskComponent.m_OnActivated.Insert(OnButtonAssign);
+		if (m_Widgets.m_ButtonAssignTaskComponent0)
+			m_Widgets.m_ButtonAssignTaskComponent0.m_OnActivated.Insert(OnButtonAssign);
 
-		if (m_Widgets.m_ButtonShowMapComponent)
-			m_Widgets.m_ButtonShowMapComponent.m_OnActivated.Insert(OnButtonShowOnMap);
+		if (m_Widgets.m_ButtonShowMapComponent0)
+			m_Widgets.m_ButtonShowMapComponent0.m_OnActivated.Insert(OnButtonShowOnMap);
 
 		m_TaskManager = SCR_TaskManagerUIComponent.GetInstance();
 		m_TaskSystem = SCR_TaskSystem.GetInstance();
@@ -80,11 +80,11 @@ class SCR_TaskListEntryDescriptionUIComponent : SCR_ScriptedWidgetComponent
 	{
 		super.HandlerDeattached(w);
 
-		if (m_Widgets.m_ButtonAssignTaskComponent)
-			m_Widgets.m_ButtonAssignTaskComponent.m_OnActivated.Remove(OnButtonAssign);
+		if (m_Widgets.m_ButtonAssignTaskComponent0)
+			m_Widgets.m_ButtonAssignTaskComponent0.m_OnActivated.Remove(OnButtonAssign);
 
-		if (m_Widgets.m_ButtonShowMapComponent)
-			m_Widgets.m_ButtonShowMapComponent.m_OnActivated.Remove(OnButtonShowOnMap);
+		if (m_Widgets.m_ButtonShowMapComponent0)
+			m_Widgets.m_ButtonShowMapComponent0.m_OnActivated.Remove(OnButtonShowOnMap);
 
 		if (m_TaskManager)
 		{
@@ -223,9 +223,9 @@ class SCR_TaskListEntryDescriptionUIComponent : SCR_ScriptedWidgetComponent
 			return;
 
 		if (m_Task.IsTaskAssignedTo(player) || m_Task.IsTaskAssignedTo(group))
-			m_Widgets.m_ButtonAssignTaskComponent.SetLabel(m_sUnassignTaskText);
+			m_Widgets.m_ButtonAssignTaskComponent0.SetLabel(m_sUnassignTaskText);
 		else
-			m_Widgets.m_ButtonAssignTaskComponent.SetLabel(m_sAssignTaskText);
+			m_Widgets.m_ButtonAssignTaskComponent0.SetLabel(m_sAssignTaskText);
 
 		if (!hasAssigned)
 			return;
@@ -433,7 +433,7 @@ class SCR_TaskListEntryDescriptionUIComponent : SCR_ScriptedWidgetComponent
 
 		SCR_ETaskState state = m_TaskSystem.GetTaskState(m_Task);
 		HandleTaskStateVisuals(state);
-
+	
 		m_Widgets.m_wButtonShowMap.SetVisible(m_TaskSystem.IsTaskVisibleOnMap(m_Task));
 
 		if ((state & (SCR_ETaskState.CREATED | SCR_ETaskState.ASSIGNED | SCR_ETaskState.PROGRESSED)) && (!childTasks || childTasks.IsEmpty()))
@@ -443,9 +443,9 @@ class SCR_TaskListEntryDescriptionUIComponent : SCR_ScriptedWidgetComponent
 			int playerID = SCR_PlayerController.GetLocalPlayerId();
 			SCR_TaskExecutor player = SCR_TaskExecutor.FromPlayerID(playerID);
 			if (player && m_TaskSystem.CanTaskBeAssignedTo(m_Task, player))
-				m_Widgets.m_ButtonAssignTaskComponent.SetEnabled(true);
+				m_Widgets.m_ButtonAssignTaskComponent0.SetEnabled(true);
 			else
-				m_Widgets.m_ButtonAssignTaskComponent.SetEnabled(false);
+				m_Widgets.m_ButtonAssignTaskComponent0.SetEnabled(false);
 		}
 		else
 		{
@@ -621,10 +621,32 @@ class SCR_TaskListEntryDescriptionUIComponent : SCR_ScriptedWidgetComponent
 	//! Set task icon and title to the ones set in tasks' SCR_TaskUIInfo.
 	void UpdateTask()
 	{
+		m_Widgets.m_TitleFrameComponent.AnimationStop();
+		
 		SCR_TaskUIInfo info = m_Task.GetTaskUIInfo();
 		if (!info)
 			return;
-
+		
+		if (m_Task.GetAuthorID() > 0)
+		{
+			m_Widgets.m_wAuthorFrame.SetVisible(true);
+			
+			string playerName = GetGame().GetPlayerManager().GetPlayerName(m_Task.GetAuthorID());
+			m_Widgets.m_TaskAuthorComponent.SetPlayerName(playerName);
+			
+			ImageWidget platformIcon = m_Widgets.m_TaskAuthorComponent.GetPlatformIconWidget();
+			if (platformIcon)
+			{
+				platformIcon.SetVisible(false);
+				PlatformKind platformKind = GetGame().GetPlayerManager().GetPlatformKind(m_Task.GetAuthorID());
+				SCR_PlayerController playerController = SCR_PlayerController.Cast(GetGame().GetPlayerController());
+				if (playerController)
+					playerController.SetPlatformImageToKind(platformKind, platformIcon, showOnPC: true, showOnXbox: true);
+			}
+		}
+		else
+			m_Widgets.m_wAuthorFrame.SetVisible(false);
+		
 		info.SetNameTo(m_Widgets.m_wTaskTitle);
 		info.SetDescriptionTo(m_Widgets.m_wDescription);
 		SCR_ExtendedTask extendedTask = SCR_ExtendedTask.Cast(m_Task);
@@ -646,6 +668,13 @@ class SCR_TaskListEntryDescriptionUIComponent : SCR_ScriptedWidgetComponent
 
 			m_Widgets.m_wTaskIconSymbol.LoadImageFromSet(0, imageset, iconName);
 		}
+		
+		float frameX, frameY, textX, textY;
+		m_Widgets.m_wTitleFrame.GetScreenSize(frameX, frameY);
+		m_Widgets.m_wTaskTitle.GetScreenSize(textX, textY);
+		
+		if (textX > frameX)		
+			m_Widgets.m_TitleFrameComponent.AnimationStart();
 	}
 
 	//------------------------------------------------------------------------------------------------

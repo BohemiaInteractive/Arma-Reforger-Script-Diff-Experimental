@@ -427,6 +427,73 @@ class SCR_CharacterDamageManagerComponent : SCR_ExtendedDamageManagerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Method used by the authority to synchronize an execution of the sound playback for a damage effect
+	//! \param[in] effectType for which sound playback should be executed
+	//! \return true if playback was successful, otherwise false
+	bool SynchronizedSoundEvent(typename effectType)
+	{
+		array<ref SCR_PersistentDamageEffect> persistentEffects = {};
+		GetPersistentEffects(persistentEffects);
+		foreach (int i, SCR_PersistentDamageEffect effect : persistentEffects)
+		{
+			if (effect.Type() != effectType)
+				continue;
+
+			return SynchronizedSoundEvent(effect, i);
+		}
+
+		return false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Method used by the authority to synchronize an execution of the sound playback for a damage effect
+	//! \param[in] broadcastingEffect from which sound playback will be triggered locally
+	//! \param[in] effectId optionally if id is already known
+	//! \return true if playback was successful, otherwise false
+	bool SynchronizedSoundEvent(notnull SCR_PersistentDamageEffect broadcastingEffect, int effectId = -1)
+	{
+		if (effectId < 0)
+		{
+			array<ref SCR_PersistentDamageEffect> persistentEffects = {};
+			GetPersistentEffects(persistentEffects);
+			foreach (int i, SCR_PersistentDamageEffect effect : persistentEffects)
+			{
+				if (effect != broadcastingEffect)
+					continue;
+	
+				effectId = i;
+				break;
+			}
+		}
+
+		if (effectId < 0)
+			return false;
+		
+		if (!broadcastingEffect.ExecuteSynchronizedSoundPlayback(this))
+			return false;
+
+		Rpc(Do_SynchronizedSoundEvent, effectId);
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \param[in] effectId id of the damage effect that should be used for the sound playback
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void Do_SynchronizedSoundEvent(int effectId)
+	{
+		array<ref SCR_PersistentDamageEffect> persistentEffects = {};
+		GetPersistentEffects(persistentEffects);
+		foreach (int i, SCR_PersistentDamageEffect effect : persistentEffects)
+		{
+			if (i != effectId)
+				continue;
+
+			effect.ExecuteSynchronizedSoundPlayback(this);
+			break;
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void SoundHit(bool critical, EDamageType damageType)
 	{
 		// Ignore if knocked out or dead

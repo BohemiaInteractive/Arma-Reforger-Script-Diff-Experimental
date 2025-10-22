@@ -37,6 +37,42 @@ class SCR_SaveSessionToolbarAction : SCR_EditorToolbarAction
 			return;
 		}
 
-		GetGame().GetSaveGameManager().RequestSavePoint(ESaveGameType.MANUAL);
+		ESaveGameRequestFlags saveFlags;
+		if (RplSession.Mode() == RplMode.None)
+			saveFlags = ESaveGameRequestFlags.BLOCKING;
+
+		const SaveGameManager manager = GetGame().GetSaveGameManager();
+		SaveGame currentSave = manager.GetActiveSave();
+		if (currentSave)
+		{
+			auto rewind = SCR_RewindComponent.GetInstance();
+			if (rewind)
+			{
+				if (rewind.IsRewindPoint(currentSave))
+				{
+					currentSave = null;
+					const int currentPlaythrough = manager.GetCurrentPlaythroughNumber();
+
+					array<SaveGame> saves();
+					manager.GetSaves(saves, manager.GetCurrentMissionResource());
+					foreach (SaveGame save : saves)
+					{
+						if (rewind.IsRewindPoint(save))
+							continue;
+			
+						if (save.GetPlaythroughNumber() == currentPlaythrough)
+							currentSave = save;
+					}
+				}
+			}
+		}
+
+		if (currentSave)
+		{
+			manager.RequestSavePointOverwrite(currentSave, saveFlags);
+			return;
+		}
+
+		manager.RequestSavePoint(ESaveGameType.MANUAL, flags: saveFlags);
 	}
 }

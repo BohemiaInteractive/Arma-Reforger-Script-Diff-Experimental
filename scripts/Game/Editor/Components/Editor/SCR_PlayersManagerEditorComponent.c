@@ -84,11 +84,11 @@ class SCR_PlayersManagerEditorComponent : SCR_BaseEditorComponent
 		if (statesManager && statesManager.GetState() != EEditorState.SELECTING)
 			return;
 		
-		Rpc(TeleportPlayerToPositionServer, position);
+		Rpc(RPC_TeleportPlayerToPositionServer, position);
 	}
 	
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	void TeleportPlayerToPositionServer(vector position)
+	void RPC_TeleportPlayerToPositionServer(vector position)
 	{
 		// Verify player has editor open
 		SCR_EditorManagerEntity editorManager = GetManager();
@@ -99,17 +99,50 @@ class SCR_PlayersManagerEditorComponent : SCR_BaseEditorComponent
 		if (!player)
 			return;
 		
-		CompartmentAccessComponent compartmentAccess = CompartmentAccessComponent.Cast(player.FindComponent(CompartmentAccessComponent));
-		if (compartmentAccess && compartmentAccess.IsInCompartment())
-			TeleportPlayerToPositionOwner(position); //--- Player in a vehicle, execute on server
+		IEntity parent = player.GetRootParent();
+		if (parent == player)
+			// Player not attached to anything, execute where the player is local
+			Rpc(TeleportPlayerToPositionOwner, editorManager.GetPlayerID(), position); 
 		else
-			Rpc(TeleportPlayerToPositionOwner, position); //--- Player not in a vehicle, execute where the player is local
+			// Player attached to something, execute on the server
+			TeleportPlayerToPositionServer(player, editorManager.GetPlayerID(), position);
+	}
+	
+	void TeleportPlayerToPositionServer(IEntity player, int playerId, vector position)
+	{
+		if (!SCR_Global.TeleportPlayer(playerId, position))
+			return;
+		
+		/* Commented because the owner would not get instant reponse.
+			 The original idea was to let the NwkMovementComponent replicate the change.
+
+		// If the player is inside a vehicle we don't need to broadcast if NwkMovementComponent is present and active.
+		// It will take care of the sync.
+		SCR_CompartmentAccessComponent compartmentAccess = SCR_CompartmentAccessComponent.Cast(player.FindComponent(SCR_CompartmentAccessComponent));
+		if (compartmentAccess)
+		{
+			IEntity vehicle = compartmentAccess.GetVehicle();
+			if (vehicle)
+			{
+				NwkMovementComponent nwk = NwkMovementComponent.Cast(vehicle.FindComponent(NwkMovementComponent));
+				if (nwk != null && nwk.IsSimulationEnabled())
+					return;
+			}
+		}*/
+		
+		Rpc(TeleportPlayerToPositionBroadcast, playerId, position)
+	}
+	
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	void TeleportPlayerToPositionBroadcast(int playerId, vector position)
+	{
+		SCR_Global.TeleportPlayer(playerId, position);
 	}
 	
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
-	void TeleportPlayerToPositionOwner(vector position)
+	void TeleportPlayerToPositionOwner(int playerId, vector position)
 	{
-		SCR_Global.TeleportPlayer(GetManager().GetPlayerID(), position);
+		SCR_Global.TeleportPlayer(playerId, position);
 	}
 	
 	/*!
@@ -221,7 +254,7 @@ class SCR_PlayersManagerEditorComponent : SCR_BaseEditorComponent
 		if (!factionAffiliaton)
 			return;
 
-		factionAffiliaton.SetAffiliatedFaction(editableEntity.GetFaction());
+		factionAffiliaton.SetAffiliatedFaction(factionAffiliaton.GetAffiliatedFaction());
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]

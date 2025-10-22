@@ -520,7 +520,7 @@ class SCR_HeatMap_Autotest: GenericEntity
 		}
 
 		ReverseArray(image);
-		string ddsFile = "$logs:heatmap.dds";
+		const string ddsFile = "$logs:heatmap.dds";
 		if(!TexTools.SaveImageData(ddsFile, image_size, image_size, image))
 		{
 			PrintToConsole("Failed to save the data into the file: " + ddsFile, LogLevel.ERROR);

@@ -172,10 +172,10 @@ class SCR_ContentBrowserTileComponent : SCR_ScriptedWidgetComponent
 	{
 		if (m_bFocused)
 		{
-			if (!m_Widgets.m_FrameNameComponent.GetContentFit())
+			if (!m_Widgets.m_FrameNameComponent.GetContentFitX())
 				m_Widgets.m_FrameNameComponent.AnimationStart();
 
-			if (!m_Widgets.m_FrameAuthorComponent.GetContentFit())
+			if (!m_Widgets.m_FrameAuthorComponent.GetContentFitX())
 				m_Widgets.m_FrameAuthorComponent.AnimationStart();
 		}
 		else

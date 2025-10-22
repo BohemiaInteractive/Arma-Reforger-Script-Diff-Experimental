@@ -74,15 +74,6 @@ class AIControlComponentSerializer : ScriptedComponentSerializer
 
 		int version;
 		context.Read(version);
-		Print(version);
-
-		string dbgTest;
-		context.Read(dbgTest);
-		Print(dbgTest);
-
-		float floatTest;
-		context.Read(floatTest);
-		Print(floatTest);
 
 		// Threat system info
 		if (context.DoesObjectExist("threatSystem"))
@@ -93,7 +84,6 @@ class AIControlComponentSerializer : ScriptedComponentSerializer
 			context.Read(shotsFired);
 			context.Read(injury);
 			context.Read(endangered);
-			Print(suppresion);
 				
 			utility.m_ThreatSystem.SetThreatValues(suppresion, shotsFired, injury, endangered);
 			// m_fThreatTotal is updated through system update with current behavior on load

@@ -203,12 +203,12 @@ class SCR_DestructionDamageManagerComponent : SCR_DamageManagerComponent
 	
 	//------------------------------------------------------------------------------------------------
 	//! Deletion of children of owner of this component which is going to be delayed by a frame to ensure proper excecution of invokers and RPC calls
-	void DeleteDestructibleChildrenDelayed()
+	void DeleteDestructibleChildrenDelayed(bool withEffects = true)
 	{
 		if (GetOwner().IsDeleted())
 			return;
 
-		GetGame().GetCallqueue().CallLater(DeleteDestructibleChildren);
+		GetGame().GetCallqueue().CallLater(DeleteDestructibleChildren, param1: withEffects);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -260,7 +260,7 @@ class SCR_DestructionDamageManagerComponent : SCR_DamageManagerComponent
 	//------------------------------------------------------------------------------------------------
 	//! Used in cases where we don't care about effects or anything, e. g. building destruction
 	//! Use DeleteDestructibleDelayed instead
-	private void DeleteDestructibleChildren()
+	private void DeleteDestructibleChildren(bool withEffects = true)
 	{
 		IEntity child = GetOwner().GetChildren();
 		// Iterate through all siblings
@@ -275,8 +275,11 @@ class SCR_DestructionDamageManagerComponent : SCR_DamageManagerComponent
 			
 			if (childDestructionComponent)
 			{
-				// If it has a destruction component, use it to destroy the child
-				childDestructionComponent.DeleteParentWithEffects();
+				if (withEffects)
+					// If it has a destruction component, use it to destroy the child
+					childDestructionComponent.DeleteParentWithEffects();
+				else
+					childDestructionComponent.DeleteDestructibleDelayed();
 			}
 			
 			// Move to the next sibling

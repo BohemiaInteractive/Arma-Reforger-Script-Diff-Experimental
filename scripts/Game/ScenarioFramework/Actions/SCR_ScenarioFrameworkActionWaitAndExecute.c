@@ -13,33 +13,31 @@ class SCR_ScenarioFrameworkActionWaitAndExecute : SCR_ScenarioFrameworkActionBas
 	[Attribute(defvalue: "1", desc: "Which actions will be executed once set time passes", UIWidgets.Auto)]
 	ref array<ref SCR_ScenarioFrameworkActionBase>	m_aActions;
 
-	protected int m_iDelay;
 	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] object
 	void ExecuteActions(IEntity object)
 	{
 		if (!CanActivate())
 			return;
-		
-		if (m_bLooped)
-		{
-			m_iDelay = m_iDelayInSeconds;
-			if (m_iDelayInSecondsMax > m_iDelayInSeconds)
-				m_iDelay = Math.RandomIntInclusive(m_iDelayInSeconds, m_iDelayInSecondsMax);
-		}
 
 		int activatableActions;
 		foreach (SCR_ScenarioFrameworkActionBase actions : m_aActions)
 		{
 			if (actions.m_iMaxNumberOfActivations == -1 || actions.m_iNumberOfActivations < actions.m_iMaxNumberOfActivations)
 				activatableActions++;
-			
+
 			actions.OnActivate(object);
 		}
-		
-		if (activatableActions == 0)
-			SCR_ScenarioFrameworkSystem.GetCallQueuePausable().Remove(ExecuteActions);
+
+		SCR_ScenarioFrameworkSystem.GetCallQueuePausable().Remove(ExecuteActions);
+
+		if (m_bLooped && activatableActions > 0)
+		{
+			int delay = m_iDelayInSeconds;
+			if (m_iDelayInSecondsMax > m_iDelayInSeconds)
+				delay = Math.RandomIntInclusive(m_iDelayInSeconds, m_iDelayInSecondsMax);
+
+			SCR_ScenarioFrameworkSystem.GetCallQueuePausable().CallLater(ExecuteActions, delay * 1000, false, object);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -48,15 +46,17 @@ class SCR_ScenarioFrameworkActionWaitAndExecute : SCR_ScenarioFrameworkActionBas
 		if (!CanActivate())
 			return;
 
-		m_iDelay = m_iDelayInSeconds;
+		int delay = m_iDelayInSeconds;
 		if (m_iDelayInSecondsMax > m_iDelayInSeconds)
-			m_iDelay = Math.RandomIntInclusive(m_iDelayInSeconds, m_iDelayInSecondsMax);
+			delay = Math.RandomIntInclusive(m_iDelayInSeconds, m_iDelayInSecondsMax);
 
 		if (m_aActions.IsEmpty())
 			return;
+
+		m_Entity = object;
 		
 		//Used to delay the call as it is the feature of this action
-		SCR_ScenarioFrameworkSystem.GetCallQueuePausable().CallLater(ExecuteActions, m_iDelay * 1000, m_bLooped, object);
+		SCR_ScenarioFrameworkSystem.GetCallQueuePausable().CallLater(ExecuteActions, delay * 1000, false, object);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -64,12 +64,12 @@ class SCR_ScenarioFrameworkActionWaitAndExecute : SCR_ScenarioFrameworkActionBas
 	{
 		return m_aActions;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	override void RestoreToDefault()
 	{
 		super.RestoreToDefault();
-		
+
 		SCR_ScenarioFrameworkSystem.GetCallQueuePausable().Remove(ExecuteActions);
 	}
 }

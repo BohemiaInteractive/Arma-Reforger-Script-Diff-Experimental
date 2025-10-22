@@ -64,16 +64,6 @@ class SCR_FactionCommanderEstablishBaseRequestMenuHandler : SCR_FactionCommander
 			m_Group = group;
 			m_iRequesterGroup = requesterGroup.GetGroupID();
 		}
-
-		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
-		if (!mapEntity)
-			return;
-
-		SCR_MapCursorModule mapCursorModule = SCR_MapCursorModule.Cast(mapEntity.GetMapModule(SCR_MapCursorModule));
-		if (!mapCursorModule)
-			return;
-
-		mapCursorModule.ToggleLocationSelection(true);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -87,16 +77,6 @@ class SCR_FactionCommanderEstablishBaseRequestMenuHandler : SCR_FactionCommander
 			return;
 
 		factionCommanderPlayerComponent.CreateRequestedTask(GetTaskPrefab(), position, m_iRequesterGroup, m_Group, m_MapCommandCursor.GetPlayerId(), this);
-
-		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
-		if (!mapEntity)
-			return;
-
-		SCR_MapCursorModule mapCursorModule = SCR_MapCursorModule.Cast(mapEntity.GetMapModule(SCR_MapCursorModule));
-		if (!mapCursorModule)
-			return;
-
-		mapCursorModule.ToggleLocationSelection(false);	
 	}
 
 	//------------------------------------------------------------------------------------------------

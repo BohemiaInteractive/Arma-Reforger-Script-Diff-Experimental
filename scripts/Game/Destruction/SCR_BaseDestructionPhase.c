@@ -1,6 +1,6 @@
 class SCR_BaseDestructionPhase: BaseDestructionPhase
 {
-	[Attribute(ResourceName.Empty, UIWidgets.ResourcePickerThumbnail, "Model to use for the damage phase", "xob, et")]
+	[Attribute(ResourceName.Empty, UIWidgets.ResourcePickerThumbnail, "Model to use for the damage phase", "xob et")]
 	ResourceName m_sPhaseModel;
 
 	[Attribute("0", UIWidgets.CheckBox, "Use material remap from parent prefab when changing to this phase")]

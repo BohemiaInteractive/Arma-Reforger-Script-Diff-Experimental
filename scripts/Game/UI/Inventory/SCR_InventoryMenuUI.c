@@ -267,6 +267,11 @@ class SCR_InvCallBack : ScriptedInventoryOperationCallback
 //------------------------------------------------------------------------------------------------
 //! UI Script
 //! Inventory Menu UI Layout
+
+void InventorySlotHoverMethod(SCR_InventorySlotUI slot);
+typedef func InventorySlotHoverMethod;
+typedef ScriptInvokerBase<InventorySlotHoverMethod> ScriptInvokerInventorySlotHover;
+
 class SCR_InventoryMenuUI : ChimeraMenuBase
 {	
 	
@@ -430,6 +435,17 @@ class SCR_InventoryMenuUI : ChimeraMenuBase
 	protected const LocalizedString GAMEPAD_HINT_BACK = "#AR-Menu_Back";
 	protected const LocalizedString GAMEPAD_HINT_CLOSE = "#AR-Inventory_Close";
 	protected const LocalizedString GAMEPAD_HINT_DESELECT = "#AR-Inventory_Deselect";
+	
+	protected static ref ScriptInvokerInventorySlotHover m_OnItemHover;
+	
+	//------------------------------------------------------------------------------------------------
+	static ScriptInvokerInventorySlotHover GetOnItemHover()
+	{
+		if(!m_OnItemHover)
+			m_OnItemHover = new ScriptInvokerInventorySlotHover();
+		
+		return m_OnItemHover;
+	}
 
 	//------------------------------------------------------------------------------------------------
 	ItemPreviewManagerEntity GetItemPreviewManager()
@@ -2097,6 +2113,9 @@ class SCR_InventoryMenuUI : ChimeraMenuBase
 				pFocusedSlot.CheckCompatibility(m_DraggedSlot);
 
 			m_pFocusedSlotUI = pFocusedSlot;
+			if (m_OnItemHover)
+				m_OnItemHover.Invoke(pFocusedSlot);
+			
 			SetFocusedSlotEffects();
 		}
 		else

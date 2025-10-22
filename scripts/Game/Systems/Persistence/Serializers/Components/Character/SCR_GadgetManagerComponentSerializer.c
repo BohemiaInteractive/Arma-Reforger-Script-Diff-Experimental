@@ -28,16 +28,15 @@ class SCR_GadgetManagerComponentSerializer : ScriptedComponentSerializer
 		if (context.Read(gadgetId) && !gadgetId.IsNull())
 		{
 			Tuple1<SCR_GadgetManagerComponent> ctx(gadgetManager);
-			PersistenceWhenAvailableTask task(ctx, OnGadgetAvailable);
+			PersistenceWhenAvailableTask task(OnGadgetAvailable, ctx);
 			GetSystem().WhenAvailable(gadgetId, task);
 		}
 
 		return true;
 	}
 
-
 	//------------------------------------------------------------------------------------------------
-	protected static void OnGadgetAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnGadgetAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto gadget = IEntity.Cast(instance);
 		if (!gadget)

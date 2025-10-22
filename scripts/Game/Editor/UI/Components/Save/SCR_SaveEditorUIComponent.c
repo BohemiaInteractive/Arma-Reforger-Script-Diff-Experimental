@@ -6,63 +6,6 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	[Attribute()]
 	protected bool m_bCurrentMissionOnly;
 	
-	[Attribute("SaveScroller")]
-	protected string m_sScrollWidgetName;
-	
-	[Attribute("SaveList")]
-	protected string m_sListWidgetName;
-	
-	[Attribute("SaveNameInput")]
-	protected string m_sNameInputWidgetName;
-	
-	[Attribute("ExitButton")]
-	protected string m_sCloseButtonWidgetName;
-	
-	[Attribute("DeleteButton")]
-	protected string m_sDeleteButtonWidgetName;
-	
-	[Attribute("OverrideButton")]
-	protected string m_sOverrideButtonWidgetName;
-	
-	[Attribute("ConfirmButton")]
-	protected string m_sConfirmButtonWidgetName;
-	
-	[Attribute("ConfirmPrompt")]
-	protected string m_sConfirmPromptWidgetName;
-	
-	[Attribute("DeletePrompt")]
-	protected string m_sDeletePromptWidgetName;
-	
-	[Attribute("LoadBadVersionPrompt")]
-	protected string m_sLoadBadVersionPromptWidgetName;
-	
-	[Attribute("LoadBadAddonsPrompt")]
-	protected string m_sLoadBadAddonsPromptWidgetName;
-	
-	[Attribute("EntryName")]
-	protected string m_sEntryNameWidgetName;
-	
-	[Attribute("SaveMetaLine")]
-	protected string m_sEntryMeta;
-	
-	[Attribute("PreviewDate")]
-	protected string m_sEntryDateWidgetName;
-	
-	[Attribute("PreviewTime")]
-	protected string m_sEntryTimeWidgetName;
-	
-	[Attribute("PreviewWorld")]
-	protected string m_sEntryMissionNameWidgetName;
-	
-	[Attribute("EntryVersion")]
-	protected string m_sEntryVersionWidgetName;
-	
-	[Attribute("PreviewImage")]
-	protected string m_sEntryImageWidgetName;
-	
-	[Attribute("SaveImage")]
-	protected string m_sEntryIconWidgetName;
-	
 	[Attribute("false", UIWidgets.CheckBox)]
 	protected bool m_bVerboseDate;
 	
@@ -84,30 +27,19 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	[Attribute("session_load_bad_addons")]
 	protected string m_sLoadBadAddonsPrompt;
 	
-	protected Widget m_wRoot;
-	protected ScrollLayoutWidget m_wScroll;
-	protected Widget m_wList;
-	protected Widget m_wLastFocusedEntry;
+	protected ref map<Widget, SCR_SaveLoadEntryComponent> m_mComponentEntries = new map<Widget, SCR_SaveLoadEntryComponent>();
 	
-	protected SCR_InputButtonComponent m_DeleteButton;
-	protected SCR_InputButtonComponent m_OverrideButton;
-	protected SCR_InputButtonComponent m_ConfirmButton;
-	protected SCR_EditBoxComponent m_SaveNameInput;
+	protected ref SCR_SaveWidgets m_Widgets = new SCR_SaveWidgets();
+	
+	protected Widget m_wRoot;
+	protected Widget m_wLastFocusedEntry;
+	protected Widget m_wSelectedWidget;
 	
 	protected SCR_ConfigurableDialogUi m_ConfirmPrompt;
 	protected SCR_ConfigurableDialogUi m_DeletePrompt;
 	protected SCR_ConfigurableDialogUi m_LoadBadVersionPrompt;
 	protected SCR_ConfigurableDialogUi m_LoadBadAddonsPrompt;
 	protected SCR_LoadingOverlayDialog m_LoadingOverlay;
-	
-	protected float m_fSliderPosY = -1;
-	protected Widget m_wSelectedWidget;
-	protected string m_sSelectedFileName;
-	
-	protected ref map<Widget, string> m_mEntries = new map<Widget, string>();
-	protected ref map<string, string> m_mEntryNames = new map<string, string>(); //--- file name, display name
-	protected ref array<Widget> m_aEntriesHidden = {};
-	protected ref array<Widget> m_aEntriesToShow = {};
 
 	//////////////////////////////////////////////////////////////////////////////////////////
 	// Control buttons
@@ -125,7 +57,7 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 		// Save dialogs
 		if (!m_bIsLoad)
 		{
-			string customName = m_SaveNameInput.GetValue();
+			string customName = m_Widgets.m_SaveNameInputComponent0.GetValue();
 			if (false /*GetGame().GetSaveManager().FileExists(m_eWriteSaveType, customName)*/)
 			{
 				//--- Confirm prompt
@@ -139,17 +71,17 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 				return;
 			}
 			
-			m_ConfirmPrompt.SetTitle(m_SaveNameInput.GetValue());
+			m_ConfirmPrompt.SetTitle(m_Widgets.m_SaveNameInputComponent0.GetValue());
 			return;
 		}
 		
-		//--- Loading a file leads to restart, ask first
-		string displayName = m_mEntryNames[m_sSelectedFileName];
-		string fileName;
-		if (m_mEntries.Find(GetGame().GetWorkspace().GetFocusedWidget(), fileName))
+		SCR_SaveLoadEntryComponent entryComponent;
+		if (m_mComponentEntries.Find(m_wSelectedWidget, entryComponent))
 		{
+			string displayname = entryComponent.GetDisplayName();
+			
 			/*
-			SCR_MetaStruct meta = GetGame().GetSaveManager().GetMeta(fileName);
+			SCR_MetaStruct meta = GetGame().GetSaveManager().GetMeta(entryComponent.GetFileName());
 			if (meta)
 			{
 				if (!meta.IsVersionCompatible())
@@ -157,7 +89,7 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 					// Warning - incompatible version
 					m_LoadBadVersionPrompt = SCR_ConfigurableDialogUi.CreateFromPreset(SCR_CommonDialogs.DIALOGS_CONFIG, m_sLoadBadVersionPrompt);
 					m_LoadBadVersionPrompt.m_OnConfirm.Insert(LoadEntry);
-					m_LoadBadVersionPrompt.SetTitle(displayName);
+					m_LoadBadVersionPrompt.SetTitle(displayname);
 					return;
 				}
 				else if (!meta.AreAddonsCompatible())
@@ -165,7 +97,7 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 					// Warning - incompatible addons
 					m_LoadBadAddonsPrompt = SCR_ConfigurableDialogUi.CreateFromPreset(SCR_CommonDialogs.DIALOGS_CONFIG, m_sLoadBadAddonsPrompt);
 					m_LoadBadAddonsPrompt.m_OnConfirm.Insert(LoadEntry);
-					m_LoadBadAddonsPrompt.SetTitle(displayName);
+					m_LoadBadAddonsPrompt.SetTitle(displayname);
 					return;
 				}
 			}
@@ -174,7 +106,7 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 			//--- Confirm prompt
 			m_ConfirmPrompt = SCR_ConfigurableDialogUi.CreateFromPreset(SCR_CommonDialogs.DIALOGS_CONFIG, m_sConfirmPrompt);
 			m_ConfirmPrompt.m_OnConfirm.Insert(OnConfirmPrompt);
-			m_ConfirmPrompt.SetTitle(displayName);
+			m_ConfirmPrompt.SetTitle(displayname);
 		}
 	}
 
@@ -190,30 +122,35 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	}
 	
 	//----------------------------------------------------------------------------------------
-	//! Callback on clicking delete button or actoin
+	//! Callback on clicking delete button or action
 	protected void OnDelete(SCR_InputButtonComponent button, string actionName)
-	{	
+	{
+		SCR_SaveLoadEntryComponent entryComponent;
+		if (!m_mComponentEntries.Find(m_wSelectedWidget, entryComponent))
+			return;
+		
 		// Open delete dialog
 		m_DeletePrompt = SCR_ConfigurableDialogUi.CreateFromPreset(SCR_CommonDialogs.DIALOGS_CONFIG, m_sDeletePrompt); //--- ToDo: Unique tag
 		m_DeletePrompt.m_OnConfirm.Insert(OnDeletePrompt);
 		
 		// Setup string
-		string displayName = m_mEntryNames[m_sSelectedFileName];
+		string displayName = entryComponent.GetDisplayName();
 		m_DeletePrompt.SetTitle(displayName);
 	}
 
 	//----------------------------------------------------------------------------------------
 	protected void OnDeletePrompt()
 	{
+		SCR_SaveLoadEntryComponent entryComponent = m_mComponentEntries.Get(m_wSelectedWidget);
+		
 		//--- Delete the file
-		//GetGame().GetSaveManager().Delete(m_sSelectedFileName);
+		//GetGame().GetSaveManager().Delete(entryComponent.GetFileName());
 		
 		//--- Update GUI
-		m_mEntries.Remove(m_wSelectedWidget);
-		m_mEntryNames.Remove(m_sSelectedFileName);
+		m_mComponentEntries.Remove(m_wSelectedWidget);
 		
 		m_wSelectedWidget.RemoveFromHierarchy();
-		SelectEntry(null, string.Empty);
+		SelectEntry(null);
 	}
 	
 	//----------------------------------------------------------------------------------------
@@ -234,20 +171,20 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	//------------------------------------------------------------------------------------------------
 	protected void SaveEntry()
 	{
-		string customName = m_SaveNameInput.GetValue();
+		string customName = m_Widgets.m_SaveNameInputComponent0.GetValue();
 		//GetGame().GetSaveManager().Save(m_eWriteSaveType, customName);
 	}
 	
 	//----------------------------------------------------------------------------------------
 	protected void LoadEntry()
 	{
-		string fileName;
-		if (m_mEntries.Find(m_wLastFocusedEntry, fileName))
+		SCR_SaveLoadEntryComponent entryComponent;
+		if (m_mComponentEntries.Find(m_wLastFocusedEntry, entryComponent))
 		{
 			/*
 			// Load save 		
 			SCR_SaveManagerCore saveManager = GetGame().GetSaveManager();
-			saveManager.RestartAndLoad(fileName);
+			saveManager.RestartAndLoad(entryComponent.GetFileName());
 			
 			// Handle server load
 			if (!Replication.IsClient())
@@ -262,6 +199,27 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 			}
 			*/
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnOverrideSaveEntry(notnull SCR_SaveLoadEntryComponent entryComponent)
+	{
+		m_wSelectedWidget = m_mComponentEntries.GetKeyByValue(entryComponent);
+		OnConfirm(null, string.Empty);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnLoadSaveEntry(notnull SCR_SaveLoadEntryComponent entryComponent)
+	{
+		m_wSelectedWidget = m_mComponentEntries.GetKeyByValue(entryComponent);
+		OnConfirm(null, string.Empty);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnDeleteSaveEntry(notnull SCR_SaveLoadEntryComponent entryComponent)
+	{
+		m_wSelectedWidget = m_mComponentEntries.GetKeyByValue(entryComponent);
+		OnDelete(null, string.Empty);
 	}
 	
 	//----------------------------------------------------------------------------------------
@@ -286,13 +244,16 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	//////////////////////////////////////////////////////////////////////////////////////////
 
 	//------------------------------------------------------------------------------------------------
-	protected void SelectEntry(Widget w, string fileName)
+	protected void SelectEntry(Widget w, SCR_SaveLoadEntryComponent entryComponent = null)
 	{
-		const string customName =  ""; //GetGame().GetSaveManager().GetCustomName(fileName);
-		m_SaveNameInput.SetValue(customName);
+		string fileName;
+		if (entryComponent)
+			fileName = entryComponent.GetFileName();
+		
+		string customName = "";//GetGame().GetSaveManager().GetCustomName(fileName);
+		m_Widgets.m_SaveNameInputComponent0.SetValue(customName);
 
-		m_wSelectedWidget = w;		
-		m_sSelectedFileName = fileName;
+		m_wSelectedWidget = w;
 		
 		UpdateButtons();
 	}
@@ -300,168 +261,90 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	//------------------------------------------------------------------------------------------------
 	protected void UpdateButtons()
 	{
-		string customName = m_SaveNameInput.GetValue();
-		bool isValid = !customName.IsEmpty();
-		bool isOverride = !m_bIsLoad && customName && false; //GetGame().GetSaveManager().FileExists(m_eWriteSaveType, customName);
+		SCR_SaveLoadEntryComponent entryComponent = m_mComponentEntries.Get(m_wSelectedWidget);
 		
-		if (m_bIsLoad)
-			m_DeleteButton.SetEnabled(m_sSelectedFileName && false /*GetGame().GetSaveManager().FileExists(m_sSelectedFileName)*/);
-		else
-			m_DeleteButton.SetEnabled(isOverride);
+		bool canSave = entryComponent.CanOverrideSave();
+		bool canLoad = entryComponent.CanLoadSave();
+		bool canDelete = entryComponent.CanDeleteSave();
 		
-		m_OverrideButton.SetVisible(isOverride, false);
-		m_OverrideButton.SetEnabled(isOverride && isValid);
+		string customName = m_Widgets.m_SaveNameInputComponent0.GetValue();
+		bool canOverride;
+		if (!customName.IsEmpty())// && !GetGame().GetSaveManager().FileExists(m_eWriteSaveType, customName))
+			canOverride = true;
 		
-		m_ConfirmButton.SetVisible(!isOverride, false);
-		m_ConfirmButton.SetEnabled(!isOverride && isValid);
+		m_Widgets.m_ConfirmButtonComponent.SetVisible(canSave);
+		m_Widgets.m_DeleteButtonComponent.SetEnabled(canDelete);
+		m_Widgets.m_OverrideButtonComponent.SetEnabled(false);
+		m_Widgets.m_ConfirmButtonComponent.SetEnabled(false);
+		
+		if (canSave)
+		{
+			m_Widgets.m_OverrideButtonComponent.SetEnabled(canOverride);
+			m_Widgets.m_ConfirmButtonComponent.SetEnabled(canOverride);	
+		}		
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnFrame()
+	protected void OnInit()
 	{
-		//--- Ignore if all entries were shown
-		if (m_aEntriesHidden.IsEmpty())
+		foreach(Widget entryWidget, SCR_SaveLoadEntryComponent entryComponent : m_mComponentEntries)
 		{
-			GetGame().GetCallqueue().Remove(OnFrame);
-			return;
-		}
-		
-		float sliderPosX, sliderPosY;
-		m_wScroll.GetSliderPos(sliderPosX, sliderPosY);
-		
-		if (sliderPosY != m_fSliderPosY)
-		{
-			float scrollPosX, scrollPosY, scrollSizeW, scrollSizeH;
-			m_wScroll.GetScreenPos(scrollPosX, scrollPosY);
-			m_wScroll.GetScreenSize(scrollSizeW, scrollSizeH);
+			/*
+			string displayName = GetGame().GetSaveManager().GetCustomName(entryComponent.GetFileName());
+			entryComponent.SetDisplayName(displayName);
 			
-			//--- Widget not loaded yet, terminate
-			if (scrollSizeH == 0)
-				return;
-			
-			//--- Find widgets in view
-			foreach (int i, Widget entryWidget: m_aEntriesHidden)
+			SCR_MetaStruct meta = GetGame().GetSaveManager().GetMeta(fileName);
+			if (meta && meta.IsValid())
 			{
-				//--- Already shown
-				if (entryWidget.GetOpacity() > 0)
-					continue;
-				
-				float posX, posY, sizeW, sizeH;
-				entryWidget.GetScreenPos(posX, posY);
-				entryWidget.GetScreenSize(sizeW, sizeH);
-				
-				if ((posY + sizeH) > scrollPosY && posY < (scrollPosY + scrollSizeH))
+				SCR_UIInfo info = GetGame().GetSaveManager().GetSaveTypeInfo(fileName);
+				Color imageColor = Color.FromInt(Color.WHITE);
+				if (info)
 				{
-					//--- When the entry is in the scrolled view, mark it for showing
-					if (!m_aEntriesToShow.Contains(entryWidget))
-						m_aEntriesToShow.Insert(entryWidget);
-				}
-				else
-				{
-					//--- When the entry is not in the scrolled view, removing it from queue of entries to show again (to prioritize entries that are actually shown)
-					m_aEntriesToShow.RemoveItemOrdered(entryWidget);
-				}
-			}
-		}
-		
-		//--- Process the queue of entries to show, with one entry per frame
-		if (!m_aEntriesToShow.IsEmpty())
-		{
-			Widget entryWidget = m_aEntriesToShow[0];
-			if (entryWidget.GetOpacity() == 0)
-			{
-				TextWidget entryNameWidget = TextWidget.Cast(entryWidget.FindAnyWidget(m_sEntryNameWidgetName));
-				ImageWidget entryImageWidget = ImageWidget.Cast(entryWidget.FindAnyWidget(m_sEntryImageWidgetName));
-				ImageWidget entryIconWidget = ImageWidget.Cast(entryWidget.FindAnyWidget(m_sEntryIconWidgetName));
-				
-				string fileName = m_mEntries[entryWidget];
-				string entryName = ""; //GetGame().GetSaveManager().GetCustomName(fileName);
-				
-				/*
-				SCR_MetaStruct meta = GetGame().GetSaveManager().GetMeta(fileName);
-				if (meta && meta.IsValid())
-				{
-					int y, m, d, hh, mm;
-					meta.GetDateAndTime(y, m, d, hh, mm);
+					info.SetIconTo(entryComponent.GetSaveIcon());
+					displayName = info.GetName() + " " + displayName; //--- Hardcoded space separator, ToDo: Solve using %1 in the string itself?
 					
-					SCR_UIInfo info = GetGame().GetSaveManager().GetSaveTypeInfo(fileName);
-					string displayName = entryName;
-					Color imageColor = Color.FromInt(Color.WHITE);
-					if (info)
+					SCR_ColorUIInfo colorInfo = SCR_ColorUIInfo.Cast(info);
+					if (colorInfo)
+						imageColor = colorInfo.GetColor();
+				}
+								
+				string versionText;
+				bool isVersionCompatible = meta.IsVersionCompatible(versionText);
+				
+				int y, m, d, hh, mm;
+				meta.GetDateAndTime(y, m, d, hh, mm);
+				
+				entryComponent.SetSaveName(displayName);
+				entryComponent.SetDateTime(SCR_DateTimeHelper.GetDateString(d, m, y, m_bVerboseDate), SCR_FormatHelper.GetTimeFormattingHoursMinutes(hh, mm));
+				entryComponent.SetVersion(versionText, isVersionCompatible);
+				
+				if (!meta.AreAddonsCompatible())
+					entryComponent.SetIsWarning();
+				
+				if (m_bIsLoad)
+					entryComponent.SetCanLoad(true);
+				else
+					entryComponent.SetCanSave(true);
+				
+				entryComponent.SetCanDelete(true);
+				
+				ResourceName headerResourceName = meta.GetHeaderResource();
+				if (!headerResourceName.IsEmpty())
+				{
+					Resource missionHeaderResource = Resource.Load(headerResourceName);
+					if (missionHeaderResource.IsValid())
 					{
-						info.SetIconTo(entryIconWidget);
-						displayName = info.GetName() + " " + displayName; //--- Hardcoded space separator, ToDo: Solve using %1 in the string itself?
+						SCR_MissionHeader missionHeader = SCR_MissionHeader.Cast(BaseContainerTools.CreateInstanceFromContainer(missionHeaderResource.GetResource().ToBaseContainer()));
 						
-						SCR_ColorUIInfo colorInfo = SCR_ColorUIInfo.Cast(info);
-						if (colorInfo)
-							imageColor = colorInfo.GetColor();
+						entryComponent.SetSaveName(missionHeader.m_sName);
+						
+						if (missionHeader.m_sIcon)
+							entryComponent.SetSaveIcon(imageColor, missionHeader.m_sIcon);
 					}
-					m_mEntryNames.Insert(fileName, displayName);
-					
-					entryNameWidget.SetText(displayName);
-					
-					TextWidget entryDateWidget = TextWidget.Cast(entryWidget.FindAnyWidget(m_sEntryDateWidgetName));
-					entryDateWidget.SetText(SCR_DateTimeHelper.GetDateString(d, m, y, m_bVerboseDate));
-					
-					TextWidget entryTimeWidget = TextWidget.Cast(entryWidget.FindAnyWidget(m_sEntryTimeWidgetName));
-					entryTimeWidget.SetText(SCR_FormatHelper.GetTimeFormattingHoursMinutes(hh, mm));
-					
-					TextWidget entryVersionWidget = TextWidget.Cast(entryWidget.FindAnyWidget(m_sEntryVersionWidgetName));
-					string versionText;
-					bool isVersionCompatible = meta.IsVersionCompatible(versionText);
-					entryVersionWidget.SetText(versionText);
-					if (!isVersionCompatible)
-						entryVersionWidget.SetColor(UIColors.WARNING);
-					
-					ResourceName headerResourceName = meta.GetHeaderResource();
-					if (!headerResourceName.IsEmpty())
-					{
-						Resource missionHeaderResource = Resource.Load(headerResourceName);
-						if (missionHeaderResource.IsValid())
-						{
-							SCR_MissionHeader missionHeader = SCR_MissionHeader.Cast(BaseContainerTools.CreateInstanceFromContainer(missionHeaderResource.GetResource().ToBaseContainer()));
-							
-							TextWidget entryMissionNameWidget = TextWidget.Cast(entryWidget.FindAnyWidget(m_sEntryMissionNameWidgetName));
-							entryMissionNameWidget.SetText(missionHeader.m_sName);
-							
-							if (missionHeader.m_sIcon)
-							{
-								entryImageWidget.LoadImageTexture(0, missionHeader.m_sIcon);
-								entryImageWidget.SetColor(imageColor);
-							}
-						}
-					}
-					
-					if (!meta.AreAddonsCompatible())
-					{
-						entryIconWidget.SetColor(UIColors.WARNING);
-					}
-
 				}
-				else
-				{
-					//--- Meta file missing or invalid
-					entryNameWidget.SetText(entryName);
-					entryImageWidget.SetVisible(false);
-					
-					Widget entryMetaWidget = entryWidget.FindAnyWidget(m_sEntryMeta);
-					entryMetaWidget.SetVisible(false);
-					
-					entryIconWidget.SetColor(Color.FromInt(UIColors.WARNING.PackToInt()));
-				}
-				*/
-				
-				AnimateWidget.Opacity(entryWidget, 1, 3);
 			}
-			else if (entryWidget.GetOpacity() > 0)
-			{
-				//--- Started fading in, move on to the next entry
-				m_aEntriesToShow.RemoveOrdered(0);
-				m_aEntriesHidden.RemoveItemOrdered(entryWidget);
-			}
+			*/
 		}
-		
-		m_fSliderPosY = sliderPosY;
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////
@@ -471,13 +354,12 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	//------------------------------------------------------------------------------------------------
 	override bool OnClick(Widget w, int x, int y, int button)
 	{
-		if (w.GetParent() != m_wList)
+		if (w.GetParent() != m_Widgets.m_wSaveList)
 			return false;
 		
-		//--- Save entry
-		string fileName;
-		if (m_mEntries.Find(w, fileName))
-			SelectEntry(w, fileName);
+		SCR_SaveLoadEntryComponent entryComponent;
+		if (m_mComponentEntries.Find(w, entryComponent))
+			SelectEntry(w, entryComponent);
 		
 		return false;
 	}
@@ -485,12 +367,11 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	//----------------------------------------------------------------------------------------
 	override bool OnFocus(Widget w, int x, int y)
 	{
-		string fileName;
-		
-		if (m_mEntries.Find(w, fileName))
+		SCR_SaveLoadEntryComponent entryComponent;
+		if (m_mComponentEntries.Find(w, entryComponent))
 		{
 			m_wLastFocusedEntry = w;
-			SelectEntry(w, fileName);
+			SelectEntry(w, entryComponent);
 		}
 		
 		return false;
@@ -499,7 +380,7 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	//----------------------------------------------------------------------------------------
 	override bool OnDoubleClick(Widget w, int x, int y, int button)
 	{
-		if (w.GetParent() != m_wList)
+		if (w.GetParent() != m_Widgets.m_wSaveList)
 			return false;
 		
 		//--- Select
@@ -515,72 +396,66 @@ class SCR_SaveEditorUIComponent : ScriptedWidgetComponent
 	override void HandlerAttached(Widget w)
 	{
 		if (!GetGame().InPlayMode())
+		{
+			//! DEBUG
+			Widget parent = w.FindWidget("SaveHorizontalLayout.SaveWindow.WindowOverlay.WindowStructure.Saves.SaveEntryList.m_SaveScroller.m_SaveList");
+			for (int i = 0; i < 10; i++)
+			{
+				GetGame().GetWorkspace().CreateWidgets(m_sEntryLayout, parent);
+			}
 			return;
+		}
 		
 		//--- Find all widgets
 		m_wRoot = w;
-		m_wList = w.FindAnyWidget(m_sListWidgetName);
-		m_wScroll = ScrollLayoutWidget.Cast(w.FindAnyWidget(m_sScrollWidgetName));
+		m_Widgets.Init(w);
 		
 		//--- Name input field
-		m_SaveNameInput = SCR_EditBoxComponent.GetEditBoxComponent(m_sNameInputWidgetName, w);
-		m_SaveNameInput.m_OnChanged.Insert(UpdateButtons);
+		m_Widgets.m_SaveNameInputComponent0.m_OnChanged.Insert(UpdateButtons);
 		
-		//--- Assign control buttons
-		Widget closeButtonWidget = w.FindAnyWidget(m_sCloseButtonWidgetName);
-		Widget deleteButtonWidget = w.FindAnyWidget(m_sDeleteButtonWidgetName);
-		Widget overrideButtonWidget = w.FindAnyWidget(m_sOverrideButtonWidgetName);
-		Widget confirmButtonWidget = w.FindAnyWidget(m_sConfirmButtonWidgetName);
+		m_Widgets.m_ExitButtonComponent.m_OnActivated.Insert(OnClose);
+		m_Widgets.m_DeleteButtonComponent.m_OnActivated.Insert(OnDelete);
+		m_Widgets.m_OverrideButtonComponent.m_OnActivated.Insert(OnConfirm);
+		m_Widgets.m_ConfirmButtonComponent.m_OnActivated.Insert(OnConfirm);
 		
-		SCR_InputButtonComponent closeButton = SCR_InputButtonComponent.Cast(closeButtonWidget.FindHandler(SCR_InputButtonComponent));
-		m_DeleteButton = SCR_InputButtonComponent.Cast(deleteButtonWidget.FindHandler(SCR_InputButtonComponent));
-		m_OverrideButton = SCR_InputButtonComponent.Cast(overrideButtonWidget.FindHandler(SCR_InputButtonComponent));
-		m_ConfirmButton = SCR_InputButtonComponent.Cast(confirmButtonWidget.FindHandler(SCR_InputButtonComponent));
-		
-		closeButton.m_OnActivated.Insert(OnClose);
-		m_DeleteButton.m_OnActivated.Insert(OnDelete);
-		m_OverrideButton.m_OnActivated.Insert(OnConfirm);
-		m_ConfirmButton.m_OnActivated.Insert(OnConfirm);
+		m_Widgets.m_DeleteButtonComponent.SetEnabled(false);
+		m_Widgets.m_OverrideButtonComponent.SetEnabled(false);
+		m_Widgets.m_ConfirmButtonComponent.SetEnabled(false);
 		
 		UpdateButtons();
 		
-		//--- Clear the list first
-		SCR_WidgetHelper.RemoveAllChildren(m_wList);
-		
 		//--- Create new entries
+		/*
 		array<string> fileNames = {};
-		const int fileCount = 0; //GetGame().GetSaveManager().GetLocalSaveFiles(fileNames, m_eReadSaveTypes, m_bCurrentMissionOnly);
+		int fileCount = GetGame().GetSaveManager().GetLocalSaveFiles(fileNames, m_eReadSaveTypes, m_bCurrentMissionOnly);
 		fileNames.Sort();
 		
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		
-		//--- Used for testing to artifically inflate the amount of entries
-		const int debugCoef = 1;
-		
 		Widget entryWidget;
-		TextWidget entryNameWidget;
-		for (int i = 0; i < fileCount * debugCoef; i++)
+		SCR_SaveLoadEntryComponent entryComponent;
+		for (int i = 0; i < fileCount; i++)
 		{
 			int ii = i % fileCount;
 			string fileName = fileNames[ii];
-			entryWidget = workspace.CreateWidgets(m_sEntryLayout, m_wList);
-			m_mEntries.Insert(entryWidget, fileName);
-			m_aEntriesHidden.Insert(entryWidget);
+			entryWidget = workspace.CreateWidgets(m_sEntryLayout, m_Widgets.m_wSaveList);
+			entryComponent = SCR_SaveLoadEntryComponent.Cast(entryWidget.FindHandler(SCR_SaveLoadEntryComponent));
+			m_mComponentEntries.Insert(entryWidget, entryComponent);
 			
 			//--- Hide by default
-			entryWidget.SetOpacity(0);
+			entryWidget.SetVisible(false);
+			
+			entryComponent.SetFileName(fileName);
+			
+			entryComponent.GetOnOverrideSave().Insert(OnOverrideSaveEntry);
+			entryComponent.GetOnLoadSave().Insert(OnLoadSaveEntry);
+			entryComponent.GetOnDeleteSave().Insert(OnDeleteSaveEntry);
 			
 			if (m_bIsLoad && i == 0)
-				SelectEntry(entryWidget, fileName);
+				SelectEntry(entryWidget, entryComponent);
 		}
+		*/
 		
-		//--- Initiate periodic check which will load and show metadata only for entries that are actually shown. Doing it all at once here would be too expensive.
-		GetGame().GetCallqueue().CallLater(OnFrame, 1, true);
-	}
-	
-	//----------------------------------------------------------------------------------------
-	override void HandlerDeattached(Widget w)
-	{
-		GetGame().GetCallqueue().Remove(OnFrame);
+		OnInit();
 	}
 }

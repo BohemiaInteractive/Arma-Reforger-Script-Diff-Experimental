@@ -103,6 +103,7 @@ class SCR_CharacterInventoryStorageComponent : CharacterInventoryStorageComponen
 	protected ref map<IEntity, int> 					m_mSlotHistory = new map<IEntity, int>();
 	protected ref array<IEntity>						m_aWeaponQuickSlotsStorage = {}; //Is used to store first four quickslots of turrets.
 	protected ref array<int>							m_aQuickSlotsHistory = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};	//here we'll be remembering the items stored
+	protected ref set<int>								m_aQuickSlotsInitalized = new set<int>();	
 //	protected ref array<EntityComponentPrefabData>		m_aPrefabsData = { null, null, null, null, null, null, null, null, null, null }; // todo: figure out the intentions
 	protected static const int							GADGET_OFFSET = 9999;	//EWeaponType && EGadgetType might be have the same number, offset it ( not nice (i agree) )
 	protected static const int							TURRET_WEAPON_SWITCH_SLOTS = 4; //How many slots can player cycle between using SelectNextWeapon method by default when in turret
@@ -321,6 +322,12 @@ class SCR_CharacterInventoryStorageComponent : CharacterInventoryStorageComponen
 		return DEFAULT_QUICK_SLOTS[iSlotIndex].Contains(iItemType);
 	}
 
+	//------------------------------------------------------------------------------------------------
+	bool SetQuickSlotInitialized(int iSlotIndex)
+	{
+		return m_aQuickSlotsInitalized.Insert(iSlotIndex);
+	}
+	
 	//------------------------------------------------------------------------------------------------
 	//! \param[in] ent
 	//! \return
@@ -1345,32 +1352,25 @@ class SCR_CharacterInventoryStorageComponent : CharacterInventoryStorageComponen
 		if ( !pInventoryManager )
 			return;
 			
-		if( pControlled )
+		if (pControlled)
 		{
-			//Insert weapons to quick slots as first, because they can't be equipped into hands directly from different storage than EquippedWeaponStorage
-			//TODO: optimise ( hotfix for ability to select grenades from quickslot )
-			
-			array<IEntity> outWeapons = {};
-			GetPlayersWeapons( outWeapons );
-			foreach ( IEntity weapon : outWeapons )
+			array<IEntity> initSlotItems = {};
+			pInventoryManager.GetItems(initSlotItems);
+			foreach (IEntity item : initSlotItems)
 			{
-				StoreItemToQuickSlot( weapon );
+				if (!item)
+					continue;
+
+				const int slotId = GetDefaultQuickSlot(item);
+				if (!SetQuickSlotInitialized(slotId))
+					continue; // Already inited by external logic (e.g. save-game)
+
+				if (GetEntityIndexInQuickslots(item) == slotId)
+					continue; // Already in default quick slot
+
+				StoreItemToQuickSlot(item);
 			}
 
-			// There may be unequipped grenades among default quick item slots as well
-			array<IEntity> outItems = {};
-			pInventoryManager.GetItems( outItems );
-			foreach ( IEntity pItem : outItems )
-			{
-				if (!pItem)
-					continue;
-				
-				if (IsInDefaultQuickSlot(pItem))
-					continue;
-				
-				StoreItemToQuickSlot( pItem );
-			}
-			
 			pInventoryManager.m_OnItemAddedInvoker.Insert( HandleOnItemAddedToInventory );
 			pInventoryManager.m_OnItemRemovedInvoker.Insert( HandleOnItemRemovedFromInventory );
 

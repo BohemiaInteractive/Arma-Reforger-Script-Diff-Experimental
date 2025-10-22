@@ -22,10 +22,19 @@ class CharacterCamera3rdPersonTurret extends CharacterCamera3rdPersonVehicle
 		CompartmentAccessComponent compartmentAccess = m_OwnerCharacter.GetCompartmentAccessComponent();
 		if (compartmentAccess && compartmentAccess.IsInCompartment())
 		{
+			IEntity turret;
 			TurretCompartmentSlot compartment = TurretCompartmentSlot.Cast(compartmentAccess.GetCompartment());
-			m_OwnerVehicle = compartment.GetVehicle();
+			if (compartment)
+			{
+				m_OwnerVehicle = compartment.GetVehicle();
+				turret = compartment.GetOwner();
+			}
+			else
+			{
+				m_OwnerVehicle = compartmentAccess.GetCompartment().GetVehicle();
+				turret = compartmentAccess.GetCompartment().GetAttachedTurret().GetOwner();
+			}
 			
-			IEntity turret = compartment.GetOwner();
 			if (turret)
 			{
 				bool bUsingVehicleCameraData;
@@ -84,7 +93,11 @@ class CharacterCamera3rdPersonTurret extends CharacterCamera3rdPersonVehicle
 				}
 				
 				// If we'll have multiple turrets, don't cache turret
-				m_pTurretController = TurretControllerComponent.Cast(compartment.GetController());
+				if (compartment)
+					m_pTurretController = TurretControllerComponent.Cast(compartment.GetController());
+				else
+					m_pTurretController = compartmentAccess.GetCompartment().GetAttachedTurret();
+				
 				if (!m_pTurretController)
 					return;
 

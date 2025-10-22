@@ -1,4 +1,3 @@
-[BaseContainerProps(), SCR_ContainerMedicalActionTitle()]
 class SCR_ContainerMedicalActionTitle : BaseContainerCustomTitle
 {
 	override bool _WB_GetCustomTitle(BaseContainer source, out string title)

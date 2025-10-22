@@ -420,10 +420,18 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 		factionKeys = m_TaskSystem.GetTaskFactions(task);
 		if (!factionKeys)
 			return;
-
+		
+		SCR_ScenarioFrameworkLayerTask layerTask = sfTask.GetLayerTask();
+		if (!layerTask)
+			return;
+		
+		string titleParam = layerTask.GetOverridenObjectDisplayName();
+		if (SCR_StringHelper.IsEmptyOrWhiteSpace(titleParam) && layerTask.m_SlotTask)
+			titleParam = layerTask.m_SlotTask.GetSpawnedEntityDisplayName();
+		
 		foreach (string factionKey : factionKeys)
 		{
-			PopUpMessage(sfTask.GetTaskName(), "#AR-CampaignTasks_NewObjectivesAvailable-UC", factionKey);
+ 			PopUpMessage(layerTask.GetTaskTitle(), "#AR-CampaignTasks_NewObjectivesAvailable-UC", factionKey, titleParam1:titleParam);
 		}
 	}
 
@@ -466,7 +474,11 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 
 		if (m_bIsSaveGameLoad)
 			return; // No notification on load of save game
-
+		
+		string titleParam = layerTask.GetOverridenObjectDisplayName();
+		if (SCR_StringHelper.IsEmptyOrWhiteSpace(titleParam))
+			titleParam = slotTask.GetSpawnedEntityDisplayName();
+		
 		foreach (string factionKey : factionKeys)
 		{
 			if (task.GetTaskState() == SCR_ETaskState.COMPLETED)
@@ -475,22 +487,22 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 				m_LastFinishedTask = task;
 
 				if (SCR_Enum.HasFlag(frameworkTask.GetTaskNotificationSettings(), SCR_ETaskNotificationSettings.ON_FINISH))
-					PopUpMessage(task.GetTaskName(), "#AR-Tasks_StatusFinished-UC", factionKey);
+					PopUpMessage(layerTask.GetTaskTitle(), "#AR-Tasks_StatusFinished-UC", factionKey, titleParam1:titleParam);
 			}
 			else if (taskState == SCR_ETaskState.FAILED)
 			{
 				if (SCR_Enum.HasFlag(frameworkTask.GetTaskNotificationSettings(), SCR_ETaskNotificationSettings.ON_FAILED))
-					PopUpMessage(task.GetTaskName(), "#AR-Tasks_StatusFailed-UC", factionKey);
+					PopUpMessage(layerTask.GetTaskTitle(), "#AR-Tasks_StatusFailed-UC", factionKey, titleParam1:titleParam);
 			}
 			else if (taskState == SCR_ETaskState.CANCELLED)
 			{
 				if (SCR_Enum.HasFlag(frameworkTask.GetTaskNotificationSettings(), SCR_ETaskNotificationSettings.ON_CANCELLED))
-					PopUpMessage(task.GetTaskName(), "#AR-Tasks_StatusCancelled-UC", factionKey);
+					PopUpMessage(layerTask.GetTaskTitle(), "#AR-Tasks_StatusCancelled-UC", factionKey, titleParam1:titleParam);
 			}
 			else if (taskState == SCR_ETaskState.PROGRESSED)
 			{
 				if (SCR_Enum.HasFlag(frameworkTask.GetTaskNotificationSettings(), SCR_ETaskNotificationSettings.ON_UPDATED))
-					PopUpMessage(task.GetTaskName(), "#AR-Workshop_ButtonUpdate", factionKey);
+					PopUpMessage(layerTask.GetTaskTitle(), "#AR-Workshop_ButtonUpdate", factionKey, titleParam1:titleParam);
 			}
 		}
 	}
@@ -1464,10 +1476,10 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 	//! \param[in] sSubtitle is the secondary message displayed in the pop-up message box.
 	//! \param[in] factionKey represents the identifier for the faction in the game, used to specify which faction's message is being
 	//! \param[in] playerID represents the unique identifier for the player receiving the pop-up message.
-	void PopUpMessage(string sTitle, string sSubtitle, FactionKey factionKey = "", int playerID = -1)
+	void PopUpMessage(string sTitle, string sSubtitle, FactionKey factionKey = "", int playerID = -1, string titleParam1 = "", string titleParam2 = "", string subtitleParam1 = "", string subtitleParam2 = "")
 	{
-		Rpc(RpcDo_PopUpMessage, sTitle, sSubtitle, factionKey, playerID);
-		RpcDo_PopUpMessage(sTitle, sSubtitle, factionKey, playerID);
+		Rpc(RpcDo_PopUpMessage, sTitle, sSubtitle, factionKey, playerID, titleParam1, titleParam2, subtitleParam1, subtitleParam2);
+		RpcDo_PopUpMessage(sTitle, sSubtitle, factionKey, playerID, titleParam1, titleParam2, subtitleParam1, subtitleParam2);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1477,14 +1489,15 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 	//! \param[in] factionKey represents the identifier for a faction in the game, used to check if the local player is part of it
 	//! \param[in] playerID represents the unique identifier for a player in the game.
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
-	void RpcDo_PopUpMessage(string sTitle, string sSubtitle, FactionKey factionKey, int playerID)
+	void RpcDo_PopUpMessage(string sTitle, string sSubtitle, FactionKey factionKey, int playerID, string titleParam1, string titleParam2, string subtitleParam1, string subtitleParam2)
 	{
 		if (RplSession.Mode() == RplMode.Dedicated)
 			return;
 
 		if (!SCR_StringHelper.IsEmptyOrWhiteSpace(factionKey))
 		{
-			if (SCR_FactionManager.SGetLocalPlayerFaction() != GetGame().GetFactionManager().GetFactionByKey(factionKey))
+			const FactionManager fm = GetGame().GetFactionManager();
+			if (!fm || SCR_FactionManager.SGetLocalPlayerFaction() != fm.GetFactionByKey(factionKey))
 				return;
 		}
 
@@ -1498,7 +1511,7 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 				return;
 		}
 
-		SCR_PopUpNotification.GetInstance().PopupMsg(sTitle, text2: sSubtitle);
+		SCR_PopUpNotification.GetInstance().PopupMsg(sTitle, text2: sSubtitle, param1: titleParam1, param2: titleParam2, text2param1: subtitleParam1, text2param2: subtitleParam2);
 	}
 
 	//------------------------------------------------------------------------------------------------

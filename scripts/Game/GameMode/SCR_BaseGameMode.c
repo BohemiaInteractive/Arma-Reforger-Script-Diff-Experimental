@@ -730,10 +730,12 @@ class SCR_BaseGameMode : BaseGameMode
 		#endif
 
 		const SaveGame currentSave = GetGame().GetSaveGameManager().GetActiveSave();
-		if (!currentSave)
-			return; // No save to delete
+		if (currentSave)
+			GetGame().GetSaveGameManager().DeletePlaythrough(currentSave.GetMissionResource(), currentSave.GetPlaythroughNumber());
 
-		GetGame().GetSaveGameManager().DeletePlaythrough(currentSave.GetMissionResource(), currentSave.GetPlaythroughNumber());
+		const PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (persistence)
+			persistence.ClearSessionData();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -777,10 +779,9 @@ class SCR_BaseGameMode : BaseGameMode
 			return;
 
 		Print("SCR_BaseGameMode::RequestScenarioRestart()", LogLevel.DEBUG);
-		if (GameStateTransitions.RequestScenarioRestart())
-		{
-			Print("SCR_BaseGameMode::RequestScenarioRestart() successfull server reload requested!", LogLevel.DEBUG);
-		}
+		
+		auto manager = GetGame().GetSaveGameManager();
+		manager.StartPlaythrough(manager.GetCurrentMissionResource());
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1021,8 +1022,20 @@ class SCR_BaseGameMode : BaseGameMode
 		if (IsGameModeStatisticsEnabled())
 			SCR_GameModeStatistics.RecordConnection(playerId, GetGame().GetPlayerManager().GetPlayerName(playerId));
 		#endif
+
+		// TODO: Remove once peertools properly invoke the audit success from gamecode and identity is available already during registered event.
+		if (RplSession.Mode() == RplMode.Listen && playerId > 1)
+		{
+			OnPlayerAuditSuccess(playerId); 
+		}
+		else if (RplSession.Mode() == RplMode.Dedicated)
+		{	
+			string configPath;
+			if (!System.GetCLIParam("config", configPath) || configPath.IsEmpty())
+				OnPlayerAuditSuccess(playerId);
+		}
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	protected override bool HandlePlayerKilled(int playerId, IEntity playerEntity, IEntity killerEntity, notnull Instigator killer)
 	{		

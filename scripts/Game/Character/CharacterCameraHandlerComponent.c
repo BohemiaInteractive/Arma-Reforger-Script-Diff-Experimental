@@ -150,7 +150,7 @@ class SCR_CharacterCameraHandlerComponent : CameraHandlerComponent
 				if (!controller)
 				{
 					controller = compartment.GetAttachedTurret();
-					if (!controller || compartment.GetAttachedTurret().GetContextIDs() != ETurretContextID.TURRET_OPSCONTEXT)
+					if (!controller || compartment.GetAttachedTurret().GetContextIDs() != ETurretContextID.TURRET_OPSCONTEXT || compartment.IsOccupantTurnedOut())
 						return false;
 				}
 				
@@ -304,6 +304,12 @@ class SCR_CharacterCameraHandlerComponent : CameraHandlerComponent
 			{
 				if (isTurretAds && !m_ControllerComponent.GetFreeLookInput())
 					return CharacterCameraSet.CHARACTERCAMERA_ADS_VEHICLE;
+				
+				BaseCompartmentSlot compartment = compartmentAccess.GetCompartment();
+				if (compartment && compartment.GetAttachedTurret())
+				{	
+					return CharacterCameraSet.CHARACTERCAMERA_1ST_VEHICLE;
+				}
 
 				return CharacterCameraSet.CHARACTERCAMERA_1ST_TURRET;
 			}
@@ -465,8 +471,12 @@ class SCR_CharacterCameraHandlerComponent : CameraHandlerComponent
 
 		bool isADSAllowed = m_CmdHandler && m_CmdHandler.IsWeaponADSAllowed(false);
 		bool isWeaponADS = isADSAllowed && m_ControllerComponent.GetWeaponADSInput() && !m_ControllerComponent.IsReloading();
+		bool resetFocus = false;
 		if (!isWeaponADS)
-			CheckIsInTurret(isWeaponADS);
+		{
+			if (CheckIsInTurret(isWeaponADS) && m_ControllerComponent.GetFreeLookInput())
+				resetFocus = true;
+		}
 
 		SCR_PlayerController playerController = SCR_PlayerController.Cast(GetGame().GetPlayerController());
 
@@ -515,6 +525,13 @@ class SCR_CharacterCameraHandlerComponent : CameraHandlerComponent
 		// so the camera never activates/deactivates, thus bleeding values in
 		if (IsInThirdPerson() && m_ControllerComponent && m_ControllerComponent.GetInputContext().GetDie())
 			OnAlphatestChange(0);
+		
+		if (resetFocus)
+		{
+			m_fFocusValue = 0;
+			SetFocusMode(m_fFocusValue);
+			return;
+		}
 		
 		if (!m_bDoInterpolateFocus)
 			return;
@@ -576,7 +593,7 @@ class SCR_CharacterCameraHandlerComponent : CameraHandlerComponent
 		Math3D.MatrixMultiply4(charMat, headBoneMat, headBoneMat);
 		
 		// Set alpha based on distance from camera
-		OnAlphatestChange(255 - Math.Clamp((vector.Distance(cameraPositionWS, headBoneMat[3]) - 0.2) / 0.15, 0.0, 1.0)*255);
+		OnAlphatestChange(255 - Math.Clamp((vector.Distance(cameraPositionWS, headBoneMat[3]) - 0.3) / 0.15, 0.0, 1.0)*255);
 	}
 	
 	//------------------------------------------------------------------------------------------------

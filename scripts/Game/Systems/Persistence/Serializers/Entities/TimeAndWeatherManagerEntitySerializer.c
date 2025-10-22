@@ -7,6 +7,12 @@ class TimeAndWeatherManagerEntitySerializer : ScriptedEntitySerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
+	override static EDeserializeFailHandling GetDeserializeFailHandling()
+	{
+		return EDeserializeFailHandling.ERROR;
+	}
+	
+	//------------------------------------------------------------------------------------------------
 	override protected ESerializeResult Serialize(notnull IEntity entity, notnull BaseSerializationSaveContext context)
 	{
 		const TimeAndWeatherManagerEntity timeAndWeatherManager = TimeAndWeatherManagerEntity.Cast(entity);

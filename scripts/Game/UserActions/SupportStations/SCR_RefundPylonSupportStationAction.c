@@ -5,17 +5,33 @@ class SCR_RefundPylonSupportStationAction : SCR_BaseAudioSupportStationAction
 	
 	[Attribute("1", desc: "If true will disable the action if at least one of the barrels are occupied", params: "0")]
 	protected bool m_bDisableIfBarrelsOccupied;
+
+	[Attribute(defvalue: "0", desc: "Id of the weapon slot from which this action should remove the pylon.", params: "0 inf")]
+	protected int m_iPylonIndex;
 	
 	protected const LocalizedString INVALID_BARRELS_OCCUPIED = "#AR-SupportStation_ActionInvalid_PylonBarrelsOccupied";
 	
 	protected SCR_ArsenalItem m_ArsenalData;
 	protected SCR_NonArsenalItemCostCatalogData m_NonArsenalData;
 	
+	protected WeaponSlotComponent m_ManagedWeaponSlot;
 	protected RocketEjectorMuzzleComponent m_RocketMuzzleComp;
 	
 	protected SCR_EArsenalSupplyCostType m_eArsenalSupplyCostType = SCR_EArsenalSupplyCostType.DEFAULT;
 	
 	protected SCR_BaseSupportStationComponent m_LastCheckedSupportStation;
+
+	//------------------------------------------------------------------------------------------------
+	int GetPylonIndex()
+	{
+		return m_iPylonIndex;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	WeaponSlotComponent GetManagedWeaponSlot()
+	{
+		return m_ManagedWeaponSlot;
+	}
 	
 	//------------------------------------------------------------------------------------------------
 	int GetSupplyRefundAmount()
@@ -38,6 +54,26 @@ class SCR_RefundPylonSupportStationAction : SCR_BaseAudioSupportStationAction
 		
 		return 0;
 	}
+
+	//------------------------------------------------------------------------------------------------
+	override bool CanBeShownScript(IEntity user)
+	{
+		if (!m_ManagedWeaponSlot)
+			return false;
+
+		const IEntity pylon = m_ManagedWeaponSlot.GetWeaponEntity();
+		if (!pylon)
+			return false;
+
+		if (m_bDisableIfBarrelsOccupied && !m_RocketMuzzleComp)
+		{
+			m_RocketMuzzleComp = RocketEjectorMuzzleComponent.Cast(pylon.FindComponent(RocketEjectorMuzzleComponent));
+			if (!m_RocketMuzzleComp)
+				return false;
+		}
+
+		return super.CanBeShownScript(user);
+	}
 	
 	//------------------------------------------------------------------------------------------------
 	override bool CanBePerformedScript(IEntity user)
@@ -47,7 +83,7 @@ class SCR_RefundPylonSupportStationAction : SCR_BaseAudioSupportStationAction
 		
 		if (m_bDisableIfBarrelsOccupied && m_RocketMuzzleComp)
 		{
-			int count = m_RocketMuzzleComp.GetBarrelsCount();		
+			const int count = m_RocketMuzzleComp.GetBarrelsCount();		
 			for(int i = 0; i < count; i++)
 			{
 				if (!m_RocketMuzzleComp.CanReloadBarrel(i))
@@ -61,7 +97,7 @@ class SCR_RefundPylonSupportStationAction : SCR_BaseAudioSupportStationAction
 		
 		return super.CanBePerformedScript(user);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	protected override void DelayedInit(IEntity owner)
 	{
@@ -69,9 +105,29 @@ class SCR_RefundPylonSupportStationAction : SCR_BaseAudioSupportStationAction
 			return;
 		
 		super.DelayedInit(owner);
-		
-		if (m_bDisableIfBarrelsOccupied)
-			m_RocketMuzzleComp = RocketEjectorMuzzleComponent.Cast(GetOwner().FindComponent(RocketEjectorMuzzleComponent));
+
+		array<Managed> weaponSlots = {};
+		owner.FindComponents(WeaponSlotComponent, weaponSlots);
+
+		WeaponSlotComponent weaponSlot;
+		foreach (Managed slot : weaponSlots)
+		{
+			weaponSlot = WeaponSlotComponent.Cast(slot);
+			if (!weaponSlot)
+				continue;
+
+			if (weaponSlot.GetWeaponSlotIndex() != m_iPylonIndex)
+				continue;
+
+			m_ManagedWeaponSlot = weaponSlot;
+		}
+
+		if (!m_ManagedWeaponSlot)
+		{
+			Print("SCR_RefundPylonSupportStationAction was unable to find weapon slot with id = " + m_iPylonIndex + " in " + FilePath.StripPath(SCR_ResourceNameUtils.GetPrefabName(owner)), LogLevel.ERROR);
+			return;
+		}
+
 		
 		SCR_EntityCatalogManagerComponent catalogManager = SCR_EntityCatalogManagerComponent.GetInstance();
 		if (!catalogManager)
@@ -103,8 +159,7 @@ class SCR_RefundPylonSupportStationAction : SCR_BaseAudioSupportStationAction
 		
 		Print("SCR_RefundPylonSupportStationAction could not find the ArsenalItem nor the NonArsenalItemCost data on the catalog entry so could not get the supply cost", LogLevel.WARNING);
 	}
-	
-	
+
 	//------------------------------------------------------------------------------------------------
 	protected override ESupportStationType GetSupportStationType()
 	{
@@ -121,11 +176,11 @@ class SCR_RefundPylonSupportStationAction : SCR_BaseAudioSupportStationAction
 		string pylonName;
 		
 		//~ Item to refund has no inventory component
-		if (GetOwner())
+		if (m_RocketMuzzleComp)
 		{
 			pylonName = "MISSING NAME OR INVALID PREFAB";
 			
-			InventoryItemComponent inventoryItem = InventoryItemComponent.Cast(GetOwner().FindComponent(InventoryItemComponent));
+			InventoryItemComponent inventoryItem = InventoryItemComponent.Cast(m_RocketMuzzleComp.GetOwner().FindComponent(InventoryItemComponent));
 			if (inventoryItem)
 			{
 				UIInfo itemUIInfo = inventoryItem.GetUIInfo();
@@ -138,11 +193,5 @@ class SCR_RefundPylonSupportStationAction : SCR_BaseAudioSupportStationAction
 		outName = WidgetManager.Translate(uiInfo.GetName(), pylonName);
 		
 		return super.GetActionNameScript(outName);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	override IEntity GetSoundSource()
-	{
-		return GetOwner().GetParent();
 	}
 }

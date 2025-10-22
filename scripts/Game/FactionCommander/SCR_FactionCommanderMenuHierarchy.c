@@ -44,6 +44,24 @@ class SCR_FactionCommanderMenuEntry
 
 	[Attribute()]
 	protected ref array<ref SCR_FactionCommanderMenuEntry> m_aChildEntries;
+	
+	[Attribute("0", desc: "Show a hint for this objective when true")]
+	protected bool m_bShowHint;
+	
+	[Attribute(uiwidget: UIWidgets.ComboBox, enums: ParamEnumArray.FromEnum(EHint))]
+	protected EHint m_eHintId;
+	
+	//------------------------------------------------------------------------------------------------
+	bool GetShowHint()
+	{
+		return m_bShowHint;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	EHint GetHintId()
+	{
+		return m_eHintId;
+	}
 
 	//------------------------------------------------------------------------------------------------
 	bool IsEnabled()

@@ -187,6 +187,34 @@ class SCR_Task : GenericEntity
 	}
 	
 	//------------------------------------------------------------------------------------------------
+	//! Returns task author ID
+	//! \return
+	int GetAuthorID()
+	{
+		if (m_TaskData)
+			return m_TaskData.m_iAuthorId;
+		
+		return -1;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Sets author id of task
+	//! \param[in] taskID
+	void SetAuthorID(int authorId)
+	{
+		Rpc_SetAuthorID(authorId);
+		Rpc(Rpc_SetAuthorID, authorId);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void Rpc_SetAuthorID(int authorId)
+	{
+		if (m_TaskData)
+			m_TaskData.m_iAuthorId = authorId;
+	}
+	
+	//------------------------------------------------------------------------------------------------
 	//! Returns name of task
 	//! \param[out] params
 	//! \return
@@ -759,9 +787,9 @@ class SCR_Task : GenericEntity
 		
 		if (GetTaskAssigneeCount() > 0 && (state == SCR_ETaskState.COMPLETED || state == SCR_ETaskState.FAILED || state == SCR_ETaskState.CANCELLED))
 		{
-			foreach (SCR_TaskExecutor assignee : m_TaskData.m_aAssignees)
+			for (int i = m_TaskData.m_aAssignees.Count() - 1; i >= 0; --i)
 			{
-				RemoveTaskAssignee(assignee);
+				RemoveTaskAssignee(m_TaskData.m_aAssignees[i]);
 			}
 		}
 	}
@@ -1425,6 +1453,7 @@ class SCR_Task : GenericEntity
 		writer.WriteString(m_TaskData.m_sID);
 		WriteUIInfo(writer, m_TaskData.m_UIInfo);
 		writer.WriteVector(m_TaskData.m_vPosition);
+		writer.WriteInt(m_TaskData.m_iAuthorId);
 		
 		writer.WriteInt(m_TaskData.m_eState);
 		writer.WriteInt(m_TaskData.m_eOwnership);
@@ -1575,6 +1604,7 @@ class SCR_Task : GenericEntity
 		reader.ReadString(m_TaskData.m_sID);
 		ReadUIInfo(reader, m_TaskData.m_UIInfo);
 		reader.ReadVector(m_TaskData.m_vPosition);
+		reader.ReadInt(m_TaskData.m_iAuthorId);
 		
 		reader.ReadInt(m_TaskData.m_eState);
 		reader.ReadInt(m_TaskData.m_eOwnership);

@@ -9,10 +9,6 @@ Do not modify, this script is generated
 \{
 */
 
-class MapDescriptorComponentClass: GameComponentClass
-{
-}
-
 class MapDescriptorComponent: GameComponent
 {
 	/*!
@@ -27,9 +23,7 @@ class MapDescriptorComponent: GameComponent
 	\brief Determine group type of descriptor
 	*/
 	proto external int GetGroupType();
-	/*!
-	\brief raist todo: this is temporary - before we fix script
-	*/
+	//! Search for the item. Use with moderation and ideally not inside tight loops
 	proto external MapItem Item();
 }
 

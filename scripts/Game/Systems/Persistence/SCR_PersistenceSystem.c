@@ -29,12 +29,40 @@ class SCR_PersistenceSystem : PersistenceSystem
 	override protected void OnAfterSave(ESaveGameType saveType, bool success)
 	{
 		m_OnAfterSave.Invoke(saveType, success);
+
+		if (success)
+			SCR_NotificationsComponent.SendLocal(ENotification.EDITOR_SESSION_SAVE_SUCCESS);
+		else
+			SCR_NotificationsComponent.SendLocal(ENotification.EDITOR_SESSION_SAVE_FAIL);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	override protected void OnAfterLoad(bool success)
+	{
+		if (System.IsConsoleApp())
+			return;
+
+		if (!success)
+		{
+			GetGame().GetCallqueue().Call(DeferredNotifcation, ENotification.EDITOR_SESSION_LOAD_FAIL);
+			return;
+		}
+
+		const SaveGameManager manager = GetGame().GetSaveGameManager();
+		if (manager && manager.GetActiveSave())
+			GetGame().GetCallqueue().Call(DeferredNotifcation, ENotification.EDITOR_SESSION_LOAD_SUCCESS);
 	}
 
 	//------------------------------------------------------------------------------------------------
 	override protected void HandleDelete(IEntity entity)
 	{
 		SCR_EntityHelper.DeleteBuilding(entity);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void DeferredNotifcation(ENotification notification)
+	{
+		SCR_NotificationsComponent.SendLocal(notification);
 	}
 
 	//------------------------------------------------------------------------------------------------

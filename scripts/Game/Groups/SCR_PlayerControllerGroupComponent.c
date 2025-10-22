@@ -1485,6 +1485,60 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void SetRallyPoint(notnull SCR_MilitaryBaseComponent base, bool force)
+	{
+		Rpc(RpcAsk_SetRallyPoint, GetPlayerID(), base.GetCallsign(), force);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_SetRallyPoint(int playerID, int callsignId, bool force)
+	{
+		SCR_GroupsManagerComponent groupsManager = SCR_GroupsManagerComponent.GetInstance();
+		if (!groupsManager)
+			return;
+
+		SCR_AIGroup playerGroup = groupsManager.GetPlayerGroup(playerID);
+		if (!playerGroup)
+			return;
+
+		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.Cast(GetGame().GetGameMode());
+		if (!campaign)
+			return;
+
+		SCR_CampaignMilitaryBaseManager baseManager = campaign.GetBaseManager();
+		if (!baseManager)
+			return;
+
+		SCR_MilitaryBaseComponent base = baseManager.FindBaseByCallsign(callsignId);
+		if (!base)
+			return;
+
+		playerGroup.SetRallyPoint(base, force);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void RemoveRallyPoint()
+	{
+		Rpc(RpcAsk_RemoveRallyPoint, GetPlayerID());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_RemoveRallyPoint(int playerID)
+	{
+		SCR_GroupsManagerComponent groupsManager = SCR_GroupsManagerComponent.GetInstance();
+		if (!groupsManager)
+			return;
+
+		SCR_AIGroup playerGroup = groupsManager.GetPlayerGroup(playerID);
+		if (!playerGroup)
+			return;
+
+		playerGroup.RemoveRallyPoint();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void SetTransportUnitSourceBase(notnull SCR_TransportUnitComponent transportUnit, SCR_CampaignMilitaryBaseComponent base)
 	{
 		RplId rplIdTransportUnitComponent = Replication.FindItemId(transportUnit);

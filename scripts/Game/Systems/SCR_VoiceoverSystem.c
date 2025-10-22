@@ -37,6 +37,8 @@ class SCR_VoiceoverSystem : GameSystem
 	protected string m_sCurrentSequence;
 	protected string m_sCurrentSoundEvent;
 	protected string m_sCurrentSubtitleEvent;
+	protected string m_sCurrentActorName;
+	protected string m_sCurrentSubtitle;
 
 	protected IEntity m_CurrentActor;
 
@@ -140,7 +142,9 @@ class SCR_VoiceoverSystem : GameSystem
 			else if (!m_bSubtitlesHandled && m_fTimer >= SCR_VoiceoverSubtitles.GetLingerDuration())
 			{
 				m_bSubtitlesHandled = true;
-				m_SubtitlesDisplay.Show(false);
+
+				if (m_SubtitlesDisplay)
+					m_SubtitlesDisplay.Show(false);
 			}
 		}
 	}
@@ -627,6 +631,8 @@ class SCR_VoiceoverSystem : GameSystem
 			m_iCurrentEndCommand = finishAnimCommandParam;
 			m_sCurrentSoundEvent = eventName;
 			m_CurrentActor = actor;
+            m_sCurrentActorName = actorName;
+			m_sCurrentSubtitle = subtitle;
 		
 			if (m_iAudioHandle != AudioHandle.Invalid && !subtitle.IsEmpty())
 				ShowSubtitle(subtitle, actorName, eventName);
@@ -717,7 +723,7 @@ class SCR_VoiceoverSystem : GameSystem
 	//------------------------------------------------------------------------------------------------
 	protected void FailsafeSubtitleToggle(string eventName)
 	{
-		if (eventName != m_sCurrentSubtitleEvent || !m_SubtitlesDisplay.IsShown())
+		if (!m_SubtitlesDisplay || !m_SubtitlesDisplay.IsShown() || eventName != m_sCurrentSubtitleEvent)
 			return;
 		
 		m_SubtitlesDisplay.Show(false);
@@ -753,7 +759,52 @@ class SCR_VoiceoverSystem : GameSystem
 		GetGame().GetCallqueue().Remove(m_SubtitlesDisplay.Show);
 		GetGame().GetCallqueue().CallLater(m_SubtitlesDisplay.Show, SCR_VoiceoverSubtitles.GetLingerDuration() * 1000, false, false, UIConstants.FADE_RATE_INSTANT, EAnimationCurve.LINEAR);
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	[Friend(SCR_VoiceoverSystemSerializer)]
+	protected SCR_VoiceoverSystemSnapshot CreateSnapshot()
+	{
+		SCR_VoiceoverSystemSnapshot snapshot = new SCR_VoiceoverSystemSnapshot();
+		snapshot.m_sData = m_sDataResourceName;
+
+		foreach (SCR_VoiceoverLine line : m_aQueue)
+		{
+			snapshot.m_aQueue.Insert(line);
+		}
+
+		snapshot.m_aActors.Copy(m_aActors);
+		snapshot.m_mActorNames.Copy(m_mActorNames);
+		snapshot.m_sCurrentSoundEvent = m_sCurrentSoundEvent;
+		snapshot.m_CurrentActor = m_CurrentActor;
+		snapshot.m_sCurrentActorName = m_sCurrentActorName;
+		snapshot.m_sCurrentSubtitle = m_sCurrentSubtitle;
+		snapshot.m_sCurrentSequence = m_sCurrentSequence;
+		return snapshot;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[Friend(SCR_VoiceoverSystemSerializer)]
+	protected void ApplySnapshot(notnull SCR_VoiceoverSystemSnapshot snapshot)
+	{
+		SetData(snapshot.m_sData);
+		Stop();
+		PlayCustomLine(snapshot.m_sCurrentSoundEvent, snapshot.m_sCurrentSubtitle, snapshot.m_CurrentActor, snapshot.m_sCurrentActorName, true);
+
+		m_aQueue.Clear();
+
+		foreach (SCR_VoiceoverLine line : snapshot.m_aQueue)
+		{
+			m_aQueue.Insert(line);
+		}
+
+		m_aActors.Copy(snapshot.m_aActors);
+		m_mActorNames.Copy(snapshot.m_mActorNames);
+		m_sCurrentSequence = snapshot.m_sCurrentSequence;
+
+		if (!m_aQueue.IsEmpty())
+			Enable(true);
+	}
+
 	//------------------------------------------------------------------------------------------------
 	void ~SCR_VoiceoverSystem()
 	{
@@ -761,4 +812,17 @@ class SCR_VoiceoverSystem : GameSystem
 		if (m_PlayingSoundComponent && m_PlayingSoundComponent.GetOwner())
 			RemoveActorUnconsciousCheck(m_PlayingSoundComponent.GetOwner());
 	}
+}
+
+class SCR_VoiceoverSystemSnapshot
+{
+	ResourceName m_sData;
+	ref array<ref SCR_VoiceoverLine> m_aQueue = {};
+	ref array<IEntity> m_aActors = {};
+	ref map<SCR_EVoiceoverActor, string> m_mActorNames = new map<SCR_EVoiceoverActor, string>();
+	string m_sCurrentSoundEvent;
+	IEntity m_CurrentActor;
+	string m_sCurrentActorName;
+	string m_sCurrentSubtitle;
+	string m_sCurrentSequence;
 }

@@ -8,7 +8,7 @@ class SCR_FactionCommanderOpenMapUserAction : ScriptedUserAction
 
 	protected const string CANNOT_OPEN_MAP_TEXT = "#AR-FactionCommander_UserAction_CannotPerform_OpenMap";
 
-	protected SCR_MilitaryBaseLogicComponent m_MilitaryBaseLogic;
+	protected SCR_FactionCommanderBaseLogicComponent m_FactionCommanderBaseLogic;
 	protected SCR_CommandPostMapMenuUI m_CommandPostMapMenu;
 	protected SCR_CampaignMobileAssemblyComponent m_MobileAssemblyComponent;
 
@@ -33,14 +33,14 @@ class SCR_FactionCommanderOpenMapUserAction : ScriptedUserAction
 		if (!SCR_FactionCommanderHandlerComponent.GetInstance())
 			return;
 
-		m_MilitaryBaseLogic = SCR_MilitaryBaseLogicComponent.Cast(pOwnerEntity.FindComponent(SCR_MilitaryBaseLogicComponent));
+		m_FactionCommanderBaseLogic = SCR_FactionCommanderBaseLogicComponent.Cast(pOwnerEntity.FindComponent(SCR_FactionCommanderBaseLogicComponent));
 		m_MobileAssemblyComponent = SCR_CampaignMobileAssemblyComponent.Cast(pOwnerEntity.FindComponent(SCR_CampaignMobileAssemblyComponent));
 	}
 
 	//------------------------------------------------------------------------------------------------
 	override bool CanBeShownScript(IEntity user)
 	{
-		if (!m_MilitaryBaseLogic && !m_MobileAssemblyComponent || !m_bIsCommanderRoleEnabled)
+		if (!m_FactionCommanderBaseLogic && !m_MobileAssemblyComponent || !m_bIsCommanderRoleEnabled)
 			return false;
 
 		SCR_CampaignFaction playerFaction = SCR_CampaignFaction.Cast(SCR_FactionManager.SGetLocalPlayerFaction());
@@ -49,7 +49,7 @@ class SCR_FactionCommanderOpenMapUserAction : ScriptedUserAction
 
 		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(user);
 
-		if (m_MilitaryBaseLogic && !m_MilitaryBaseLogic.IsControlledByFaction(playerFaction))
+		if (m_FactionCommanderBaseLogic && !m_FactionCommanderBaseLogic.IsControlledByFaction(playerFaction))
 			return false;
 
 		if (m_MobileAssemblyComponent && m_MobileAssemblyComponent.GetParentFaction() != playerFaction)
@@ -71,14 +71,14 @@ class SCR_FactionCommanderOpenMapUserAction : ScriptedUserAction
 	//------------------------------------------------------------------------------------------------
 	override bool CanBePerformedScript(IEntity user)
 	{
-		if (!m_MilitaryBaseLogic && !m_MobileAssemblyComponent)
+		if (!m_FactionCommanderBaseLogic && !m_MobileAssemblyComponent)
 			return false;
 
 		SCR_CampaignFaction playerFaction = SCR_CampaignFaction.Cast(SCR_FactionManager.SGetLocalPlayerFaction());
 		if (!playerFaction)
 			return false;
 
-		if (m_MilitaryBaseLogic && !m_MilitaryBaseLogic.IsControlledByFaction(playerFaction))
+		if (m_FactionCommanderBaseLogic && !m_FactionCommanderBaseLogic.IsControlledByFaction(playerFaction))
 			return false;
 
 		if (m_MobileAssemblyComponent && m_MobileAssemblyComponent.GetParentFaction() != playerFaction)

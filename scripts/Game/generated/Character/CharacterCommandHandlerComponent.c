@@ -9,10 +9,6 @@ Do not modify, this script is generated
 \{
 */
 
-class CharacterCommandHandlerComponentClass: BaseCommandHandlerComponentClass
-{
-}
-
 class CharacterCommandHandlerComponent: BaseCommandHandlerComponent
 {
 	//-----------------------------------------------------------------------------
@@ -68,15 +64,8 @@ class CharacterCommandHandlerComponent: BaseCommandHandlerComponent
 	proto external CharacterCommandItemChange		GetCommandModifier_ItemChange();
 	proto external CharacterCommandItemUse		GetCommandModifier_ItemUse();
 	proto external CharacterCommandGadget	GetCommandModifier_Gadget();
-	proto external CharacterCommandMoveSettings GetDefaultCommandMoveSettings();
-	proto external CharacterCommandMoveSettings GetCurrentCommandMoveSettings();
-	proto external void SetCurrentCommandMoveSettings(CharacterCommandMoveSettings pCmdMoveSettings);
-	proto external CharacterCommandClimbSettings GetDefaultCommandClimbSettings();
-	proto external CharacterCommandClimbSettings GetCurrentCommandClimbSettings();
-	proto external void SetCurrentCommandClimbSettings(CharacterCommandClimbSettings pCmdClimbSettings);
-	proto external CharacterCommandSwimSettings GetDefaultCommandSwimSettings();
-	proto external CharacterCommandSwimSettings GetCurrentCommandSwimSettings();
-	proto external void SetCurrentCommandSwimSettings(CharacterCommandSwimSettings pCmdSwimSettings);
+	proto external CharacterCommandClimbSettings GetCommandClimbSettings();
+	proto external CharacterCommandSwimSettings GetCommandSwimSettings();
 	//! Returns the current cached ladder.
 	proto external LadderComponent GetTargetLadder();
 	//! Returns the current ladder. Use carefully, you should use GetTargetLadder when it's possible.

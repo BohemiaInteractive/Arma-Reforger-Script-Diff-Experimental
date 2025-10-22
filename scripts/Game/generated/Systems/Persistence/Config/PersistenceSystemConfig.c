@@ -9,7 +9,7 @@ Do not modify, this script is generated
 \{
 */
 
-class PersistenceSystemConfig: ScriptAndConfig
+sealed class PersistenceSystemConfig: ScriptAndConfig
 {
 }
 

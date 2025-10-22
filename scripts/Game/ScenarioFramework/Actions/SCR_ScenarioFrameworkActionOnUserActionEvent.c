@@ -16,8 +16,9 @@ class SCR_ScenarioFrameworkActionOnUserActionEvent : SCR_ScenarioFrameworkAction
 	[Attribute(desc: "Which actions will be executed once user action is used")]
 	ref array<ref SCR_ScenarioFrameworkActionBase> m_aActions;
 	
+	IEntity m_ActionHolder;
 	ref array<IEntity> m_aUserEntities;
-	
+
 	//------------------------------------------------------------------------------------------------
 	void OnInvoked(IEntity user, ScriptedUserAction action, EUserActionEvent e)
 	{
@@ -80,6 +81,7 @@ class SCR_ScenarioFrameworkActionOnUserActionEvent : SCR_ScenarioFrameworkAction
 			}
 		}
 		
+		m_ActionHolder = entity;
 		actionsManager.AddUserActionEventListener(scriptedUserAction, OnInvoked);
 	}
 	

@@ -32,8 +32,8 @@ class SCR_NewSessionDialog : SCR_ConfigurableDialogUi
 	//------------------------------------------------------------------------------------------------
 	override void OnConfirm()
 	{
-		GetGame().GetSaveGameManager().ResetActiveSave();
-		GameStateTransitions.RequestScenarioRestart();
+		SaveGameManager manager = GetGame().GetSaveGameManager();
+		manager.StartPlaythrough(manager.GetCurrentMissionResource());
 	}
 
 	//------------------------------------------------------------------------------------------------

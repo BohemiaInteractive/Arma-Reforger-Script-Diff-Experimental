@@ -31,6 +31,7 @@ class CharacterCamera3rdPersonBase extends CharacterCameraBase
 	//-----------------------------------------------------------------------------
 	override void OnUpdate(float pDt, out ScriptedCameraItemResult pOutResult)
 	{
+		pOutResult.m_fUseHeading = 1.0;
 		pOutResult.m_vBaseAngles = GetBaseAngles();
 		
 		//! update fov
@@ -38,6 +39,13 @@ class CharacterCamera3rdPersonBase extends CharacterCameraBase
 		
 		//! yaw pitch roll vector
 		vector lookAngles = m_CharacterHeadAimingComponent.GetLookAngles();
+		
+		if (m_CharacterAnimationComponent.PhysicsIsLinked())
+		{
+			pOutResult.m_fUseHeading = 0.0; // Do not use heading after so that we can calculate it ourselves here
+			
+			lookAngles[0] = m_OwnerCharacter.GetAimRotationModel()[0] * Math.RAD2DEG;
+		}
 
 		if (!m_bIgnoreCharacterPitch)
 			lookAngles[1] = lookAngles[1] + m_OwnerCharacter.GetLocalYawPitchRoll()[1];
@@ -125,7 +133,6 @@ class CharacterCamera3rdPersonBase extends CharacterCameraBase
 		pOutResult.m_iDirectBoneMode		= EDirectBoneMode.None;
 		pOutResult.m_fShoulderDist			= GetShoulderDistance();
 		pOutResult.m_fNearPlane	 			= 0.04;
-		pOutResult.m_fUseHeading			= 1.0;
 		pOutResult.m_fPositionModelSpace 	= 1.0;
 		pOutResult.m_pWSAttachmentReference = null;
 		pOutResult.m_pOwner 				= m_OwnerCharacter;

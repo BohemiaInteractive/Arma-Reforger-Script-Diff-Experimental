@@ -190,7 +190,8 @@ class SCR_PlayerControllerCommandingComponent : ScriptComponent
 		if (!m_RadialMenu)
 			return;
 
-		m_RadialMenu.GetOnBeforeOpen().Insert(OnPlayerRadialMenuOpen);
+		m_RadialMenu.GetOnBeforeOpen().Insert(OnPlayerRadialMenuBeforeOpen);
+		m_RadialMenu.GetOnOpen().Insert(OnPlayerRadialMenuOpen);
 		m_RadialMenu.GetOnClose().Insert(OnPlayerRadialMenuClose);
 		m_RadialMenu.GetOnPerform().Insert(OnRadialMenuPerformed);
 		m_RadialMenu.GetOnSelect().Insert(OnRadialMenuSelected);
@@ -208,7 +209,8 @@ class SCR_PlayerControllerCommandingComponent : ScriptComponent
 		if (!m_RadialMenu)
 			return;
 
-		m_RadialMenu.GetOnBeforeOpen().Remove(OnPlayerRadialMenuOpen);
+		m_RadialMenu.GetOnBeforeOpen().Remove(OnPlayerRadialMenuBeforeOpen);
+		m_RadialMenu.GetOnOpen().Remove(OnPlayerRadialMenuOpen);
 		m_RadialMenu.GetOnClose().Remove(OnPlayerRadialMenuClose);
 		m_RadialMenu.GetOnPerform().Remove(OnRadialMenuPerformed);
 		m_RadialMenu.GetOnSelect().Remove(OnRadialMenuSelected);
@@ -860,7 +862,7 @@ class SCR_PlayerControllerCommandingComponent : ScriptComponent
 		string displayName = command.GetCommandCustomName();
 		if (displayName.IsEmpty())
 			displayName = commandingManager.GetCommandDisplayTextByName(command.GetCommandName());
-
+	
 		//entry.SetName(displayName);
 		bool canExecute;
 		bool canPerform = groupCommand.CanBePerformed(user);
@@ -889,7 +891,7 @@ class SCR_PlayerControllerCommandingComponent : ScriptComponent
 
 	//------------------------------------------------------------------------------------------------
 	//!
-	void OnPlayerRadialMenuOpen()
+	void OnPlayerRadialMenuBeforeOpen()
 	{
 		if (!m_RadialMenu || !m_CommandingMenuConfig)
 			return;
@@ -915,13 +917,15 @@ class SCR_PlayerControllerCommandingComponent : ScriptComponent
 		GetGame().GetInputManager().AddActionListener("BindQuickslot8", EActionTrigger.DOWN, OnQuickslotBind8);
 		GetGame().GetInputManager().AddActionListener("BindQuickslot9", EActionTrigger.DOWN, OnQuickslotBind9);
 
-		SCR_WeaponSwitchingBaseUI baseUI = SCR_WeaponSwitchingBaseUI.GetWeaponSwitchingBaseUI();
-		if (baseUI)
-			baseUI.OpenQuickSlots();
-
 		m_bIsCommandSelected = false;
 	}
-
+	//------------------------------------------------------------------------------------------------
+	void OnPlayerRadialMenuOpen()
+	{
+		SCR_WeaponSwitchingBaseUI baseUI = SCR_WeaponSwitchingBaseUI.GetWeaponSwitchingBaseUI();
+		if (baseUI)
+			baseUI.OpenQuickSlots();		
+	}
 	//------------------------------------------------------------------------------------------------
 	void OnPlayerRadialMenuClose()
 	{

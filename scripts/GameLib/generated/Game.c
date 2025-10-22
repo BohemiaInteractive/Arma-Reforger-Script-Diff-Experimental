@@ -6,11 +6,11 @@ Do not modify, this script is generated
 
 class Game
 {
-	protected BaseWorld m_World;
+	protected World m_World;
 	protected InputManager m_InputManager;
 	protected MenuManager m_MenuManager;
 	protected WorkspaceWidget m_WorkspaceWidget;
-	sealed BaseWorld GetWorld() { return m_World; }
+	sealed World GetWorld() { return m_World; }
 	sealed InputManager GetInputManager() { return m_InputManager; }
 	sealed MenuManager GetMenuManager() { return m_MenuManager; }
 	sealed WorkspaceWidget GetWorkspace() { return m_WorkspaceWidget; }

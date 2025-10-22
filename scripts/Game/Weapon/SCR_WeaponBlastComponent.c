@@ -63,9 +63,53 @@ class SCR_WeaponBlastComponent : ScriptComponent
 #ifdef ENABLE_DIAG
 	// Debug
 	static protected ref SCR_DebugShapeManager m_DebugShapeMgr;
-	static protected const float DEBUG_SPHERE_RADIUS = 0.1;
-	static protected const ShapeFlags DEBUG_SHAPE_FLAGS = ShapeFlags.WIREFRAME | ShapeFlags.NOZBUFFER | ShapeFlags.TRANSP;
-	static protected const int DEBUG_CONE_SUBDIV = 8;
+	protected const float DEBUG_SPHERE_RADIUS = 0.1;
+	protected const ShapeFlags DEBUG_SHAPE_FLAGS = ShapeFlags.WIREFRAME | ShapeFlags.NOZBUFFER | ShapeFlags.TRANSP;
+	protected const int DEBUG_CONE_SUBDIV = 8;
+	protected const int dbgPanelXSize = 2;
+	protected const int dbgPanelYSize = 20;
+	protected ref array<ref TStringArray> m_aDebugData;
+
+	//------------------------------------------------------------------------------------------------
+	//! Method used for adding debug lists, and entries to already existing lists
+	//! \param[in] label of the list
+	//! \param[in] entry which is going to be added to such list
+	protected void AddDebugInfo(string label, string entry)
+	{
+		foreach (TStringArray arr : m_aDebugData)
+		{
+			if (arr[0] != label)
+				continue;
+
+			arr.Insert(entry);
+			return;
+		}
+
+		m_aDebugData.Insert({label, entry});
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Method that returns just the name of the prefab from which provided entity was created
+	//! \param[in] ent
+	protected string GetPrefabName(IEntity ent)
+	{
+		string prefab = SCR_ResourceNameUtils.GetPrefabName(ent);
+		return FilePath.StripPath(prefab);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Method that adds a colored line entry to the debug ui
+	//! \param[in] entryName which is unique to other entries in this window
+	//! \param[in] xSize of the color indicator
+	//! \param[in] ySize of the color indicator
+	//! \param[in] color of the indicator
+	//! \param[in] text
+	protected void AddDebugLegendEntry(string entryName, int xSize, int ySize, int color, string text)
+	{
+		DbgUI.Panel(entryName, xSize, ySize, color);
+		DbgUI.SameLine();
+		DbgUI.Text(text);
+	}
 #endif
 
 	//------------------------------------------------------------------------------------------------
@@ -155,23 +199,17 @@ class SCR_WeaponBlastComponent : ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Method used for finding an object that would be considered an obstruction on the way to the baslted entity
-	protected bool ObstructionTraceFilter(notnull IEntity ent)
+	//! Method used to determine which items that were found by the query should stop the trace
+	protected bool ObstructionTraceFilter(notnull IEntity e, vector start = "0 0 0", vector dir = "0 0 0")
 	{
-		if (ent == GetOwner())
-			return false;
+		if (m_VerifiedEntity == e)
+			return true; // our target should be included
 
-		if (m_VerifiedEntity == ent)
-			return true;
-
-		if (ent == ent.GetRootParent())
-			return true;
-
-		IEntity parent = ent.GetParent();
+		IEntity parent = e.GetParent();
 		while (parent)
 		{//ignore character items
 			if (ChimeraCharacter.Cast(parent))
-				return true;
+				return false;
 
 			parent = parent.GetParent();
 		}
@@ -190,11 +228,11 @@ class SCR_WeaponBlastComponent : ScriptComponent
 	//! Method for finding the the point that is the closest to the center line of the cone
 	protected vector FindClosestCharacterPoint(vector startingPos, vector direction, notnull ChimeraCharacter character, out float distance)
 	{
-		vector charAimPosition = character.AimingPosition();//center of mass of the character
+		const vector charAimPosition = character.AimingPosition();//center of mass of the character
 		float distanceAim = vector.Distance(startingPos, charAimPosition);
 		vector charDirection = vector.Direction(startingPos, charAimPosition).Normalized();
-		float dotAim = vector.Dot(charDirection, direction);
-		vector nearestPositionAim = startingPos + direction * dotAim * distanceAim;
+		const float dotAim = vector.Dot(charDirection, direction);
+		const vector nearestPositionAim = startingPos + direction * dotAim * distanceAim;
 		distanceAim = vector.Distance(nearestPositionAim, charAimPosition);
 
 		//Compare this with EYE position
@@ -209,13 +247,16 @@ class SCR_WeaponBlastComponent : ScriptComponent
 			if (DiagMenu.GetValue(SCR_DebugMenuID.DEBUGUI_WEAPONS_BLAST) == 3)
 			{//GREEN SPHERE == Character eye position being the closest, usable position
 				m_DebugShapeMgr.AddSphere(charPosition, DEBUG_SPHERE_RADIUS * 0.3, Color.SPRING_GREEN, DEBUG_SHAPE_FLAGS);
+				m_DebugShapeMgr.AddLine(charPosition, nearestPosition, Color.SPRING_GREEN);
 				m_DebugShapeMgr.AddSphere(nearestPosition, DEBUG_SPHERE_RADIUS * 0.3, Color.DARK_GREEN, DEBUG_SHAPE_FLAGS);
+
+				AddDebugInfo("Distance:", "Eyes - " + GetPrefabName(character) + " at " + charPosition + " distance = " + distance.ToString(lenDec: 2));
 			}
 #endif
-			return nearestPosition;
+			return charPosition;
 		}
 
-		//If eye position wasnt closer than check root position
+		//If eye position wasnt closer then check root position
 		charPosition = character.GetOrigin();
 		distance = vector.Distance(startingPos, charPosition);
 		charDirection = vector.Direction(startingPos, charPosition).Normalized();
@@ -227,21 +268,27 @@ class SCR_WeaponBlastComponent : ScriptComponent
 			if (DiagMenu.GetValue(SCR_DebugMenuID.DEBUGUI_WEAPONS_BLAST) == 3)
 			{//GRAY SPHERE == Character root position being the closest, usable position
 				m_DebugShapeMgr.AddSphere(charPosition, DEBUG_SPHERE_RADIUS * 0.3, Color.GRAY_25, DEBUG_SHAPE_FLAGS);
+				m_DebugShapeMgr.AddLine(charPosition, nearestPosition, Color.SPRING_GREEN);
 				m_DebugShapeMgr.AddSphere(nearestPosition, DEBUG_SPHERE_RADIUS * 0.3, Color.GRAY, DEBUG_SHAPE_FLAGS);
+
+				AddDebugInfo("Distance:", "Root - " + GetPrefabName(character) + " at " + charPosition + " distance = " + distance.ToString(lenDec: 2));
 			}
 #endif
-			return nearestPosition;
+			return charPosition;
 		}
 
 #ifdef ENABLE_DIAG
 		if (DiagMenu.GetValue(SCR_DebugMenuID.DEBUGUI_WEAPONS_BLAST) == 3)
 		{//BLUE SPHERE == Character center of mass being the closest, usable position
 			m_DebugShapeMgr.AddSphere(charAimPosition, DEBUG_SPHERE_RADIUS * 0.3, Color.DODGER_BLUE, DEBUG_SHAPE_FLAGS);
+			m_DebugShapeMgr.AddLine(charAimPosition, nearestPositionAim, Color.SPRING_GREEN);
 			m_DebugShapeMgr.AddSphere(nearestPositionAim, DEBUG_SPHERE_RADIUS * 0.3, Color.DARK_BLUE, DEBUG_SHAPE_FLAGS);
+
+			AddDebugInfo("Distance:", "Center of mass - " + GetPrefabName(character) + " at " + charAimPosition + " distance = " + distanceAim.ToString(lenDec: 2));
 		}
 #endif
 		distance = distanceAim;
-		return nearestPositionAim;
+		return charAimPosition;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -289,21 +336,20 @@ class SCR_WeaponBlastComponent : ScriptComponent
 	//------------------------------------------------------------------------------------------------
 	protected void QueryBlastedCharacters(vector startingPos[4], float length, out notnull array<ref SCR_BlastedEntityEntry> blastedEntities, float additionalDistance = 0)
 	{
-
 		if (!m_aFoundCharacters)
 			m_aFoundCharacters = {};
 		else
 			m_aFoundCharacters.Clear();
 
-		BaseWorld world = GetOwner().GetWorld();
-		float radius = Math.Clamp(length * Math.Tan(m_fBlastConeAngle * Math.DEG2RAD), 0, length);
-		vector mins = {-radius, -radius, 0};
-		vector maxs = {radius, radius, length};
+		const BaseWorld world = GetOwner().GetWorld();
+		const float radius = Math.Clamp(length * Math.Tan(m_fBlastConeAngle * Math.DEG2RAD), 0, length);
+		const vector mins = {-radius, -radius, 0};
+		const vector maxs = {radius, radius, length};
 
 		//Query characters that are in the danger zone
 		world.QueryEntitiesByOBB(mins, maxs, startingPos, QueryAddEntity, QueryFilter, QUERY_FLAGS);
 
-		vector direction = vector.Direction(startingPos[3], vector.Forward.Multiply3(startingPos) * length + startingPos[3]).Normalized();
+		const vector direction = vector.Direction(startingPos[3], vector.Forward.Multiply3(startingPos) * length + startingPos[3]).Normalized();
 
 #ifdef ENABLE_DIAG
 		int debugValue = DiagMenu.GetValue(SCR_DebugMenuID.DEBUGUI_WEAPONS_BLAST);
@@ -333,7 +379,8 @@ class SCR_WeaponBlastComponent : ScriptComponent
 			m_aFoundCharacters.Resize(MAX_BLAST_MEMBERS);
 		}
 
-		float distance, dot, maxCos = Math.Cos(m_fBlastConeAngle * Math.DEG2RAD);
+		const float maxCos = Math.Cos(m_fBlastConeAngle * Math.DEG2RAD);
+		float distance, dot;
 		vector hitPosDirNorm[3];
 		vector entDirection, entPosition, nearestPosition;
 		CharacterControllerComponent controller;
@@ -343,6 +390,7 @@ class SCR_WeaponBlastComponent : ScriptComponent
 		traceParam.Start = startingPos[3];
 		traceParam.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
 		traceParam.LayerMask = EPhysicsLayerDefs.Projectile;
+		traceParam.Exclude = GetOwner();
 
 		//Filter found entities
 		ChimeraCharacter character;
@@ -372,6 +420,8 @@ class SCR_WeaponBlastComponent : ScriptComponent
 						m_DebugShapeMgr.AddArrow(nearestPosition + vector.Up, nearestPosition, 0, Color.PINK);
 					else
 						m_DebugShapeMgr.AddArrow(nearestPosition + vector.Up, nearestPosition, 0, Color.VIOLET);
+
+					AddDebugInfo("Distance:", "Rejected " + GetPrefabName(character) + " at " + nearestPosition + " - too far");
 				}
 #endif
 				continue;
@@ -388,6 +438,8 @@ class SCR_WeaponBlastComponent : ScriptComponent
 						m_DebugShapeMgr.AddArrow(nearestPosition + vector.Up, nearestPosition, 0, Color.CYAN);
 					else
 						m_DebugShapeMgr.AddArrow(nearestPosition + vector.Up, nearestPosition, 0, Color.DARK_CYAN);
+
+					AddDebugInfo("Direction:", "Rejected " + GetPrefabName(character) + " at " + nearestPosition + " - wrong direction");
 				}
 #endif
 				continue;
@@ -408,6 +460,8 @@ class SCR_WeaponBlastComponent : ScriptComponent
 						m_DebugShapeMgr.AddArrow(entPosition + vector.Up, entPosition, 0, Color.SPRING_GREEN);
 					else
 						m_DebugShapeMgr.AddArrow(entPosition + vector.Up, entPosition, 0, Color.DARK_GREEN);
+
+					AddDebugInfo("Distance:", "Rejected " + GetPrefabName(character) + " at " + entPosition + " - too far");
 				}
 #endif
 				continue;
@@ -429,6 +483,8 @@ class SCR_WeaponBlastComponent : ScriptComponent
 						m_DebugShapeMgr.AddArrow(entPosition + vector.Up, entPosition, 0, Color.DODGER_BLUE);
 					else
 						m_DebugShapeMgr.AddArrow(entPosition + vector.Up, entPosition, 0, Color.DARK_BLUE);
+
+					AddDebugInfo("Angle:", "Rejected " + GetPrefabName(character) + " at " + entPosition + " - outside of the max angle");
 				}
 #endif
 				continue;
@@ -440,7 +496,7 @@ class SCR_WeaponBlastComponent : ScriptComponent
 			world.TraceMove(traceParam, ObstructionTraceFilter);
 
 			//Reject if there is something else on the way to the target
-			if (character != traceParam.TraceEnt)
+			if (traceParam.TraceEnt && character != traceParam.TraceEnt)
 			{
 #ifdef ENABLE_DIAG
 				if (showDebug && (debugValue == 2 || debugValue >= 4))
@@ -449,6 +505,8 @@ class SCR_WeaponBlastComponent : ScriptComponent
 						m_DebugShapeMgr.AddArrow(entPosition + vector.Up, entPosition, 0, Color.GRAY_25);
 					else
 						m_DebugShapeMgr.AddArrow(entPosition + vector.Up, entPosition, 0, Color.GRAY);
+
+					AddDebugInfo("Obstructed:", "At " + entPosition + " " + GetPrefabName(character) + " by " + GetPrefabName(traceParam.TraceEnt));
 				}
 #endif
 				continue;
@@ -467,6 +525,8 @@ class SCR_WeaponBlastComponent : ScriptComponent
 					m_DebugShapeMgr.AddArrow(traceParam.Start, entPosition, 0, Color.RED);
 				else
 					m_DebugShapeMgr.AddArrow(traceParam.Start, entPosition, 0, Color.DARK_RED);
+
+				AddDebugInfo("Hit:", GetPrefabName(character) + " at " + entPosition);
 			}
 #endif
 		}
@@ -494,6 +554,30 @@ class SCR_WeaponBlastComponent : ScriptComponent
 			m_DebugShapeMgr = new SCR_DebugShapeManager();
 		else
 			m_DebugShapeMgr.Clear();
+
+		DbgUI.BeginCleanupScope();
+		if (DiagMenu.GetValue(SCR_DebugMenuID.DEBUGUI_WEAPONS_BLAST) != 0)
+		{
+			DbgUI.Begin("Weapon blast legend");
+			AddDebugLegendEntry("VIOLET", dbgPanelXSize, dbgPanelYSize, Color.VIOLET, "VIOLET Arrow - Rejected. Target entity is too far");
+			AddDebugLegendEntry("PINK", dbgPanelXSize, dbgPanelYSize, Color.PINK, "PINK Arrow - Rejected. Character who caused the blast is too far");
+			AddDebugLegendEntry("CYAN", dbgPanelXSize, dbgPanelYSize, Color.CYAN, "CYAN Arrow - Rejected. Outside of the area of influence");
+			AddDebugLegendEntry("GREEN", dbgPanelXSize, dbgPanelYSize, Color.GREEN, "GREEN Arrow - Rejected. Selected hit zone is too far from the blast source");
+			AddDebugLegendEntry("BLUE", dbgPanelXSize, dbgPanelYSize, Color.BLUE, "BLUE Arrow - Rejected. Direction to it deviates too much from the direction of the blast");
+			AddDebugLegendEntry("GRAY", dbgPanelXSize, dbgPanelYSize, Color.GRAY, "GRAY Arrow - Rejected. Something obstructing it");
+			AddDebugLegendEntry("RED", dbgPanelXSize, dbgPanelYSize, Color.RED, "RED Arrow - Object hit");
+			AddDebugLegendEntry("GREEN_S", dbgPanelYSize, dbgPanelYSize, Color.GREEN, "GREEN Sphere - Using character eye position as it is the closest point");
+			AddDebugLegendEntry("GRAY_S", dbgPanelYSize, dbgPanelYSize, Color.GRAY, "GRAY Sphere - Using character root position as it is the closest point");
+			AddDebugLegendEntry("BLUE_S", dbgPanelYSize, dbgPanelYSize, Color.BLUE, "BLUE Sphere - Using character center of mass as it is the closest point");
+			AddDebugLegendEntry("BLACK_S", dbgPanelYSize, dbgPanelYSize, Color.BLACK, "BLACK Sphere - Rejected. Inssuficient amount of damage");
+			AddDebugLegendEntry("RED_S", dbgPanelYSize, dbgPanelYSize, Color.RED, "RED Sphere - Object damaged");
+			DbgUI.End();
+
+			if (!m_aDebugData)
+				m_aDebugData = {};
+			else
+				m_aDebugData.Clear();
+		}
 #endif
 
 		if (!m_bIsAiCharacter || m_bAICanBlastCharacters)
@@ -556,6 +640,23 @@ class SCR_WeaponBlastComponent : ScriptComponent
 
 		m_Instigator = Instigator.CreateInstigator(null);
 		m_bIsAiCharacter = false;
+#ifdef ENABLE_DIAG
+		if (DiagMenu.GetValue(SCR_DebugMenuID.DEBUGUI_WEAPONS_BLAST) != 0 && m_aDebugData && !m_aDebugData.IsEmpty())
+		{
+			// This is necessary as otherwise the list is not going to be recreated with next shot and thus it will have old content
+			const string time = System.GetUnixTime().ToString();
+			int outSelection;
+
+			DbgUI.Begin("Weapon blast details", y: 300);
+			foreach (int i, TStringArray arr : m_aDebugData)
+			{
+				DbgUI.List("List_" + i + time, outSelection, arr);
+			}
+
+			DbgUI.End();
+		}
+		DbgUI.EndCleanupScope();
+#endif
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -586,7 +687,7 @@ class SCR_WeaponBlastComponent : ScriptComponent
 			destructibleEntity = SCR_DestructibleEntity.Cast(entry.GetTargetEntity());
 			if (destructibleEntity)
 			{
-				foreach (SCR_WeaponBlastEffect effect : blastEffects)
+				foreach (int i, SCR_WeaponBlastEffect effect : blastEffects)
 				{
 					damageValue = effect.GetComputedDamage(entry.GetDistanceToTarget() / m_fBlastLength, entry.GetAngleToTarget()) * m_fDestructibleDamageMultiplier;
 
@@ -597,7 +698,9 @@ class SCR_WeaponBlastComponent : ScriptComponent
 					{//TEAL SPHERE == Damage amount for destructible entity
 						float factor = Math.Lerp(0, 1, (1 - entry.GetDistanceToTarget() / m_fBlastLength) * entry.GetAngleToTarget());
 						Color damageColor = new Color(factor * 0.1, factor, factor, 1);
-						m_DebugShapeMgr.AddSphere(hitPosDirNorm[0], DEBUG_SPHERE_RADIUS, damageColor.PackToInt(), DEBUG_SHAPE_FLAGS);
+						m_DebugShapeMgr.AddSphere(hitPosDirNorm[0], DEBUG_SPHERE_RADIUS + i * 0.05, damageColor.PackToInt(), DEBUG_SHAPE_FLAGS);
+
+						AddDebugInfo("Damage dealt:", GetPrefabName(destructibleEntity) + " at " + hitPosDirNorm[0] + ", value = " + damageValue.ToString(lenDec: 3));
 					}
 #endif
 				}
@@ -612,7 +715,7 @@ class SCR_WeaponBlastComponent : ScriptComponent
 
 			entry.GetTargetHitPosDirNorm(hitPosDirNorm);
 			maxHealth = hitZone.GetMaxHealth();
-			foreach (SCR_WeaponBlastEffect effect : blastEffects)
+			foreach (int i, SCR_WeaponBlastEffect effect : blastEffects)
 			{
 				damageValue = effect.GetComputedDamage(entry.GetDistanceToTarget() / m_fBlastLength, entry.GetAngleToTarget());
 				if (!isCharacter)
@@ -626,15 +729,28 @@ class SCR_WeaponBlastComponent : ScriptComponent
 				context.damageSource = owner;
 				computedDamageAmount = hitZone.ComputeEffectiveDamage(context, false);
 				if (computedDamageAmount == 0 || computedDamageAmount / maxHealth < 0.01)
+				{
+#ifdef ENABLE_DIAG
+					if (DiagMenu.GetValue(SCR_DebugMenuID.DEBUGUI_WEAPONS_BLAST) != 0)
+					{//BLACK SPHERE == NOT ENOUGH DAMAGE
+						m_DebugShapeMgr.AddSphere(hitPosDirNorm[0], DEBUG_SPHERE_RADIUS + i * 0.05, Color.BLACK, DEBUG_SHAPE_FLAGS);
+
+						AddDebugInfo("Damage insufficient:", "Effect nr = " + i + " " + GetPrefabName(context.hitEntity) + " at " + context.hitPosition + ", value = " + computedDamageAmount + " < " + (maxHealth * 0.01));
+					}
+#endif
 					continue;//Skip damage handling if damage is negligible
+				}
 
 				damageManager.HandleDamage(context);
 #ifdef ENABLE_DIAG
 				if (DiagMenu.GetValue(SCR_DebugMenuID.DEBUGUI_WEAPONS_BLAST) != 0)
 				{//RED SPHERE == DAMAGE AMOUNT
-					float factor = Math.Lerp(0, 1, (1 - entry.GetDistanceToTarget() / m_fBlastLength) * entry.GetAngleToTarget());
+					float factor = Math.Lerp(0, 1, context.damageValue / effect.GetDamageValueRaw());
+					Print(factor);
 					Color damageColor = new Color(factor, factor * 0.1, factor * 0.1, 1);
-					m_DebugShapeMgr.AddSphere(hitPosDirNorm[0], DEBUG_SPHERE_RADIUS, damageColor.PackToInt(), DEBUG_SHAPE_FLAGS);
+					m_DebugShapeMgr.AddSphere(hitPosDirNorm[0], DEBUG_SPHERE_RADIUS + i * 0.05, damageColor.PackToInt(), DEBUG_SHAPE_FLAGS);
+
+					AddDebugInfo("Damage dealt:", "Effect nr = " + i + " " + GetPrefabName(context.hitEntity) + " at " + context.hitPosition + ", value = " + context.damageValue.ToString(lenDec: 3) + " (max dmg = " + effect.GetDamageValueRaw() + ")");
 				}
 #endif
 			}

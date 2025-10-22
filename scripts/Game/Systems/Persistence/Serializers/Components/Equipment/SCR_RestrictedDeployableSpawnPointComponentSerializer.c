@@ -99,14 +99,14 @@ class SCR_RestrictedDeployableSpawnPointComponentSerializer : ScriptedComponentS
 		if (context.Read(ownerId))
 		{
 			Tuple1<SCR_RestrictedDeployableSpawnPointComponent> ctx(spawnPoint);
-			PersistenceWhenAvailableTask task(ctx, OnOwnerAvailable);
+			PersistenceWhenAvailableTask task(OnOwnerAvailable, ctx);
 			GetSystem().WhenAvailable(ownerId, task);
 		}
 
 		if (deployed && !groupId.IsNull())
 		{
 			Tuple1<SCR_RestrictedDeployableSpawnPointComponent> ctx(spawnPoint);
-			PersistenceWhenAvailableTask task(ctx, OnGroupAvailable);
+			PersistenceWhenAvailableTask task(OnGroupAvailable, ctx);
 			GetSystem().WhenAvailable(groupId, task);
 		}
 
@@ -114,7 +114,7 @@ class SCR_RestrictedDeployableSpawnPointComponentSerializer : ScriptedComponentS
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnGroupAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnGroupAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto group = SCR_AIGroup.Cast(instance);
 		if (!group)
@@ -126,7 +126,7 @@ class SCR_RestrictedDeployableSpawnPointComponentSerializer : ScriptedComponentS
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnOwnerAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnOwnerAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto owner = PlayerController.Cast(instance);
 		if (!owner)

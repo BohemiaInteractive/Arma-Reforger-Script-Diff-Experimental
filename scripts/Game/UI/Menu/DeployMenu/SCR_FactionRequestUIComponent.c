@@ -70,7 +70,6 @@ class SCR_FactionRequestUIComponent : SCR_DeployRequestUIBaseComponent
 
 		int playableFactionCount;
 		int factionPlayerLimit = -1;
-		int factionPlayerCount;
 
 		for (int i = 0; i < factionCount; ++i)
 		{

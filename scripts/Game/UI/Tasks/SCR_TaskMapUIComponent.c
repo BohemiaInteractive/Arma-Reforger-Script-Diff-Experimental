@@ -417,6 +417,23 @@ class SCR_TaskMapUIComponent : SCR_MapUIElement
 		
 		info.SetNameTo(m_Widgets.m_wTaskTitle);
 		info.SetIconTo(m_Widgets.m_wTaskIconSymbol);
+		
+		if (m_Task.GetAuthorID() > 0)
+		{
+			m_Widgets.m_wAuthorLayout.SetVisible(true);
+			
+			string playerName = GetGame().GetPlayerManager().GetPlayerName(m_Task.GetAuthorID());
+			m_Widgets.m_wMarkerAuthor.SetText(playerName);
+			
+			m_Widgets.m_wPlatformIcon.SetVisible(false);
+			
+			PlatformKind platformKind = GetGame().GetPlayerManager().GetPlatformKind(m_Task.GetAuthorID());
+			SCR_PlayerController playerController = SCR_PlayerController.Cast(GetGame().GetPlayerController());
+			if (playerController)
+				playerController.SetPlatformImageToKind(platformKind, m_Widgets.m_wPlatformIcon, showOnPC: true, showOnXbox: true);
+		}
+		else
+			m_Widgets.m_wAuthorLayout.SetVisible(false);
 	}
 	
 	//------------------------------------------------------------------------------------------------

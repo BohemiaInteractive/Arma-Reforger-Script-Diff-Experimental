@@ -14,5 +14,7 @@ enum EngineState
 	ES_THRUST,
 	//! fall
 	ES_FLY,
+	//! dead
+	ES_DEAD,
 	ES_MAX,
 }

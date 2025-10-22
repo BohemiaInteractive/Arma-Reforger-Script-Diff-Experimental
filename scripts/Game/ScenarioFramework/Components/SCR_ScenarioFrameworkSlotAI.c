@@ -184,7 +184,7 @@ class SCR_ScenarioFrameworkSlotAI : SCR_ScenarioFrameworkSlotBase
 	{
 		m_bInitiated = true;
 
-		if (m_Entity && !SCR_ScenarioFrameworkSystem.IsSaveGameLoading())
+		if (m_Entity)
 			ActivateAI();
 		else
 			AfterAllAgentsSpawned();
@@ -219,6 +219,12 @@ class SCR_ScenarioFrameworkSlotAI : SCR_ScenarioFrameworkSlotBase
 	//! Activates AI group, removes unwanted prefabs, balances units count, sets on agent remove and add events,
 	void ActivateAI()
 	{
+		if (m_AIGroup) // Group alraedy setup from e.g. save-game
+		{
+			AfterAllAgentsSpawned();
+			return;
+		}
+		
 		m_bGroupWasNull = false;
 		m_AIGroup = SCR_AIGroup.Cast(m_Entity);
 		if (!m_AIGroup)

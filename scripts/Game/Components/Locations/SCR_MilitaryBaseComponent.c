@@ -6,7 +6,7 @@ class SCR_MilitaryBaseComponentClass : ScriptComponentClass
 {
 	static override bool DependsOn(string className)
 	{
-		return className == "SCR_FactionAffiliationComponent";
+		return className.ToType().IsInherited(FactionAffiliationComponent);
 	}
 
 	static override array<typename> Requires(IEntityComponentSource src)

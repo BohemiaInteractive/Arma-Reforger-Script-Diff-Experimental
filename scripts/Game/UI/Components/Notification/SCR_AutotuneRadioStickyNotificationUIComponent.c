@@ -124,6 +124,8 @@ class SCR_AutotuneStickyNotificationUIComponent : SCR_StickyNotificationUICompon
 	{	
 		super.OnInit(notificationLog);
 		
+		return;// disabled showing auto tune notification
+
 		m_PlayerControllerGroupComponent = SCR_PlayerControllerGroupComponent.GetLocalPlayerControllerGroupComponent();
 		if (!m_PlayerControllerGroupComponent)
 		{

@@ -59,14 +59,9 @@ class SCR_ScenarioFrameworkTriggerEntity : SCR_BaseTriggerEntity
 	[Attribute("", UIWidgets.EditBox, desc: "Audio sound that will be playing when countdown is active.", category: "Trigger")]
 	protected string m_sCountdownAudio;
 	
-	[Attribute(desc: "Actions that will be activated when entity that went through the filter entered the trigger and is inside (Be carefull as Framework Triggers activate this periodically if you don't disable the Once attribute)", category: "Trigger")]
-	ref array<ref SCR_ScenarioFrameworkActionBase> m_aEntityEnteredActions;
-	
-	[Attribute(desc: "Actions that will be activated when entity that went through the filter left the trigger", category: "Trigger")]
-	ref array<ref SCR_ScenarioFrameworkActionBase> m_aEntityLeftActions;
-	
-	[Attribute(desc: "Actions that will be activated when all conditions are met and Trigger finishes", category: "Trigger")]
-	ref array<ref SCR_ScenarioFrameworkActionBase> m_aFinishedActions;
+	protected ref array<ref SCR_ScenarioFrameworkActionBase> m_aEntityEnteredActions = {};
+	protected ref array<ref SCR_ScenarioFrameworkActionBase> m_aEntityLeftActions = {};
+	protected ref array<ref SCR_ScenarioFrameworkActionBase> m_aFinishedActions = {};
 
 	protected ref set<BaseContainer> m_aPrefabContainerSet = new set<BaseContainer>();
 

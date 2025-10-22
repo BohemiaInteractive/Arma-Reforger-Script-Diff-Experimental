@@ -444,6 +444,16 @@ class SCR_MortarMuzzleComponent : MortarMuzzleComponent
 		m_CharController.GetOnAnimationEvent().Remove(OnAnimationEvent);
 		m_CharController.m_OnItemUseEndedInvoker.Remove(OnAnimationEnded);
 
+		CameraHandlerComponent cameraHandler = m_CharController.GetCameraHandlerComponent();
+		if (cameraHandler)
+		{
+			ScriptedCameraItem camera = cameraHandler.GetCurrentCamera();
+			if (camera && camera.GetOverrideDirectBoneMode() != 0)
+			{
+				camera.OverrideDirectBoneMode(0);
+			}
+		}
+		
 		if (!m_ShellComponent)
 			return;
 

@@ -51,7 +51,8 @@ class SCR_PopUpNotification : GenericEntity
 	protected IEntity m_Player;
 
 	protected SCR_PopupMessage m_ShownMsg;
-	
+	protected string m_sCachedLanguage;
+
 	protected static const string INTERFACE_SETTINGS_NAME = "m_bShowNotifications";
 
 	//------------------------------------------------------------------------------------------------
@@ -172,6 +173,15 @@ class SCR_PopUpNotification : GenericEntity
 		
 		if (!m_bIsEnabledInSettings)
 			HideCurrentMsg();
+
+		string newLanguage;
+		WidgetManager.GetLanguage(newLanguage);
+		if (newLanguage.IsEmpty() || newLanguage == m_sCachedLanguage) // check if language is really changed
+			return;
+
+		m_sCachedLanguage = newLanguage;
+
+		ClearMsg();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -355,7 +365,7 @@ class SCR_PopUpNotification : GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void FadeWidget(notnull Widget widget, bool fadeOut = false)
+	protected void FadeWidget(notnull Widget widget, bool fadeOut = false, bool instant = false)
 	{
 		float alpha, targetAlpha;
 
@@ -370,8 +380,15 @@ class SCR_PopUpNotification : GenericEntity
 			targetAlpha = m_fDefaultAlpha;
 		}
 
-		widget.SetOpacity(alpha);
-		AnimateWidget.Opacity(widget, targetAlpha, FADE_DURATION, !fadeOut || widget.IsVisible());
+		if (instant)
+		{
+			widget.SetOpacity(targetAlpha);
+		}
+		else
+		{
+			widget.SetOpacity(alpha);
+			AnimateWidget.Opacity(widget, targetAlpha, FADE_DURATION, !fadeOut || widget.IsVisible());
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -486,6 +503,23 @@ class SCR_PopUpNotification : GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Clear and instant fade all popup messages
+	void ClearMsg()
+	{
+		if (m_wPopupMsg)
+			FadeWidget(m_wPopupMsg, true, true);
+
+		if (m_wPopupMsgSmall)
+			FadeWidget(m_wPopupMsgSmall, true, true);
+
+		if (m_wStatusProgress)
+			FadeWidget(m_wStatusProgress, true, true);
+
+		m_aQueue.Clear();
+		m_ShownMsg = null;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void SetDefaultHorizontalPosition()
 	{
 		float x, y;
@@ -567,7 +601,10 @@ class SCR_PopUpNotification : GenericEntity
 			return;
 		
 		if (interfaceSettings.Get(INTERFACE_SETTINGS_NAME, m_bIsEnabledInSettings))
+		{
 			GetGame().OnUserSettingsChangedInvoker().Insert(OnSettingsChanged);
+			WidgetManager.GetLanguage(m_sCachedLanguage);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------

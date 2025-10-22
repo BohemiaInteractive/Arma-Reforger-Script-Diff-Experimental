@@ -114,6 +114,9 @@ class SCR_EditorLinkComponentSerializer : ScriptedComponentSerializer
 
 		map<string, IEntity> linkedChildrenLookup();
 		const array<IEntity> children = editorLink.GetLinkedChildren();
+		if (!children)
+			return false;
+
 		auto entriesContainer = editorLink.GetComponentSource(owner).GetObjectArray("m_aEntries");
 		if (children.Count() != entriesContainer.Count())
 			return false;

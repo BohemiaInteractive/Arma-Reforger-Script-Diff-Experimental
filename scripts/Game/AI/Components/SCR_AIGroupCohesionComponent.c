@@ -13,6 +13,9 @@ class SCR_AIGroupCohesionComponent : ScriptComponent
 
 	[Attribute("2", desc: "XP increment per player on the group")]
 	protected float m_fGroupCohesionXpIncreasePerPlayer;
+	
+	[Attribute("3", desc: "Amount of times the XP awarded will be increased in every check where the group is together")]
+	protected int m_iMaxGroupCohesionLevel;
 
 	[Attribute("false", desc: "Activate/Deactivate debug draws with information about cohesion level and XP awarded")]
 	protected bool m_bDebugActive;
@@ -192,7 +195,7 @@ class SCR_AIGroupCohesionComponent : ScriptComponent
 		{
 			SCR_XPHandlerComponent compXP = SCR_XPHandlerComponent.Cast(GetGame().GetGameMode().FindComponent(SCR_XPHandlerComponent));
 
-			++m_iGroupCohesionLevel;
+			m_iGroupCohesionLevel = Math.ClampInt(m_iGroupCohesionLevel + 1, 0, m_iMaxGroupCohesionLevel);
 
 			int XPToAward = m_fGroupCohesionXpIncreasePerPlayer * (playerGroup.Count()) * m_iGroupCohesionLevel;
 

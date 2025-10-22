@@ -68,7 +68,7 @@ class SCR_AmbientPatrolSpawnPointComponentSerializer : ScriptedComponentSerializ
 		if (context.Read(groupId) && !groupId.IsNull())
 		{
 			Tuple1<SCR_AmbientPatrolSpawnPointComponent> ctx(ambientPatrol);
-			PersistenceWhenAvailableTask task(ctx, OnGroupAvailable);
+			PersistenceWhenAvailableTask task(OnGroupAvailable, ctx);
 			GetSystem().WhenAvailable(groupId, task);
 		}
 
@@ -93,7 +93,7 @@ class SCR_AmbientPatrolSpawnPointComponentSerializer : ScriptedComponentSerializ
 		if (context.Read(waypointId) && !waypointId.IsNull())
 		{
 			Tuple1<SCR_AmbientPatrolSpawnPointComponent> ctx(ambientPatrol);
-			PersistenceWhenAvailableTask task(ctx, OnWaypointAvailable);
+			PersistenceWhenAvailableTask task(OnWaypointAvailable, ctx);
 			GetSystem().WhenAvailable(waypointId, task);
 		}
 
@@ -109,7 +109,7 @@ class SCR_AmbientPatrolSpawnPointComponentSerializer : ScriptedComponentSerializ
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnGroupAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnGroupAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto group = SCR_AIGroup.Cast(instance);
 		if (!group)
@@ -121,7 +121,7 @@ class SCR_AmbientPatrolSpawnPointComponentSerializer : ScriptedComponentSerializ
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected static void OnWaypointAvailable(Managed context, Managed instance, PersistenceDeferredDeserializeTask task, bool expired)
+	protected static void OnWaypointAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
 	{
 		auto wp = SCR_AIWaypoint.Cast(instance);
 		if (!wp)
