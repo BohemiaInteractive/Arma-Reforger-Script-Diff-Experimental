@@ -49,7 +49,7 @@ class SCR_SimpleKeybindDialogUI : SCR_KeybindDialogBase
 				UIConstants.GetActionDisplayStateAttribute(SCR_EActionDisplayState.NON_INTERACTABLE_HINT)
 			);
 			
-			m_wCloseHint.SetText(WidgetManager.Translate(CLOSE_HINT, actionText));
+			m_wCloseHint.SetTextFormat(CLOSE_HINT, actionText);
 		}
 		
 		SetMessageColor(Color.FromInt(UIColors.NEUTRAL_ACTIVE_STANDBY.PackToInt()));

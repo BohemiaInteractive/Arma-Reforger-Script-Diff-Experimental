@@ -39,7 +39,11 @@ class CharacterCameraADSVehicle extends CharacterCameraADS
 		if (!m_OwnerVehicle)
 			return;
 
-		SCR_VehicleCameraDataComponent vehicleCamData = SCR_VehicleCameraDataComponent.Cast(m_OwnerVehicle.FindComponent(SCR_VehicleCameraDataComponent));
+		SCR_VehicleCameraDataComponent vehicleCamDataComp = SCR_VehicleCameraDataComponent.Cast(m_OwnerVehicle.FindComponent(SCR_VehicleCameraDataComponent));
+		if (!vehicleCamDataComp)
+			return;
+
+		SCR_VehicleCameraDataComponentClass vehicleCamData = SCR_VehicleCameraDataComponentClass.Cast(vehicleCamDataComp.GetComponentData(m_OwnerVehicle));
 		if (!vehicleCamData)
 			return;
 
@@ -133,13 +137,6 @@ class CharacterCameraADSVehicle extends CharacterCameraADS
 	
 				vector cameraSlotMat[4];
 				cameraSlot.GetModelTransform(cameraSlotMat);
-				
-				vector zeroingLS[4];
-				if (m_WeaponManager.GetCurrentWeapon().GetCurrentSightsZeroingTransform(zeroingLS))
-				{
-					zeroingLS[3] = -zeroingLS[3];
-					Math3D.MatrixMultiply4(sightLSMat, zeroingLS, sightLSMat);
-				}
 	
 				pOutResult.m_CameraTM[3]            = (sightLSMat[3] - cameraSlotMat[3]).InvMultiply3(cameraSlotMat);
 				pOutResult.m_pWSAttachmentReference = cameraSlot;
@@ -170,6 +167,14 @@ class CharacterCameraADSVehicle extends CharacterCameraADS
 		pOutResult.m_fNearPlane          = 0.025;
 		pOutResult.m_bAllowInterpolation = true;
 
+		// Apply unroll
+		IEntity owner = m_OwnerVehicle;
+		if (m_TurretController)
+			owner = m_TurretController.GetOwner();
+
+		m_fPitchFactor = 0;
+		AddVehiclePitchRoll(owner, pDt, pOutResult.m_CameraTM);
+
 		// Apply shake
 		if (m_CharacterCameraHandler)
 			m_CharacterCameraHandler.AddShakeToToTransform(pOutResult.m_CameraTM, pOutResult.m_fFOV);
@@ -180,20 +185,6 @@ class CharacterCameraADSVehicle extends CharacterCameraADS
 		SCR_SightsZoomFOVInfo fovInfo = SCR_SightsZoomFOVInfo.Cast(sights.GetFOVInfo());
 		if (fovInfo) 
 			fovInfo.ForceUpdate(m_TurretController.GetOwner(), sights, pDt);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	override void OnAfterCameraUpdate(float pDt, bool pIsKeyframe, inout vector transformMS[4])
-	{
-		if (!m_CameraSlot)
-			return;
-
-		IEntity owner = m_OwnerVehicle;
-		if (m_TurretController)
-			owner = m_TurretController.GetOwner();
-
-		m_fPitchFactor = 0;
-		AddVehiclePitchRoll(owner, pDt, transformMS);
 	}
 }
 //---- REFACTOR NOTE END ----

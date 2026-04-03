@@ -9,14 +9,8 @@ Do not modify, this script is generated
 \{
 */
 
-class VehicleWheeledSimulationClass: VehicleBaseSimulationClass
-{
-}
-
 class VehicleWheeledSimulation: VehicleBaseSimulation
 {
-	//! Returns current vehicle speed in km/h (kilometers per hour).
-	proto external float GetSpeedKmh();
 	/*!
 	Forcibly enables simulation of vehicle, only meant for cinematics, not to be used in any game logic!
 	*/

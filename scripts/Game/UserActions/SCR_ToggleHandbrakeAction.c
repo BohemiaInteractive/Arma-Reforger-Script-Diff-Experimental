@@ -84,7 +84,7 @@ class SCR_ToggleHandbrakeAction : SCR_ScriptedUserAction
 		if (!controller)
 			return;
 
-		VehicleWheeledSimulation simulation = controller.GetWheeledSimulation();
+		VehicleWheeledSimulation simulation = controller.GetSimulation();
 		if (!simulation)
 			return;
 

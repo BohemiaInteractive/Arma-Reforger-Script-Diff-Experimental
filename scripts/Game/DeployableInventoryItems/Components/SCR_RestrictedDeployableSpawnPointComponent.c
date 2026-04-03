@@ -916,7 +916,8 @@ class SCR_RestrictedDeployableSpawnPointComponent : SCR_BaseDeployableSpawnPoint
 		if (m_bShowNotificationOnZoneEntered && notification > -1)
 			SCR_NotificationsComponent.SendToPlayer(userID, notification);
 
-		if (m_bEnableSounds && m_bPlaySoundOnZoneEntered)
+		SCR_BaseDeployableInventoryItemComponentClass data = SCR_BaseDeployableInventoryItemComponentClass.Cast(GetComponentData(GetOwner()));
+		if (data && data.IsSoundEnabled() && m_bPlaySoundOnZoneEntered)
 		{
 			RPC_PlaySoundOnZoneEnteredBroadcast(canBeDeployedAtPos);
 			Rpc(RPC_PlaySoundOnZoneEnteredBroadcast, canBeDeployedAtPos);
@@ -937,6 +938,8 @@ class SCR_RestrictedDeployableSpawnPointComponent : SCR_BaseDeployableSpawnPoint
 		SCR_PlayerSpawnPointManagerComponent playerSpawnPointManager = SCR_PlayerSpawnPointManagerComponent.Cast(gameMode.FindComponent(SCR_PlayerSpawnPointManagerComponent));
 		if (playerSpawnPointManager)
 		{
+			SetBudgetType(playerSpawnPointManager.GetDeployableSpawnPointBudgetType());
+			SetMaxRespawns(playerSpawnPointManager.GetDeployableSpawnPointTicketAmount());
 			playerSpawnPointManager.GetOnSpawnPointBudgetTypeChanged().Insert(OnSpawnPointBudgetTypeChanged);
 			playerSpawnPointManager.GetOnSpawnPointTicketAmountChanged().Insert(OnSpawnPointTicketAmountChanged);
 		}

@@ -180,7 +180,7 @@ class SCR_EffectsModuleComponent : ScriptComponent
 		
 		if (!spawnParams)
 		{
-			Print("'SCR_EffectsModuleComponent' failed to create spawn params", LogLevel.ERROR);
+			Print("SCR_EffectsModuleComponent.SpawnEffectEntity: Failed to create spawn params. Entity defined in Effect Config will not be spawned.", LogLevel.WARNING);
 			return;
 		}
 		
@@ -470,7 +470,7 @@ class SCR_EffectsModuleComponent : ScriptComponent
 	{
 		if (!m_EffectConfig)
 			return false;
-
+		
 		bool isPaused, isLooping;
 
 		reader.ReadBool(isPaused);

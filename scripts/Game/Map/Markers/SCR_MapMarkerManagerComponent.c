@@ -521,7 +521,7 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 		m_aStaticMarkers.Insert(marker);
 		FactionManager factionManager = GetGame().GetFactionManager();
 		
-		if (System.IsConsoleApp())
+		if (System.IsConsoleApp())			// on dedicated server markers are disabled
 		{
 			marker.SetServerDisabled(true);
 		}
@@ -535,13 +535,11 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 				Faction localFaction = SCR_FactionManager.SGetLocalPlayerFaction();
 				bool isMyFaction = marker.IsFaction(factionManager.GetFactionIndex(localFaction));
 				
-				if (!localFaction || !isMyFaction)
+				// faction is set but it is different from marker's faction - client or host 
+				// if localFaction is null, we show marker 
+				if (localFaction && !isMyFaction)
 				{
-					if (Replication.IsServer())				// hosted server 
-						marker.SetServerDisabled(true);
-					else 
-						m_aStaticMarkers.RemoveItem(marker);
-	
+					m_aStaticMarkers.RemoveItem(marker);
 					return;
 				}
 			}
@@ -751,13 +749,20 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 	{
 		int count = 0;
 		
-		if (m_aStaticMarkers.IsEmpty())
+		// We want to replicate also the disabled markers to clients in the case of Listen server in coop missions
+		array<SCR_MapMarkerBase> markersSimple = GetStaticMarkers();
+		foreach(SCR_MapMarkerBase markerDis : GetDisabledMarkers())
+		{
+			markersSimple.Insert(markerDis);
+		}
+		
+		if (markersSimple.IsEmpty())
 		{
 			writer.WriteInt(count);
 			return true;
 		}
 		
-		foreach (SCR_MapMarkerBase marker : m_aStaticMarkers)
+		foreach (SCR_MapMarkerBase marker : markersSimple)
 		{
 			if (marker.GetMarkerID() == -1)
 				continue;
@@ -769,7 +774,7 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 		
 		WorldTimestamp timestamp;
 
-		foreach (SCR_MapMarkerBase marker : m_aStaticMarkers)
+		foreach (SCR_MapMarkerBase marker : markersSimple)
 		{
 			if (marker.GetMarkerID() == -1)
 				continue;

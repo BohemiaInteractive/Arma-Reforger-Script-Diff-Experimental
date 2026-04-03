@@ -397,13 +397,8 @@ class SCR_PlayMenu : MenuRootBase
 	//------------------------------------------------------------------------------------------------
 	protected void OnPlayInteraction(MissionWorkshopItem scenario)
 	{
-		if (!scenario)
-			return;
-
-		if (SCR_ScenarioUICommon.HasSave(scenario))
+		if (scenario)
 			Continue(scenario);
-		else
-			Play(scenario);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -459,9 +454,8 @@ class SCR_PlayMenu : MenuRootBase
 	//------------------------------------------------------------------------------------------------
 	protected void Continue(MissionWorkshopItem scenario)
 	{
-	 	SCR_ScenarioUICommon.LoadSave(scenario, m_CurrentTile.m_Header, ChimeraMenuPreset.PlayMenu);
 		m_SelectedScenario = scenario;
-		PlayCurrentScenario();
+	 	SCR_ScenarioUICommon.LoadSave(scenario, m_CurrentTile.m_Header, ChimeraMenuPreset.PlayMenu);
 	}
 
 	//------------------------------------------------------------------------------------------------

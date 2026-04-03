@@ -29,7 +29,7 @@ typedef ScriptInvokerBase<OnBeforePossessed> OnBeforePossessedInvoker;
 
 class SCR_PlayerController : PlayerController
 {
-	static PlayerController s_pLocalPlayerController;
+	static SCR_PlayerController s_pLocalPlayerController;
 	protected static const float WALK_SPEED = 0.5;
 	protected static const float FOCUS_ACTIVATION = 0.1;
 	protected static const float FOCUS_DEACTIVATION = 0.05;
@@ -45,6 +45,7 @@ class SCR_PlayerController : PlayerController
 	protected CharacterControllerComponent m_CharacterController;
 	protected bool m_bIsLocalPlayerController;
 	protected bool m_bIsPaused;
+	protected bool m_bIsBinocularsZoomed;
 	bool m_bRetain3PV;
 	protected bool m_bGadgetFocus;
 	protected SCR_EFocusToggleMode m_eFocusToggle;
@@ -830,6 +831,20 @@ class SCR_PlayerController : PlayerController
 		// Ensure return value always within 0-1
 		focus = Math.Clamp(focus, 0, 1);
 		return focus;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Using the binoculars to zoom in
+	void SetIsBinocularsZoomed(bool value)
+	{
+		m_bIsBinocularsZoomed = value;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Using the binoculars to zoom in
+	bool GetIsBinocularsZoomed()
+	{
+		return m_bIsBinocularsZoomed;
 	}
 
 	//------------------------------------------------------------------------------------------------

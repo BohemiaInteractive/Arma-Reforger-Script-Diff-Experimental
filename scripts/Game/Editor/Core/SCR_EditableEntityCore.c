@@ -1031,6 +1031,42 @@ class SCR_EditableEntityCore : SCR_GameCoreBase
 		Event_OnEntityBudgetUpdated.Invoke(budgetType, originalBudgetValue, budgetChange, updatedBudgetValue, entity);
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	void DeleteAllEntitiesThatHaveBudgetOfType(EEditableEntityBudget budgetToFree)
+	{
+		set<SCR_EditableEntityComponent> entitiesToCheck = new set<SCR_EditableEntityComponent>;
+		array<SCR_EditableEntityComponent> entitiesToDelete = {};
+		
+		foreach(SCR_EditableEntityComponent component : m_Entities)
+		{
+			//entity or its children doesnt have this budget type
+			if(!component.EntityHasBudgetOfType(budgetToFree))
+				continue;
+
+			entitiesToCheck.Clear();
+			
+			//we want to check this entity and all its children
+			entitiesToCheck.Insert(component);
+			component.GetChildren(entitiesToCheck);
+			
+			foreach(SCR_EditableEntityComponent entityToCheck : entitiesToCheck)
+			{	
+				array<ref SCR_EntityBudgetValue> entityBudgetCosts = {};
+				
+				//entity doesn't have the budget we want
+				if(!entityToCheck.EntityHasBudgetOfType(budgetToFree))
+					continue;
+
+				entitiesToDelete.Insert(entityToCheck);
+			}			
+		}		
+
+		foreach(SCR_EditableEntityComponent component: entitiesToDelete)
+		{
+			component.Delete(true);
+		}
+	}
+	
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 	//--- Authors logic (UGC)
 	//------------------------------------------------------------------------------------------------

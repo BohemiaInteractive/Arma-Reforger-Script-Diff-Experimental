@@ -334,10 +334,30 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 		if (!world)
 			return;
 
- 		m_aPlacingCooldown.Insert(new Tuple2<int, WorldTimestamp>(playerId,  world.GetServerTimestamp().PlusMilliseconds(CalculateCooldownTime(playerId, cooldownTime) * 1000)));
+		WorldTimestamp timestamp = world.GetServerTimestamp();
+		int existingEntryId = -1;
+		foreach (int i, Tuple2<int, WorldTimestamp> cooldownEntry : m_aPlacingCooldown)
+		{
+			if (cooldownEntry.param1 != playerId)
+				continue;
+
+			if (cooldownEntry.param2.DiffMilliseconds(timestamp) * 0.001 > cooldownTime)
+				continue;
+
+			existingEntryId = i;
+			break;
+		}
+
+		if (existingEntryId >= 0) // if player already has a cooldown entry, then lest just extend it, instead of adding more entries for him
+			m_aPlacingCooldown[existingEntryId].param2 = timestamp.PlusMilliseconds(CalculateCooldownTime(playerId, cooldownTime) * 1000);
+		else
+ 			m_aPlacingCooldown.Insert(new Tuple2<int, WorldTimestamp>(playerId,  world.GetServerTimestamp().PlusMilliseconds(CalculateCooldownTime(playerId, cooldownTime) * 1000)));
 		
 		SetClientLock(true, GetOwner(), playerId);
-		GetGame().GetCallqueue().CallLater(UpdateCooldownTimer, 250, true, null);
+
+		ScriptCallQueue callqueue = GetGame().GetCallqueue();
+		if (callqueue.GetRemainingTime(UpdateCooldownTimer) < 0) // add update call only if there isnt one already added
+			callqueue.CallLater(UpdateCooldownTimer, 250, true);
 	}	
 	
 	//------------------------------------------------------------------------------------------------
@@ -358,7 +378,7 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 	
 	//------------------------------------------------------------------------------------------------
 	//! Periodically called method to evaluate a current status of the cooldown.
-	void UpdateCooldownTimer()
+	protected void UpdateCooldownTimer()
 	{
 		ChimeraWorld world = GetOwner().GetWorld();
 		if (!world)
@@ -394,22 +414,20 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 	//! Return current value of the cooldown time for a given player.
 	float GetCooldownValue(int playerId)
 	{
-		float cooldown = 0.0;
-		
 		ChimeraWorld world = GetOwner().GetWorld();
 		if (!world)
-			return cooldown;
-			
+			return 0;
+
+		WorldTimestamp timestamp = world.GetServerTimestamp();
 		foreach (Tuple2<int, WorldTimestamp> cooldownEntry : m_aPlacingCooldown)
 		{
-			if (cooldownEntry.param1 == playerId)
-			{
-				cooldown = cooldownEntry.param2.DiffMilliseconds(world.GetServerTimestamp()) * 0.001;
-				return cooldown;
-			}
+			if (cooldownEntry.param1 != playerId)
+				continue;
+
+			return cooldownEntry.param2.DiffMilliseconds(timestamp) * 0.001;
 		}
-		
-		return cooldown;
+
+		return 0;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -633,7 +651,7 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 		// if Establishing Bases is disabled, remove Base building trait
 		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.Cast(GetGame().GetGameMode());
 		if (campaign && !campaign.GetEstablishingBasesEnabled())
-			availableTraits.RemoveItem(EEditableEntityLabel.TRAIT_BASE);
+			availableTraits.RemoveItem(EEditableEntityLabel.SERVICE_HQ);
 
 		// extends available traits from other providers traits
 		if (!UseAllAvailableProviders())
@@ -764,16 +782,8 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 	//! Requesting a building mode. If trigger exist (was spawned with provider, because "Y" can be used to enter the mode, it will open the mode directly. If not, it 1st spawn the building area trigger.
 	//! \param[in] playerID
 	//! \param[in] userActionUsed
-	void RequestBuildingMode(int playerID, bool userActionUsed)
-	{
-		RequestEnterBuildingMode(playerID, userActionUsed);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] playerID
-	//! \param[in] userActionUsed
-	void RequestEnterBuildingMode(int playerID, bool userActionUsed)
+	//! \param[in] useAllAvailableProviders true if game should use all available providers from that base
+	void RequestEnterBuildingMode(int playerID, bool userActionUsed, bool useAllAvailableProviders = false)
 	{
 		SCR_CampaignBuildingNetworkComponent networkComponent = GetNetworkManager();
 		if (!networkComponent)
@@ -787,7 +797,7 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 		SetOnPlayerTeleported(playerID);
 		editorManager.GetOnOpenedServer().Insert(BuildingModeCreated);
 		editorManager.GetOnClosed().Insert(OnModeClosed);
-		networkComponent.RequestEnterBuildingMode(GetOwner(), playerID, m_bUserActionActivationOnly, userActionUsed);
+		networkComponent.RequestEnterBuildingMode(GetOwner(), playerID, m_bUserActionActivationOnly, userActionUsed, useAllAvailableProviders);
 	}
 
 	//------------------------------------------------------------------------------------------------

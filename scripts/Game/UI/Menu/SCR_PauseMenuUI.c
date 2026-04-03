@@ -6,13 +6,13 @@ class PauseMenuUI : ChimeraMenuBase
 	protected TextWidget m_wVersion;
 	protected Widget m_wRoot;
 	protected Widget m_wFade;
-	protected Widget m_wSystemTime;	
+	protected Widget m_wSystemTime;
 	protected BlurWidget m_wBlurEffect;
 	protected bool m_bFocused = true;
-	
+
 	protected const float DURATION_IN_BLUR = 0.75;
 	protected const float DURATION_OUT_BLUR = 0.5;
-	
+
 	protected const float VALUE_BLUR = 0.8;
 	protected const float VALUE_DISABLED = 0.0;
 
@@ -21,7 +21,7 @@ class PauseMenuUI : ChimeraMenuBase
 	protected SCR_ButtonTextComponent m_EditorUnlimitedCloseButton;
 	protected SCR_ButtonTextComponent m_EditorPhotoOpenButton;
 	protected SCR_ButtonTextComponent m_EditorPhotoCloseButton;
-	
+
 	protected SCR_ButtonTextComponent m_SettingsButton;
 
 	protected ref SCR_ConfigurableDialogUi m_ExitDialog;
@@ -75,7 +75,7 @@ class PauseMenuUI : ChimeraMenuBase
 	override void OnMenuOpen()
 	{
 		bool isReplicationRunning = Replication.IsRunning();
-		
+
 		s_Instance = this;
 
 		m_wRoot = GetRootWidget();
@@ -182,7 +182,7 @@ class PauseMenuUI : ChimeraMenuBase
 		// Rewind
 		comp = SCR_ButtonTextComponent.GetButtonText("Rewind", m_wRoot);
 		if (comp)
-		{			
+		{
 			SCR_RewindComponent rewindManager = SCR_RewindComponent.GetInstance();
 			comp.GetRootWidget().SetVisible(rewindManager != null); //--- Hide the button when rewinding is not configured for the mission
 			comp.SetEnabled(rewindManager && rewindManager.HasRewindPoint()); //--- Disable the button when the rewind point does not exist
@@ -301,7 +301,7 @@ class PauseMenuUI : ChimeraMenuBase
 		{
 			comp.m_OnClicked.Insert(OnFeedback);
 		}
-		
+
 		//Hide second separator when second menu group is empty
 		if (!m_EditorPhotoCloseButton.IsVisible() && !m_EditorPhotoOpenButton.IsVisible() && !m_EditorUnlimitedOpenButton.IsVisible() && !m_EditorUnlimitedCloseButton.IsVisible())
 		{
@@ -309,24 +309,24 @@ class PauseMenuUI : ChimeraMenuBase
 			if (separatorSecondGroup)
 				separatorSecondGroup.SetVisible(false);
 		}
-		
+
 		m_InputManager = GetGame().GetInputManager();
 
 		m_OnPauseMenuOpened.Invoke();
 
 		SCR_UISoundEntity.SoundEvent(SCR_SoundEvent.SOUND_FE_HUD_PAUSE_MENU_OPEN);
-		
+
 		SCR_CampaignBuildingEditorComponent CampaignBuildingEditorComponent = SCR_CampaignBuildingEditorComponent.Cast(SCR_CampaignBuildingEditorComponent.GetInstance(SCR_CampaignBuildingEditorComponent));
 		if (!CampaignBuildingEditorComponent)
 			return;
-		
+
 		m_wBlurEffect = BlurWidget.Cast(m_wRoot.FindAnyWidget("ScreenEffectBlur"));
 		CampaignBuildingEditorComponent.GetOnObstructionEventTriggered().Insert(AreaTriggerChange);
-		
+
 		if (CampaignBuildingEditorComponent.IsViewObstructed())
 			StartObstructionAnimation(true);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! \param[in] activated
 	protected void AreaTriggerChange(bool activated)
@@ -336,7 +336,7 @@ class PauseMenuUI : ChimeraMenuBase
 		else
 			FinishObstructionAnimation();
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! Start screen obstruction effect.
 	protected void StartObstructionAnimation(bool force = false)
@@ -347,7 +347,7 @@ class PauseMenuUI : ChimeraMenuBase
 		else
 			AnimateWidget.BlurIntensity(m_wBlurEffect, VALUE_BLUR, DURATION_IN_BLUR);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! Ends screen obstruction effect.
 	protected void FinishObstructionAnimation(bool force = false)
@@ -403,7 +403,7 @@ class PauseMenuUI : ChimeraMenuBase
 		// Unpause
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 		if (gameMode)
-			gameMode.PauseGame(false,  SCR_EPauseReason.MENU | SCR_EPauseReason.MUSIC);
+			gameMode.PauseGame(false, SCR_EPauseReason.MENU | SCR_EPauseReason.MUSIC);
 
 		SCR_HUDManagerComponent hud = GetGame().GetHUDManager();
 		if (hud)
@@ -504,7 +504,7 @@ class PauseMenuUI : ChimeraMenuBase
 		if (IsSavingOnExit())
 		{
 			//--- Close only after the save file was created
-			GetGame().GetSaveGameManager().RequestSavePoint(ESaveGameType.SHUTDOWN, flags: ESaveGameRequestFlags.BLOCKING, callback: new SaveGameOperationCb(OnExitSaveResult))
+			GetGame().GetSaveGameManager().RequestSavePoint(ESaveGameType.SHUTDOWN, flags: ESaveGameRequestFlags.BLOCKING, callback: new SaveGameOperationCallback(OnExitSaveResult))
 		}
 		else
 		{
@@ -518,6 +518,8 @@ class PauseMenuUI : ChimeraMenuBase
 	{
 		if (success)
 		{
+			// Do not trigger another shutdown save on exit transition
+			GetGame().GetSaveGameManager().SetSavingAllowed(false);
 			CloseToMainMenu();
 			return;
 		}
@@ -644,7 +646,7 @@ class PauseMenuUI : ChimeraMenuBase
 		{
 			m_EditorPhotoOpenButton.GetRootWidget().SetVisible(false);
 			m_EditorPhotoCloseButton.GetRootWidget().SetVisible(false);
-			
+
 		}
 		else
 		{
@@ -660,7 +662,7 @@ class PauseMenuUI : ChimeraMenuBase
 				{
 					m_EditorPhotoOpenButton.GetRootWidget().SetVisible(true);
 					m_EditorPhotoCloseButton.GetRootWidget().SetVisible(false);
-	
+
 					//Set enabled
 					m_EditorPhotoOpenButton.SetEnabled(!editorManager.IsLimited() || GetGame().GetPlayerController().GetControlledEntity());
 				}
@@ -671,7 +673,7 @@ class PauseMenuUI : ChimeraMenuBase
 					m_EditorPhotoCloseButton.SetEnabled(editorManager.CanClose());
 				}
 			}
-		}		
+		}
 
 	}
 
@@ -717,9 +719,7 @@ class PauseMenuUI : ChimeraMenuBase
 	private void OnRestartConfirm()
 	{
 		GetGame().GetMenuManager().CloseAllMenus();
-
-		auto manager = GetGame().GetSaveGameManager();
-		manager.StartPlaythrough(manager.GetCurrentMissionResource());
+		GameStateTransitions.RequestScenarioRestart();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -824,6 +824,13 @@ class PauseMenuUI : ChimeraMenuBase
 	//------------------------------------------------------------------------------------------------
 	protected bool IsSavingOnExit()
 	{
-		return !Replication.IsRunning() && GetGame().GetSaveGameManager().IsSavingAllowed();
+		if (Replication.IsClient())
+			return false; // No saving as proxy in MP
+
+		if (!GetGame().GetSaveGameManager().IsSavingAllowed())
+			return false;
+
+		// Check if exit saves are enabled for current mission
+		return GetGame().GetSaveGameManager().GetEnabledSaveTypes() & ESaveGameType.SHUTDOWN;
 	}
 }

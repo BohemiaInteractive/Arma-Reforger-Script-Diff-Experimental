@@ -7,7 +7,6 @@ class SCR_PlayerTileButtonComponent : SCR_ScriptedWidgetComponent
 	protected ref ScriptInvokerInt m_OnTileFocus;
 	protected ref ScriptInvokerInt m_OnTileFocusLost;
 	
-	
 	//------------------------------------------------------------------------------------------------
 	override bool OnClick(Widget w, int x, int y, int button)
 	{
@@ -103,7 +102,6 @@ class SCR_PlayerTileButtonComponent : SCR_ScriptedWidgetComponent
 	}
 };
 
-//------------------------------------------------------------------------------------------------
 class SCR_GroupTileButton : SCR_ButtonBaseComponent
 {
 	protected int m_iGroupID;
@@ -121,6 +119,8 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 	protected SCR_InputButtonComponent m_RemoveGroupButton;
 	protected SCR_PlayerControllerGroupComponent m_GroupComponent;
 	protected SCR_PlayerFactionAffiliationComponent m_sPlyFactionAffilComp;
+	
+	protected SCR_HorizontalScrollAnimationComponent m_ScrollComponent;
 
 	[Attribute("0.898 0.541 0.184 1", UIWidgets.ColorPicker)]
 	protected ref Color m_PlayerNameSelfColor;
@@ -135,6 +135,24 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 	protected string m_sGroupImageWidgetName = "GroupImage";
 	protected string m_sGroupInnerImageWidgetName = "GroupIconInner";
 
+	[Attribute("TaskNameText")]
+	protected string m_sGroupAssignedTaskNameWidgetName;
+	
+	[Attribute("m_wTaskIconButton0")]
+	protected string m_sGroupAssignedTaskIconButtonName;
+	
+	[Attribute("m_wTaskIconBackground")]
+	protected string m_sGroupAssignedTaskIconBackgroundName;
+	
+	[Attribute("m_wTaskIconOutline")]
+	protected string m_sGroupAssignedTaskIconOutlineName;
+	
+	[Attribute("m_wTaskIconSymbol")]
+	protected string m_sGroupAssignedTaskIconSymbolName;
+	
+	[Attribute("GroupTaskOverlay")]
+	protected string m_sGroupAssignedTaskOverlayWidgetName;
+
 	protected const string OPTIONS_COMBO_INVITE = "#AR-PlayerList_Invite";
 	protected const string OPTIONS_COMBO_KICK = "#AR-DeployMenu_Groups_Kick";
 	protected const string OPTIONS_COMBO_PROMOTE = "#AR-DeployMenu_Groups_Promote";
@@ -145,17 +163,35 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 	protected const string JOIN_GROUP = "#AR-DeployMenu_JoinGroup";
 	protected const string REQUEST_JOIN_GROUP = "#AR-DeployMenu_RequestJoinGroup";
 	protected const string CUSTOM_GROUP_NAME_FORMAT = "#AR-Player_Groups_CustomName_Format";
+	protected const string SQUAD_CAPACITY = "#AR-Campaign_BaseRespawnsAmount";
 
 	protected const ResourceName GROUP_FLAG_SELECTION = "{7340FE3C6872C6D3}UI/layouts/Menus/GroupSlection/GroupFlagSelection.layout";
 
 	protected ref array<SCR_PlayerTileButtonComponent> m_aPlayerComponentsList = {};
 	protected SCR_PlayerTileButtonComponent m_PlayerTileComponent;
-	protected static ref ScriptInvoker s_OnGroupButtonClicked = new ScriptInvoker();
+	protected static ref ScriptInvokerVoid s_OnGroupButtonClicked = new ScriptInvokerVoid();
 	
 	protected static ref ScriptInvokerInt m_OnPlayerTileFocus;
 	protected static ref ScriptInvokerInt m_OnPlayerTileFocusLost;
 	
 	protected bool m_bIsPriority;
+	
+	//------------------------------------------------------------------------------------------------
+	override void HandlerAttached(Widget w)
+	{
+		super.HandlerAttached(w);
+		
+		m_ScrollComponent = SCR_HorizontalScrollAnimationComponent.Cast(w.FindAnyWidget("CallsignFrame").FindHandler(SCR_HorizontalScrollAnimationComponent));
+	}
+
+	//------------------------------------------------------------------------------------------------
+	override void HandlerDeattached(Widget w)
+	{
+		super.HandlerDeattached(w);
+		
+		SCR_Task.GetOnTaskAssigneeAdded().Remove(OnTaskAssigneeChanged);
+		SCR_Task.GetOnTaskAssigneeRemoved().Remove(OnTaskAssigneeChanged);
+	}
 
 	//------------------------------------------------------------------------------------------------
 	override bool OnClick(Widget w, int x, int y, int button)
@@ -165,8 +201,11 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 #ifdef DEBUG_GROUPS
 		SCR_GroupsManagerComponent.GetInstance().UpdateDebugUI();
 #endif
-		m_GroupComponent.SetSelectedGroupID(m_iGroupID);
-		s_OnGroupButtonClicked.Invoke();
+		if (m_GroupComponent.GetSelectedGroupID() == -1)
+		{
+			s_OnGroupButtonClicked.Invoke();
+			m_GroupComponent.SetSelectedGroupID(m_iGroupID);
+		}
 
 		return true;
 	}
@@ -190,17 +229,12 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 		if (!socialComp)
 			return;
 
-
 		SCR_AIGroup group = m_GroupManager.FindGroup(m_iGroupID);
 		if (!group)
 			return;
 
 		group.GetOnPlayerLeaderChanged().Insert(SetupJoinGroupButton);
 		group.GetOnJoinPrivateGroupRequest().Insert(SetupJoinGroupButton);
-		
-		//workaround for issues with playerControllerGroupsComponent, needs to be reworked with this whole script mess
-		SCR_GroupSubMenu.Init();
-		SCR_GroupSubMenu.GetOnJoingGroupRequestSent().Insert(SetupJoinGroupButton);
 
 		m_TaskSystem = SCR_TaskSystem.GetInstance();
 		if (m_TaskSystem)
@@ -209,24 +243,42 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 			m_TaskSystem.GetOnTaskRemoved().Insert(OnTaskRemoved);
 		}
 
+		SCR_Task.GetOnTaskAssigneeAdded().Insert(OnTaskAssigneeChanged);
+		SCR_Task.GetOnTaskAssigneeRemoved().Insert(OnTaskAssigneeChanged);
+
 		group.GetOnMemberStateChange().Insert(RefreshPlayers);
 
 		RichTextWidget squadName = RichTextWidget.Cast(GetRootWidget().FindAnyWidget("Callsign"));
-		RichTextWidget squadType = RichTextWidget.Cast(GetRootWidget().FindAnyWidget("Type"));
-		if (squadName && squadType)
+		if (squadName)
 		{
-			SetSquadName(squadName, squadType, group);
+			// This function can only be used in UI menu, where to change the language you need to close and open the shown menu, so it will be renewed.
+			squadName.SetText(SCR_GroupHelperUI.GetTranslatedGroupName(group));
+		}
+
+		RichTextWidget squadType = RichTextWidget.Cast(GetRootWidget().FindAnyWidget("Type"));
+		Widget squadFrameType = GetRootWidget().FindAnyWidget("FrameType");
+		if (squadType && squadFrameType)
+		{
+			string roleName = SCR_GroupHelperUI.GetRoleName(group);
+			squadFrameType.SetVisible(!roleName.IsEmpty());
+			squadType.SetText(roleName);
 		}
 
 		RichTextWidget frequency = RichTextWidget.Cast(GetRootWidget().FindAnyWidget("Frequency"));
 		if (frequency)
-			frequency.SetText(""+group.GetRadioFrequency()*0.001 + " #AR-VON_FrequencyUnits_MHz");
+			frequency.SetTextFormat("#AR-VON_FrequencyUnits_MHz", group.GetRadioFrequency() * 0.001);
 
 		RichTextWidget playerCount = RichTextWidget.Cast(GetRootWidget().FindAnyWidget("PlayerCount"));
 		ImageWidget playerImageWidget = ImageWidget.Cast(GetRootWidget().FindAnyWidget("PlayerIcon"));
 
 		if (playerCount)
-			playerCount.SetText(group.GetPlayerCount().ToString() + "/" + group.GetMaxMembers());
+		{
+			if (group.IsMaxMembersLimited())
+				playerCount.SetTextFormat(SQUAD_CAPACITY, group.GetPlayerCount(), group.GetMaxMembers());
+			else
+				playerCount.SetText(group.GetPlayerCount().ToString());
+		}
+
 		if (group.IsFull())
 		{
 			SetGroupInfoColor(m_GroupFullColor);
@@ -331,7 +383,7 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 
 		Widget groupImage = m_ParentSubMenu.GetRootWidget().FindAnyWidget("GroupImage");
 		if (!groupImage)
-		return;
+			return;
 
 		SCR_GroupFlagImageComponent imageButton = SCR_GroupFlagImageComponent.Cast(groupImage.FindHandler(SCR_GroupFlagImageComponent));
 		if (!imageButton)
@@ -396,13 +448,9 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 		else 
 		{
 			if (group.GetFlagIsFromImageSet())
-			{
 				imageButton.SetFlagButtonFromImageSet(flag);
-			}
 			else
-			{
-				imageButton.SetImage(flag);				
-			}
+				imageButton.SetImage(flag);
 		}
 	}
 	
@@ -449,6 +497,87 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	protected void SetSelectedGroupTaskInfo(SCR_AIGroup group)
+	{
+		if (!m_ParentSubMenu)
+			return;
+
+		OverlayWidget taskOverlay = OverlayWidget.Cast(m_ParentSubMenu.GetRootWidget().FindAnyWidget(m_sGroupAssignedTaskOverlayWidgetName));
+		if (!taskOverlay)
+			return;
+
+		m_TaskSystem = SCR_TaskSystem.GetInstance();
+		if (!m_TaskSystem)
+		{
+			taskOverlay.SetVisible(false);
+			return;
+		}
+
+		SCR_TaskExecutor groupTaskExecutor = SCR_TaskExecutor.FromGroup(group.GetGroupID());
+		if (!groupTaskExecutor)
+		{
+			taskOverlay.SetVisible(false);
+			return;
+		}
+
+		SCR_Task groupTask = m_TaskSystem.GetTaskAssignedTo(groupTaskExecutor);
+		if (!groupTask)
+		{
+			taskOverlay.SetVisible(false);
+			return;
+		}
+
+		SCR_Faction groupFaction = SCR_Faction.Cast(group.GetFaction());
+		if (!groupFaction)
+		{
+			taskOverlay.SetVisible(false);
+			return;
+		}
+
+		RichTextWidget taskNameWidget = RichTextWidget.Cast(taskOverlay.FindAnyWidget(m_sGroupAssignedTaskNameWidgetName));
+		if (taskNameWidget)
+			taskNameWidget.SetTextFormat(groupTask.GetTaskUIInfo().GetTranslatedName());
+
+		ButtonWidget taskIconWidget = ButtonWidget.Cast(taskOverlay.FindAnyWidget(m_sGroupAssignedTaskIconButtonName));
+		if (taskIconWidget)
+		{
+			ImageWidget taskIconSymbolWidget = ImageWidget.Cast(taskOverlay.FindAnyWidget(m_sGroupAssignedTaskIconSymbolName));
+			if (taskIconSymbolWidget)
+			{
+				taskIconSymbolWidget.SetColor(groupFaction.GetOutlineFactionColor());
+				taskIconSymbolWidget.LoadImageFromSet(0, groupTask.GetTaskIconPath(), groupTask.GetTaskIconSetName());
+			}
+
+			ImageWidget taskIconOutlineWidget = ImageWidget.Cast(taskOverlay.FindAnyWidget(m_sGroupAssignedTaskIconOutlineName));
+			if (taskIconOutlineWidget)
+				taskIconOutlineWidget.SetColor(groupFaction.GetOutlineFactionColor());
+
+			ImageWidget taskIconBackgroundWidget = ImageWidget.Cast(taskOverlay.FindAnyWidget(m_sGroupAssignedTaskIconBackgroundName));
+			if (taskIconBackgroundWidget)
+				taskIconBackgroundWidget.SetColor(groupFaction.GetFactionColor());
+		}
+
+		taskOverlay.SetVisible(true);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnTaskAssigneeChanged(SCR_Task task, SCR_TaskExecutor executor, int requesterID)
+	{
+		SCR_TaskExecutorGroup groupTaskExecutor = SCR_TaskExecutorGroup.Cast(executor);
+		if (!groupTaskExecutor)
+			return;
+
+		if (groupTaskExecutor.GetGroupID() != m_GroupComponent.GetSelectedGroupID() || groupTaskExecutor.GetGroupID() != m_iGroupID)
+			return;
+
+		SCR_AIGroup group = m_GroupManager.FindGroup(m_iGroupID);
+		if (!group)
+			return;
+
+		SetSelectedGroupTaskInfo(group);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void RefreshPlayers()
 	{
 		PlayerManager playerManager = GetGame().GetPlayerManager();
@@ -467,6 +596,8 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 
 		if (m_ParentSubMenu == null)
 			FindParentMenu();
+
+		SetSelectedGroupTaskInfo(group);
 
 		m_aPlayerComponentsList.Clear();
 
@@ -507,11 +638,20 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 			return;
 		
 		if (!s_PlayerGroupController.CanPlayerJoinGroup(playerController.GetPlayerId(), m_GroupManager.FindGroup(m_iGroupID)))
-			m_JoinGroupButton.SetEnabled(false);
+			SetJoinButtonVisible(false);
 		else
-			m_JoinGroupButton.SetEnabled(true);
+			SetJoinButtonVisible(true);
 		
-		SetSquadName(squadName, groupDetailType, group);
+		// This function can only be used in UI menu, where to change the language you need to close and open the shown menu, so it will be renewed.
+		squadName.SetText(SCR_GroupHelperUI.GetTranslatedGroupName(group));
+
+		Widget groupTypeOverlay = m_ParentSubMenu.GetRootWidget().FindAnyWidget("GroupTypeOverlay");
+		if (groupTypeOverlay)
+		{
+			string roleName = SCR_GroupHelperUI.GetRoleName(group);
+			groupTypeOverlay.SetVisible(!roleName.IsEmpty());
+			groupDetailType.SetText(roleName);
+		}
 
 		if (!group.GetCustomDescription().IsEmpty())
 			description.SetText(group.GetCustomDescription());
@@ -520,7 +660,7 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 
 		CheckLeaderOptions();
 
-		frequency.SetText(""+group.GetRadioFrequency()*0.001 + " #AR-VON_FrequencyUnits_MHz");
+		frequency.SetTextFormat("#AR-VON_FrequencyUnits_MHz", group.GetRadioFrequency() * 0.001);
 
 		Widget children = playerList.GetChildren();
 		while (children)
@@ -572,29 +712,17 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 
 		SCR_AIGroup group;
 		if (playerGroupController.GetSelectedGroupID() == -1)
-		{
 			group = m_GroupManager.FindGroup(m_iGroupID);
-		}
 		else
-		{
 			group = m_GroupManager.FindGroup(playerGroupController.GetSelectedGroupID());
-		}
 
 		if (!group)
 			return;
 
-		m_JoinGroupButton.m_OnActivated.Clear();
-
 		if (group.IsPrivate())
-		{
 			m_JoinGroupButton.SetLabel(REQUEST_JOIN_GROUP);
-			m_JoinGroupButton.m_OnActivated.Insert(SCR_GroupSubMenu.RequestJoinPrivateGroup);
-		}
 		else
-		{
 			m_JoinGroupButton.SetLabel(JOIN_GROUP);
-			m_JoinGroupButton.m_OnActivated.Insert(SCR_GroupSubMenu.JoinSelectedGroup);
-		}
 
 		array<int> denied = {};
 		group.GetDeniedRequesters(denied);
@@ -609,10 +737,16 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 				requestSent ||
 				SCR_FactionCommanderPlayerComponent.IsLocalPlayerCommander() || // block joining to other group when player is commander
 				!m_GroupManager.FindGroup(m_iGroupID) ||
-				!playerGroupController.CanPlayerJoinGroup( SCR_PlayerController.GetLocalPlayerId() ,m_GroupManager.FindGroup(m_iGroupID)))
+				!playerGroupController.CanPlayerJoinGroup(SCR_PlayerController.GetLocalPlayerId(), m_GroupManager.FindGroup(m_iGroupID)))
+		{
+			SetJoinButtonVisible(false);
 			m_JoinGroupButton.SetEnabled(false);
+		}
 		else
+		{
+			SetJoinButtonVisible(true);
 			m_JoinGroupButton.SetEnabled(true);
+		}
 
 		SCR_Faction scrFaction = SCR_Faction.Cast(m_GroupFaction);
 		if (!scrFaction)
@@ -626,10 +760,29 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 		{
 			if (preset.GetGroupRole() == group.GetGroupRole() && !preset.CanPlayerJoin())
 			{
-				m_JoinGroupButton.SetEnabled(false);
+				SetJoinButtonVisible(false);
 				break;
 			}
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void SetJoinButtonVisible(bool state)
+	{
+		SCR_PlayerControllerGroupComponent playerGroupController = SCR_PlayerControllerGroupComponent.GetLocalPlayerControllerGroupComponent();
+		int focusedGroupId = playerGroupController.GetSelectedGroupID();
+		if (focusedGroupId != -1)
+		{
+			int inviteId = playerGroupController.GetGroupInviteID();
+			int groupId = playerGroupController.GetGroupID();
+
+			if (inviteId == focusedGroupId)
+				state = false;
+			else if (groupId == focusedGroupId)
+				state = false;
+		}
+
+		m_JoinGroupButton.SetVisible(state, false);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -642,23 +795,17 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 
 		SCR_AIGroup group;
 		if (playerGroupController.GetSelectedGroupID() == -1)
-		{
 			group = m_GroupManager.FindGroup(m_iGroupID);
-		}
 		else
-		{
 			group = m_GroupManager.FindGroup(playerGroupController.GetSelectedGroupID());
-		}
 
 		if (!group)
 			return;
 
 		int playerId = SCR_PlayerController.GetLocalPlayerId();
+		bool canRemove = playerGroupController.CanPlayerRemoveGroup(playerId, group);
 
-		if (playerGroupController.CanPlayerRemoveGroup(playerId, group))
-			m_RemoveGroupButton.SetEnabled(true);
-		else
-			m_RemoveGroupButton.SetEnabled(false);
+		m_RemoveGroupButton.SetVisible(canRemove, false);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -790,8 +937,7 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 //				}
 //			}
 //		}
-		
-		
+
 		//set the state of mute
 		PlayerController pc = GetGame().GetPlayerController();
 		// Using another PlayerController variable to not alter rest of code
@@ -805,7 +951,6 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 			}
 		} 
 		
-
 		//look for loadout and set the appropriate icon
 		if (loadoutIcon)
 		{
@@ -888,8 +1033,10 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 		TextWidget callsign = TextWidget.Cast(GetRootWidget().FindAnyWidget("Callsign"));
 		TextWidget frequency = TextWidget.Cast(GetRootWidget().FindAnyWidget("Frequency"));
 		TextWidget playerCount = TextWidget.Cast(GetRootWidget().FindAnyWidget("PlayerCount"));
+		
 		if (!frequencyImage || !playerIcon || !callsign || !frequency || !playerCount)
 			return;
+		
 		frequencyImage.SetColor(groupColor);
 		playerIcon.SetColor(groupColor);
 		callsign.SetColor(groupColor);
@@ -908,15 +1055,35 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 	{
 		super.OnFocus(w, x, y);
 
-		if (m_GroupComponent.GetSelectedGroupID() == -1)
+		if (m_GroupComponent.GetSelectedGroupID() != m_iGroupID)
+		{
+			s_OnGroupButtonClicked.Invoke();
 			m_GroupComponent.SetSelectedGroupID(m_iGroupID);
+		}
+		
 		EInputDeviceType deviceType = GetGame().GetInputManager().GetLastUsedInputDevice();
 		if (deviceType == EInputDeviceType.GAMEPAD || deviceType == EInputDeviceType.KEYBOARD)
 		{
 			m_GroupComponent.SetSelectedGroupID(m_iGroupID);
 			RefreshPlayers();
 		}
+		
+		if (!m_ScrollComponent.GetContentFitX())
+			m_ScrollComponent.AnimationStart();
+		
 		return false;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	override bool OnFocusLost(Widget w, int x, int y)
+	{
+		if (m_ScrollComponent.IsAnimating())
+		{
+			m_ScrollComponent.AnimationStop();
+			m_ScrollComponent.ResetPosition();
+		}
+		
+		return super.OnFocusLost(w, x, y);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -968,19 +1135,25 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 		if (group && m_iGroupID != group.GetGroupID() && m_PlayerTileComponent.GetTilePlayerID() != -1)
 			m_PlayerTileComponent.GetOptionsComboComponent().AddItem(OPTIONS_COMBO_INVITE);
 
-
 		group = m_GroupManager.FindGroup(m_iGroupID);
+
 		if (!group)
 			return;
 
 		if (group.IsPlayerLeader(playerID) && playerID != m_PlayerTileComponent.GetTilePlayerID() && m_PlayerTileComponent.GetTilePlayerID() != -1)
 		{
-			m_PlayerTileComponent.GetOptionsComboComponent().AddItem(OPTIONS_COMBO_KICK);
+			if (group.GetGroupRole() != SCR_EGroupRole.RESERVES) // kicked players will get sent to the reserves, so we get rid of the option to avoid confusion
+				m_PlayerTileComponent.GetOptionsComboComponent().AddItem(OPTIONS_COMBO_KICK);
+
 			m_PlayerTileComponent.GetOptionsComboComponent().AddItem(OPTIONS_COMBO_PROMOTE);
 		}
 
 		if (m_PlayerTileComponent.GetOptionsComboComponent().GetNumItems() == 0)
+		{
 			m_PlayerTileComponent.SetOpacity(0.3);
+			m_PlayerTileComponent.GetOptionsComboComponent().SetVisible(false);
+			m_PlayerTileComponent.GetOptionsComboComponent().SetEnabled(false);
+		}
 
 		m_PlayerTileComponent.GetOptionsComboComponent().m_OnOpened.Insert(DisableConfirmButton);
 		m_PlayerTileComponent.GetOptionsComboComponent().m_OnClosed.Insert(EnableConfirmButton);
@@ -1010,11 +1183,13 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 				playerGroupController.InvitePlayer(playerID);
 				break;
 			}
+
 			case OPTIONS_COMBO_KICK:
 			{
 				playerGroupController.RequestKickPlayer(playerID);
 				break;
 			}
+
 			case OPTIONS_COMBO_PROMOTE:
 			{
 				playerGroupController.RequestPromoteLeader(playerID);
@@ -1071,7 +1246,7 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	static ScriptInvoker GetOnGroupTileClicked()
+	static ScriptInvokerVoid GetOnGroupTileClicked()
 	{
 		return s_OnGroupButtonClicked;
 	}
@@ -1139,14 +1314,6 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void SetSquadName(RichTextWidget squadName, RichTextWidget squadType, SCR_AIGroup group)
-	{
-		// This function can only be used in UI menu, where to change the language you need to close and open the shown menu, so it will be renewed.
-		squadName.SetText(SCR_GroupHelperUI.GetTranslatedGroupName(group));
-		squadType.SetText(SCR_GroupHelperUI.GetTranslatedRoleName(group));
-	}
-
-	//------------------------------------------------------------------------------------------------
 	void ShowAIsInGroup()
 	{
 		SCR_AIGroup group = m_GroupManager.FindGroup(m_iGroupID);
@@ -1176,6 +1343,7 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 			identityComponent = SCR_CharacterIdentityComponent .Cast(AIcharacter.FindComponent(SCR_CharacterIdentityComponent));
 			if (!identityComponent)
 				return;
+
 			string name;
 			array<string> nameParams = {};
 			identityComponent.GetFormattedFullName(name, nameParams);
@@ -1190,7 +1358,6 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 				return;
 
 			m_PlayerTileComponent.SetTilePlayerID(-1);
-
 			m_PlayerTileComponent.SetCharacter(AIcharacter);
 
 			//set badge color

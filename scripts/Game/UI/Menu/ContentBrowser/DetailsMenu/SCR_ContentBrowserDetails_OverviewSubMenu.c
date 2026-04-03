@@ -446,8 +446,8 @@ class SCR_ContentBrowserDetails_OverviewSubMenu : SCR_ContentBrowser_ScenarioSub
 		// Sort missions by name
 		SCR_Sorting<MissionWorkshopItem, SCR_CompareMissionName>.HeapSort(scenarios, false);
 
-		if (CreateLines(scenarios, m_Widgets.m_wScenariosList))
-			UpdateScenarioLines();
+		CreateLines(scenarios, m_Widgets.m_wScenariosList);
+		UpdateScenarioLines();
 	}
 
 	//------------------------------------------------------------------------------------------------

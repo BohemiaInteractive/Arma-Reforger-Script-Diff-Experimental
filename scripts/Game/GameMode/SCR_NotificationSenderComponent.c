@@ -265,7 +265,7 @@ class SCR_NotificationSenderComponent : SCR_BaseGameModeComponent
 		{
 			SCR_EditableCharacterComponent editableCharacterComponent = SCR_EditableCharacterComponent.Cast(killerEntity.FindComponent(SCR_EditableCharacterComponent));
 			if (editableCharacterComponent)
-				killerRplId = Replication.FindId(editableCharacterComponent);
+				killerRplId = Replication.FindItemId(editableCharacterComponent);
 			
 			//~ Invalid killer so show that player simply died
 			if (!killerRplId.IsValid())

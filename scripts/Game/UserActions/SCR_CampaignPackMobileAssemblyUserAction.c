@@ -17,18 +17,9 @@ class SCR_CampaignPackMobileAssemblyUserAction : SCR_CampaignDeployMobileAssembl
 	
 	//------------------------------------------------------------------------------------------------
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity) 
-	{	
-		PlayerController playerController = GetGame().GetPlayerController();
-		
-		if (!playerController)
-			return;
-		
-		SCR_CampaignNetworkComponent campaignNetworkComponent = SCR_CampaignNetworkComponent.Cast(playerController.FindComponent(SCR_CampaignNetworkComponent));
-		
-		if (!campaignNetworkComponent)
-			return;
-		
-		campaignNetworkComponent.DeployMobileAsembly(m_AssemblyComponent, false);
+	{
+		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(pUserEntity);
+		m_AssemblyComponent.Deploy(SCR_EMobileAssemblyStatus.DISMANTLED, playerId);
 	}
 	
 	//------------------------------------------------------------------------------------------------

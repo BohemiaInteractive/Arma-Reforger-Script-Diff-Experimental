@@ -9,10 +9,6 @@ Do not modify, this script is generated
 \{
 */
 
-class AIComponentClass: GenericComponentClass
-{
-}
-
 class AIComponent: GenericComponent
 {
 	proto external AIAgent GetAIAgent();

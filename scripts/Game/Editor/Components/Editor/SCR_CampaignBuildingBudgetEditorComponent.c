@@ -22,13 +22,13 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 		if (!factionManager)
 			return;
 
-		array<ref SCR_RankID> ranks = factionManager.GetAllAvailableRanks();
+		array<ref SCR_RankInfo> ranks = factionManager.GetFactionRanks(m_Manager.GetPlayerID()).GetAllRanks();
 		if (!ranks)
 			return;
 
 		ranks.Sort();
 
-		SCR_RankID highestRankID = ranks[ranks.Count() - 1];
+		SCR_RankInfo highestRankID = ranks[ranks.Count() - 1];
 		if (!highestRankID)
 			return;
 

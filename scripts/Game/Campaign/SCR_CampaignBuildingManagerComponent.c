@@ -57,6 +57,7 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 
 	protected ref array<ResourceName> m_aPlaceablePrefabs = {};
 	protected ref map<SCR_CampaignMilitaryBaseComponent, ref array<SCR_CampaignBuildingCompositionComponent>> m_mCampaignBuildingComponents;
+	protected ref array<SCR_CampaignBuildingCompositionComponent> m_aHQBuildingCompositions = {};
 
 	protected SCR_EditableEntityCore m_EntityCore;
 	protected IEntity m_TemporaryProvider;
@@ -227,8 +228,12 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 
 		//CampaignBuildingManagerComponent should not do anything if there is no campaign
         const SCR_GameModeCampaign campaign = SCR_GameModeCampaign.GetInstance();
-		if(!campaign)
+		if (!campaign)
 			return;
+
+		// Do not react to changes during loading of session
+		if (SCR_PersistenceSystem.IsLoadInProgress())
+			return; 
 
 		int propBudgetValue;
 		array<ref SCR_EntityBudgetValue> budgets = {};
@@ -401,7 +406,8 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 	//! \param[in] provider
 	//! \param[in] userActionActivationOnly
 	//! \param[in] userActionUsed
-	void GetEditorMode(int playerID, notnull IEntity provider, bool userActionActivationOnly = false, bool userActionUsed = false)
+	//! \param[in] useAllAvailableProviders true if game should use all available providers from that base
+	void EnterEditorMode(int playerID, notnull IEntity provider, bool userActionActivationOnly = false, bool userActionUsed = false, bool useAllAvailableProviders = false)
 	{
 		SCR_EditorManagerEntity editorManager = GetEditorManagerEntity(playerID);
 		if (!editorManager)
@@ -414,11 +420,18 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 		if (!modeEntity)
 			return;
 
-		SetEditorMode(editorManager, modeEntity, playerID, provider, userActionActivationOnly, userActionUsed);
+		SetEditorMode(editorManager, modeEntity, playerID, provider, userActionActivationOnly, userActionUsed, useAllAvailableProviders);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void SetEditorMode(notnull SCR_EditorManagerEntity editorManager, notnull SCR_EditorModeEntity modeEntity, int playerID, notnull IEntity provider, bool userActionActivationOnly = false, bool userActionUsed = false)
+	//! \param[in] editorManager
+	//! \param[in] modeEntity
+	//! \param[in] playerID
+	//! \param[in] provider
+	//! \param[in] userActionActivationOnly
+	//! \param[in] userActionUsed
+	//! \param[in] useAllAvailableProviders true if game should use all available providers from that base
+	protected void SetEditorMode(notnull SCR_EditorManagerEntity editorManager, notnull SCR_EditorModeEntity modeEntity, int playerID, notnull IEntity provider, bool userActionActivationOnly = false, bool userActionUsed = false, bool useAllAvailableProviders = false)
 	{
 		SCR_CampaignBuildingEditorComponent buildingComponent = SCR_CampaignBuildingEditorComponent.Cast(modeEntity.FindComponent(SCR_CampaignBuildingEditorComponent));
 		if (!buildingComponent)
@@ -427,6 +440,9 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 		SCR_CampaignBuildingProviderComponent providerComponent = SCR_CampaignBuildingProviderComponent.Cast(provider.FindComponent(SCR_CampaignBuildingProviderComponent));
 		if (!providerComponent)
 			return;
+
+		if (useAllAvailableProviders)
+			providerComponent.SetUseAllAvailableProvidersByPlayer(IsCommander(playerID));
 
 		providerComponent.AddNewAvailableUser(playerID);
 		if (userActionUsed)
@@ -451,6 +467,24 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 		SetOnPlayerDeathEvent(playerID);
 		SetOnProviderDestroyedEvent(provider);
 		providerComponent.SetCheckProviderMove();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Checks if given player is a faction commander
+	//! \param[in] playerId
+	//! \return true if player with provided id is the commander of his faction, otherwise false
+	protected bool IsCommander(int playerId)
+	{
+		PlayerController owner = GetGame().GetPlayerManager().GetPlayerController(playerId);
+		if (!owner)
+			return false;
+	
+		SCR_PlayerFactionAffiliationComponent playerFaction = SCR_PlayerFactionAffiliationComponent.Cast(owner.FindComponent(SCR_PlayerFactionAffiliationComponent));
+		if (!playerFaction)
+			return false;
+	
+		SCR_Faction faction = SCR_Faction.Cast(playerFaction.GetAffiliatedFaction());
+		return faction && faction.IsPlayerCommander(owner.GetPlayerId());
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -499,6 +533,46 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 
 		if (m_OnEntitySpawnedByProvider)
 			m_OnEntitySpawnedByProvider.Invoke(prefabID, editableEntity, playerId, provider);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected bool TryAddHQ(notnull SCR_CampaignBuildingCompositionComponent composition)
+	{
+		SCR_EditableEntityComponent editableEntity = SCR_EditableEntityComponent.Cast(composition.GetOwner().FindComponent(SCR_EditableEntityComponent));
+		if (!editableEntity)
+			return false;
+
+		if (!IsHQService(editableEntity))
+			return false;
+
+		m_aHQBuildingCompositions.Insert(composition);
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected bool TryRemoveHQ(notnull SCR_CampaignBuildingCompositionComponent composition)
+	{
+		SCR_EditableEntityComponent editableEntity = SCR_EditableEntityComponent.Cast(composition.GetOwner().FindComponent(SCR_EditableEntityComponent));
+		if (!editableEntity)
+			return false;
+
+		if (!IsHQService(editableEntity))
+			return false;
+
+		m_aHQBuildingCompositions.RemoveItem(composition);
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected bool IsHQService(notnull SCR_EditableEntityComponent editableEntity)
+	{
+		SCR_EditableEntityUIInfo prefabInfo = SCR_EditableEntityUIInfo.Cast(editableEntity.GetInfo());
+		if (!prefabInfo)
+			return false;
+
+		array<EEditableEntityLabel> entityLabels = {};
+		prefabInfo.GetEntityLabels(entityLabels);
+		return entityLabels.Contains(EEditableEntityLabel.SERVICE_HQ);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -648,6 +722,8 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 			RemoveOnProviderDestroyedEvent(providerComponent.GetOwner());
 
 		providerComponent.RemoveCheckProviderMove();
+		providerComponent.SetUseAllAvailableProvidersByPlayer(false);
+
 		RemoveOnPlayerDeathEvent(playerID);
 
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
@@ -703,6 +779,8 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 		if (!baseSystem)
 			return;
 
+		TryAddHQ(composition);
+
 		vector position = composition.GetOwner().GetOrigin();
 		array<SCR_MilitaryBaseComponent> bases = {};
 		baseSystem.GetBases(bases);
@@ -741,6 +819,8 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 		SCR_MilitaryBaseSystem baseSystem = SCR_MilitaryBaseSystem.GetInstance();
 		if (!baseSystem)
 			return;
+
+		TryRemoveHQ(composition);
 
 		array<SCR_MilitaryBaseComponent> bases = {};
 		baseSystem.GetBases(bases);
@@ -789,6 +869,13 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 			return 0;
 
 		return compositions.Copy(baseComponents);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \return spawned HQ building compositions
+	array<SCR_CampaignBuildingCompositionComponent> GetHQBuildingCompositions()
+	{
+		return m_aHQBuildingCompositions;
 	}
 
 	//------------------------------------------------------------------------------------------------

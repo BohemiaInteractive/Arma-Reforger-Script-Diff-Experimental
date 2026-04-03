@@ -354,7 +354,7 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 	//! \param[in] soundEventName name of a sound event that will be used to play a sound
 	void PlaySoundOnEntityPosition(IEntity object, string soundFile, string soundEventName)
 	{
-		RplId objectID = Replication.FindId(object);
+		RplId objectID = Replication.FindItemId(object);
 		if (!objectID.IsValid())
 			return;
 
@@ -672,14 +672,15 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 
 		DiagMenu.RegisterMenu(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_MENU, "ScenarioFramework", "");
 		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_TASKS, "", "Tasks", "ScenarioFramework");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_REGISTERED_AREAS, "", "Registered Areas", "ScenarioFramework");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_DEBUG_AREAS, "", "Debug Areas", "ScenarioFramework");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_LAYER_INSPECTOR, "", "Layer Inspector", "ScenarioFramework");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_ACTION_INSPECTOR, "", "Action Inspector", "ScenarioFramework");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_LOGIC_INSPECTOR, "", "Logic Inspector", "ScenarioFramework");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_PLUGIN_INSPECTOR, "", "Plugin Inspector", "ScenarioFramework");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_CONDITION_INSPECTOR, "", "Condition Inspector", "ScenarioFramework");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_DEBUG_ACTIONS, "", "Debug Actions", "ScenarioFramework");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_REGISTERED_AREAS, "", "Log Registered Areas", "ScenarioFramework");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_DEBUG_AREAS, "", "Log Debug Areas", "ScenarioFramework");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_LAYER_INSPECTOR, "", "Log Layer Inspector", "ScenarioFramework");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_ACTION_INSPECTOR, "", "Log Action Inspector", "ScenarioFramework");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_LOGIC_INSPECTOR, "", "Log Logic Inspector", "ScenarioFramework");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_PLUGIN_INSPECTOR, "", "Log Plugin Inspector", "ScenarioFramework");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_CONDITION_INSPECTOR, "", "Log Condition Inspector", "ScenarioFramework");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_DEBUG_ACTIONS, "", "Log Debug Actions", "ScenarioFramework");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SCENARIO_FRAMEWORK_FINISH_TASK, "", "Cheat Finish Current Task", "ScenarioFramework");
 
 		m_FactionManager = GetGame().GetFactionManager();
 		SCR_Task.GetOnTaskStateChanged().Remove(OnTaskUpdate);

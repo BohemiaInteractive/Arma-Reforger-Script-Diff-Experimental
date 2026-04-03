@@ -46,6 +46,7 @@ class SCR_CampaignMilitaryBaseManager
 	protected ref OnLocalPlayerEnteredBaseInvoker m_OnLocalPlayerEnteredBase;
 	protected ref OnLocalPlayerLeftBaseInvoker m_OnLocalPlayerLeftBase;
 	protected ref OnBaseBuiltInvoker m_OnBaseBuilt;
+	protected static ref OnBaseBuiltInvoker s_OnBaseDisassembled = new OnBaseBuiltInvoker();
 
 	protected int m_iActiveBases;
 	protected int m_iTargetActiveBases;
@@ -55,6 +56,7 @@ class SCR_CampaignMilitaryBaseManager
 
 	protected bool m_bAllBasesInitialized;
 
+	protected static ref OnBaseStateChangedInvoker m_OnBaseCreated;
 	//------------------------------------------------------------------------------------------------
 	//! Calculates the maximum amount of available callsigns for establishing of new bases
 	protected void CalculateMaxAvailableCallsignAmount()
@@ -157,6 +159,15 @@ class SCR_CampaignMilitaryBaseManager
 			m_OnBaseBuilt = new OnBaseBuiltInvoker();
 
 		return m_OnBaseBuilt;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	static OnBaseBuiltInvoker GetOnBaseDisassembled()
+	{
+		if (!s_OnBaseDisassembled)
+			s_OnBaseDisassembled = new OnBaseBuiltInvoker();
+
+		return s_OnBaseDisassembled;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -267,10 +278,9 @@ class SCR_CampaignMilitaryBaseManager
 		if (m_Campaign.IsProxy())
 			return;
 
-		SCR_MilitaryBaseSystem.GetInstance().GetOnLogicRegisteredInBase().Insert(DisableExtraSeizingComponents);
-		SCR_MilitaryBaseSystem.GetInstance().GetOnBaseRegistered().Insert(OnBaseRegistered);
 		RecalculateRadioCoverage(m_Campaign.GetFactionByEnum(SCR_ECampaignFaction.BLUFOR));
 		RecalculateRadioCoverage(m_Campaign.GetFactionByEnum(SCR_ECampaignFaction.OPFOR));
+		EvaluateControlPoints();
 
 		ProcessRemnantsPresence();
 	}
@@ -391,6 +401,7 @@ class SCR_CampaignMilitaryBaseManager
 			opforHQ = preferredForHQ.GetRandomElement();
 
 		// Randomly assign the factions in reverse in case primary selection gets too limited
+		
 		if (Math.RandomFloat01() >= 0.5)
 			selectedHQs = {bluforHQ, opforHQ};
 		else
@@ -741,7 +752,18 @@ class SCR_CampaignMilitaryBaseManager
 	{
 		bool newSettingsDetected = SCR_RadioCoverageSystem.UpdateAll();
 		if (newSettingsDetected)
-			EvaluateControlPoints();
+			DelayedEvaluateControlPoints(0);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Calls Evaluate Control Points with a delay. Should be used in need of a delay of the evalution so that Control Points are properly updated.
+	//! \param[in] delay in ms
+	void DelayedEvaluateControlPoints(int delay)
+	{
+		if (delay < 0)
+			delay = 0;
+
+		GetGame().GetCallqueue().CallLater(EvaluateControlPoints, delay);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1085,7 +1107,7 @@ class SCR_CampaignMilitaryBaseManager
 	protected void OnBaseFactionChanged(SCR_MilitaryBaseComponent base, Faction newFaction)
 	{
 		if (!m_Campaign.IsProxy())
-			EvaluateControlPoints();
+			DelayedEvaluateControlPoints(0);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1293,13 +1315,17 @@ class SCR_CampaignMilitaryBaseManager
 		if (campaignBase)
 		{
 			campaignBase.SetFaction(SCR_CampaignFaction.Cast(base.GetFaction(true)));
-
+			
+			// Analytics call 
+			campaignBase.OnBaseCreatedAsFOB(base.GetFaction(true));
 			// The base was not linked yet (e.g. player built), attempt to link it now
 			const IEntity baseComposition = base.GetOwner().GetParent();
 			if (baseComposition)
-				campaignBase.SetBaseBuildingComposition(baseComposition);
+				campaignBase.SetBaseBuildingComposition(baseComposition);	
 		}
-
+		
+		//SCR_CampaignMilitaryBaseComponent.GetOnFactionChangedExtended().Invoke;
+			
 		DisablePatrolSpawn(entity);
 	}
 
@@ -1329,7 +1355,12 @@ class SCR_CampaignMilitaryBaseManager
 
 		string factionKey = campaignBase.GetBuiltFaction();
 		if (campaignBase.GetBuiltByPlayers() && !factionKey.IsEmpty())
+		{
 			m_mFactionEstablishedBasesAmount.Set(factionKey, m_mFactionEstablishedBasesAmount.Get(factionKey) - 1);
+			
+			if(s_OnBaseDisassembled)
+				s_OnBaseDisassembled.Invoke(campaignBase, campaignBase.GetFaction(true));
+		}		
 
 		m_iActiveBases--;
 		m_iTargetActiveBases--;
@@ -1415,6 +1446,16 @@ class SCR_CampaignMilitaryBaseManager
 		baseManager.GetOnBaseUnregistered().Insert(OnBaseUnregistered);
 
 		m_Campaign.GetOnStarted().Insert(OnConflictStarted);
+
+		if (!Replication.IsServer())
+			return;
+
+		const SCR_MilitaryBaseSystem militaryBaseSystem = SCR_MilitaryBaseSystem.GetInstance();
+		if (militaryBaseSystem)
+		{
+			militaryBaseSystem.GetOnLogicRegisteredInBase().Insert(DisableExtraSeizingComponents);
+			militaryBaseSystem.GetOnBaseRegistered().Insert(OnBaseRegistered);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1432,5 +1473,12 @@ class SCR_CampaignMilitaryBaseManager
 
 		if (m_Campaign)
 			m_Campaign.GetOnStarted().Remove(OnConflictStarted);
+
+		const SCR_MilitaryBaseSystem militaryBaseSystem = SCR_MilitaryBaseSystem.GetInstance();
+		if (militaryBaseSystem)
+		{
+			militaryBaseSystem.GetOnLogicRegisteredInBase().Remove(DisableExtraSeizingComponents);
+			militaryBaseSystem.GetOnBaseRegistered().Remove(OnBaseRegistered);
+		}
 	}
 }

@@ -211,11 +211,17 @@ class SCR_FactionRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		if (SCR_BaseGameMode.Cast(GetGame().GetGameMode()).IsFactionChangeAllowed())
 		{
 			RequestPlayerFaction(factionBtn);
-		}	
+		}
 		else if (m_FactionManager)
 		{
-			int factionIndex = m_FactionManager.GetFactionIndex(factionBtn.GetFaction());
-			SCR_PersistentFactionDialog dialog = SCR_PersistentFactionDialog.CreatePersistentFactionDialog(factionIndex);
+			SCR_Faction faction = factionBtn.GetFaction();
+			int factionIndex = m_FactionManager.GetFactionIndex(faction);
+			SCR_PersistentFactionDialog dialog;
+			if (SCR_GameModeCampaign.GetInstance() && faction.GetFactionLabel() == EEditableEntityLabel.FACTION_FIA)
+				dialog = SCR_PersistentFactionDialog.CreatePersistentFactionCampaignFIADialog(factionIndex);
+			else
+				dialog = SCR_PersistentFactionDialog.CreatePersistentFactionDialog(factionIndex);
+			
 			dialog.m_OnConfirm.Insert(OnFactionDialogConfirm);
 		}
 	}

@@ -72,6 +72,14 @@ class SCR_SpawnLogic
 		#ifdef _ENABLE_RESPAWN_LOGS
 		PrintFormat("%1::OnPlayerAuditSuccess_S(playerId: %2)", Type().ToString(), playerId);
 		#endif
+
+		if (!m_Persistence)
+			return;
+
+		// Assign players identity id to playercontroller in persistence tracking
+		const SCR_PlayerController playerController = SCR_PlayerController.Cast(GetGame().GetPlayerManager().GetPlayerController(playerId));
+		const UUID identity = SCR_PlayerIdentityUtils.GetPlayerIdentityId(playerId);
+		m_Persistence.SetId(playerController, identity);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -97,34 +105,13 @@ class SCR_SpawnLogic
 			{
 				// Save controller data and release tracking to ignore it being deleted when player manager is done with disconnect procedure.
 				m_Persistence.Save(playerController);
-				m_Persistence.ReleaseTracking(playerController);
+				m_Persistence.StopTracking(playerController, false);
 				break;
 			}
 
 			case SCR_ESpawnLogicDisconnectBehaviour.DELETE:
 			{
 				m_Persistence.StopTracking(playerController);
-				break;
-			}
-		}
-
-		const IEntity character = playerController.GetControlledEntity();
-		if (!character)
-			return;
-
-		switch (m_eDisconnectCharacterBehaviour)
-		{
-			case SCR_ESpawnLogicDisconnectBehaviour.SAVE:
-			{
-				// Save character data and release tracking to ignore it being deleted during player controller cleanup
-				m_Persistence.Save(character);
-				m_Persistence.ReleaseTracking(character);
-				break;
-			}
-
-			case SCR_ESpawnLogicDisconnectBehaviour.DELETE:
-			{
-				m_Persistence.StopTracking(character);
 				break;
 			}
 		}
@@ -211,6 +198,34 @@ class SCR_SpawnLogic
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void OnPlayerEntityCleanup_S(notnull IEntity playerEntity)
+	{
+		#ifdef _ENABLE_RESPAWN_LOGS
+		PrintFormat("%1::OnPlayerEntityCleanup_S(playerEntity:%2)", Type().ToString(), playerEntity);
+		#endif
+
+		if (!m_Persistence)
+			return;
+
+		switch (m_eDisconnectCharacterBehaviour)
+		{
+			case SCR_ESpawnLogicDisconnectBehaviour.SAVE:
+			{
+				// Save character data and release tracking to ignore it being deleted during player controller cleanup
+				m_Persistence.Save(playerEntity);
+				m_Persistence.StopTracking(playerEntity, false);
+				break;
+			}
+
+			case SCR_ESpawnLogicDisconnectBehaviour.DELETE:
+			{
+				m_Persistence.StopTracking(playerEntity);
+				break;
+			}
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	/*!
 		Called whenever provided player loses controlled entity, this can occur e.g.
 		when a player dies or their entity is deleted.
@@ -251,25 +266,22 @@ class SCR_SpawnLogic
 		PrintFormat("%1::ExcuteInitialLoadOrSpawn_S(playerId: %2)", Type().ToString(), playerId);
 		#endif
 
-		if (ResolveReconnection(playerId))
-			return; // User was reconnected, their entity was returned
-
 		#ifdef WORKBENCH
 		// Wait one frame for inital play from camera entity to be available (or not).
-		GetGame().GetCallqueue().Call(OnIdentityIdAvailable_S, playerId);
+		GetGame().GetCallqueue().Call(RequestPlayerData_S, playerId);
 		#else
-		OnIdentityIdAvailable_S(playerId);
+		RequestPlayerData_S(playerId);
 		#endif
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnIdentityIdAvailable_S(int playerId)
+	protected void RequestPlayerData_S(int playerId)
 	{
 		#ifdef _ENABLE_RESPAWN_LOGS
-		PrintFormat("%1::OnIdentityIdAvailable_S(playerId: %2)", Type().ToString(), playerId);
+		PrintFormat("%1::RequestPlayerData_S(playerId: %2)", Type().ToString(), playerId);
 		#endif
 
-		auto playerController = SCR_PlayerController.Cast(GetGame().GetPlayerManager().GetPlayerController(playerId));
+		const PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
 
 		#ifdef WORKBENCH
 		IEntity controlledEntity = playerController.GetControlledEntity();
@@ -283,53 +295,43 @@ class SCR_SpawnLogic
 		if (!m_Persistence || !m_CharacterCollection)
 		{
 			// No persistence data to request, proceed with spawning
-			DoInitialSpawn_S(playerId);
+			OnPlayerDataLoaded_S(EPersistenceStatusCode.UNAVAILABLE, null, true, new Tuple1<PlayerController>(playerController));
 			return;
 		}
 
 		const EPersistenceSystemState state = m_Persistence.GetState();
-		switch (state)
+		if (state != EPersistenceSystemState.ACTIVE)
 		{
-			case EPersistenceSystemState.INIT:
-			case EPersistenceSystemState.SETUP:
-			{
-				// TODO: Remove wait for persistence hack by forcing world transition to wait for the system to give all clear and allow loading to proceed.
-				GetGame().GetCallqueue().CallLater(OnIdentityIdAvailable_S, 100, false, playerId);
-				return;
-			}
-
-			case EPersistenceSystemState.FAILURE:
-			case EPersistenceSystemState.SHUTDOWN:
-			{
-				DoInitialSpawn_S(playerId); // Call default respawn behavior
-				return;
-			}
+			OnPlayerDataLoaded_S(EPersistenceStatusCode.UNAVAILABLE, null, true, new Tuple1<PlayerController>(playerController));
+			return;
 		}
-
-		// Assign players identity id to playercontroller in persistence tracking
-		const UUID identity = SCR_PlayerIdentityUtils.GetPlayerIdentityId(playerId);
-		m_Persistence.SetId(playerController, identity);
 
 		// Load existing data about the player to see which character, faction, group etc to connect him with again on load
 		PersistenceLoadRequest request();
 		request.Instances = {playerController};
 		// Pass controller as weakptr via tuple
-		PersistenceResultCallback callback(OnPlayerControllerLoaded_S, new Tuple1<SCR_PlayerController>(playerController));
+		PersistenceResultCallback callback(OnPlayerDataLoaded_S, new Tuple1<PlayerController>(playerController));
 		m_Persistence.RequestLoad(request, callback);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnPlayerControllerLoaded_S(EPersistenceStatusCode statusCode, Managed result, bool isLast, Managed context)
+	protected void OnPlayerDataLoaded_S(EPersistenceStatusCode statusCode, Managed result, bool isLast, Managed context)
 	{
 		#ifdef _ENABLE_RESPAWN_LOGS
-		PrintFormat("%1::OnPlayerControllerLoaded_S(%2, %3, %4)", Type().ToString(), typename.EnumToString(EPersistenceStatusCode, statusCode), result, context);
+		PrintFormat("%1::OnPlayerDataLoaded_S(%2, %3, %4)", Type().ToString(), typename.EnumToString(EPersistenceStatusCode, statusCode), result, context);
 		#endif
 
-		auto playerController = Tuple1<SCR_PlayerController>.Cast(context).param1;
+		auto playerController = SCR_PlayerController.Cast(Tuple1<PlayerController>.Cast(context).param1);
 		if (!playerController)
 			return; // Response arrived after player already disconnected
 
 		const int playerId = playerController.GetPlayerId();
+		if (ResolveReconnection(playerId))
+		{
+			ForgetControlledEntityIds(playerController);
+			return; // User was reconnected, their entity was returned
+		}
+
 		if (statusCode != EPersistenceStatusCode.OK)
 		{
 			// Abort and proceed with default spawn
@@ -382,16 +384,16 @@ class SCR_SpawnLogic
 		auto playerDataContext = Tuple1<int>.Cast(context);
 
 		// Hand over
-		auto player = BaseGameEntity.Cast(result);
+		auto character = ChimeraCharacter.Cast(result);
 
 		// Apply play from camera pose to new char and delete the system spawned one, as we have our own from DB
 		// Also consume the saved data on first spawn back, afterwards save and load will use its own data.
 		#ifdef WORKBENCH
-		if (player)
+		if (character)
 		{
 			bool needsChange;
 			vector transform[4];
-			player.GetWorldTransform(transform);
+			character.GetWorldTransform(transform);
 
 			if (s_vPlayFromCameraPos != vector.Zero)
 			{
@@ -408,7 +410,7 @@ class SCR_SpawnLogic
 			}
 
 			if (needsChange)
-				player.Teleport(transform);
+				character.Teleport(transform);
 		}
 
 		// Remove old player
@@ -418,21 +420,17 @@ class SCR_SpawnLogic
 		#endif
 
 		// Dead players will not work for respawn, as no events for additional death on them are raised after posession.
-		if (player)
-		{
-			auto charController = CharacterControllerComponent.Cast(player.FindComponent(CharacterControllerComponent));
-			if (charController && charController.GetLifeState() == ECharacterLifeState.DEAD)
-				player = null;
-		}
+		if (character && character.GetCharacterController().IsDead())
+			character = null;
 
-		// Check that we have a validi player to posess back
-		if (!player)
+		// Check that we have a valid character to posess back
+		if (!character)
 		{
 			DoInitialSpawn_S(playerDataContext.param1);
 			return;
 		}
 
-		auto data = SCR_PossessSpawnData.FromEntity(player);
+		auto data = SCR_PossessSpawnData.FromEntity(character);
 		GetPlayerRespawnComponent_S(playerDataContext.param1).RequestSpawn(data);
 	}
 
@@ -520,64 +518,20 @@ class SCR_SpawnLogic
 
 	//------------------------------------------------------------------------------------------------
 	/*!
-		Probe the SCR_ReconnectComponent for player of given playerId.
-		If player is eligible for respawn using the reconnection method, true is returned.
-	*/
-	protected bool IsEligibleForReconnection(int playerId)
-	{
-		SCR_ReconnectComponent reconnectComponent = SCR_ReconnectComponent.GetInstance();
-		if (!reconnectComponent || !reconnectComponent.IsReconnectEnabled())
-			return false;
-
-		SCR_EReconnectState recState = reconnectComponent.IsInReconnectList(playerId);
-		if (recState == SCR_EReconnectState.NOT_RECONNECT)
-			return false;
-
-		PlayerController controller = GetGame().GetPlayerManager().GetPlayerController(playerId);
-		if (controller)
-		{
-			SCR_ReconnectSynchronizationComponent syncComp = SCR_ReconnectSynchronizationComponent.Cast(controller.FindComponent(SCR_ReconnectSynchronizationComponent));
-			if (syncComp)
-				syncComp.CreateReconnectDialog(recState);
-		}
-
-		return recState == SCR_EReconnectState.ENTITY_AVAILABLE;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	/*!
-		Resolves spawn using the SCR_ReconnectComponent for player of given playerId.
-		If such player is eligible for spawning this way, action is taken and true is
-		returned on success (entity given over), false otherwise.
-		\param playerId Player
-		\return True if existing entity was re-assigned to him
+	Resolves spawn using the SCR_ReconnectComponent for player of given playerId.
+	If such player is eligible for spawning this way, action is taken and true is
+	returned on success (entity handed over), false otherwise.
+	\param playerId Player
+	\return True if existing entity was re-assigned to him
 	*/
 	protected bool ResolveReconnection(int playerId)
 	{
-		if (!IsEligibleForReconnection(playerId))
-			return false;
-
 		#ifdef _ENABLE_RESPAWN_LOGS
 		PrintFormat("%1::ResolveReconnection(playerId: %2)", Type().ToString(), playerId);
 		#endif
 
-		SCR_ReconnectComponent reconnectComponent = SCR_ReconnectComponent.GetInstance();
-		const IEntity assignedEntity = reconnectComponent.ReturnControlledEntity(playerId);
-		if (assignedEntity)
-		{
-			const Faction faction = SCR_FactionManager.SGetFaction(assignedEntity);
-			if (faction)
-			{
-				PlayerController pc = GetGame().GetPlayerManager().GetPlayerController(playerId);
-				SCR_PlayerFactionAffiliationComponent playerFactionComp = SCR_PlayerFactionAffiliationComponent.Cast(pc.FindComponent(SCR_PlayerFactionAffiliationComponent));
-				if (playerFactionComp)
-					playerFactionComp.SetFaction_S(faction);
-			}
-
-			m_RespawnSystem.EmitPlayerEntityChange_S(playerId, null, assignedEntity);
-		}
-
-		return assignedEntity != null;
+		SCR_ReconnectComponent reconnect = SCR_ReconnectComponent.GetInstance();
+		return reconnect && reconnect.HandlePlayerReconnect(playerId);
 	}
 
 	#ifdef WORKBENCH

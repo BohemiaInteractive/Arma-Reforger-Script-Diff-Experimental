@@ -203,6 +203,16 @@ class SCR_CampaignMobileAssemblyComponent : ScriptComponent
 			GetGame().GetCallqueue().CallLater(CheckStatus, 500, true);
 		else
 			GetGame().GetCallqueue().Remove(CheckStatus);
+
+		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.GetInstance();
+		if (!campaign)
+			return;
+
+		SCR_CampaignMilitaryBaseManager baseManager = campaign.GetBaseManager();
+		if (!baseManager)
+			return;
+
+		baseManager.DelayedEvaluateControlPoints(0);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -336,7 +346,7 @@ class SCR_CampaignMobileAssemblyComponent : ScriptComponent
 			m_StandaloneComponent.SetParentFactionID(m_iParentFaction);
 		}
 		
-		m_iSpawnpointId = Replication.FindId(m_SpawnPoint);
+		m_iSpawnpointId = Replication.FindItemId(m_SpawnPoint);
 		OnSpawnpointCreated();
 		Replication.BumpMe();
 	}

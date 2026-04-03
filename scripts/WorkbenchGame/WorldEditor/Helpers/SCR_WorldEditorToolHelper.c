@@ -2,7 +2,8 @@
 class SCR_WorldEditorToolHelper
 {
 	protected static ref array<IEntity> s_aTempEntities;
-	protected static const string TERRAIN_ENTITY_CLASSNAME = "GenericTerrainEntity";
+
+	protected static const string WEB_PREFIX = "https://enfusionengine.com/api/redirect?to=";
 
 	//------------------------------------------------------------------------------------------------
 	//! Get the ResourceManager object
@@ -68,6 +69,86 @@ class SCR_WorldEditorToolHelper
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Get a World Editor link in Enfusion protocol format (enfusion://) using current camera's position/angles
+	//! \param[in] useWebPrefix use WEB_PREFIX or not
+	//! \return Enfusion protocol World Editor link or empty on 
+	static string GetCurrentWorldEditorLink(bool useWebPrefix = false)
+	{
+		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
+		if (!worldEditorAPI)
+			return string.Empty;
+
+		BaseWorld world = worldEditorAPI.GetWorld();
+		if (!world)
+			return string.Empty;
+
+		vector transform[4];
+		world.GetCurrentCamera(transform);
+
+		return SCR_WorldEditorToolHelper.GetCurrentWorldEditorLink(transform[3], Math3D.MatrixToAngles(transform), useWebPrefix);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Get a World Editor link in Enfusion protocol format (enfusion://)\n
+	//! position and camera are ignored if both are 0 0 0
+	//! \param[in] position camera position
+	//! \param[in] angles camera angles (pitch yaw roll) (NOT direction!)
+	//! \param[in] useWebPrefix use WEB_PREFIX or not
+	//! \return Enfusion protocol World Editor link or empty on 
+	static string GetCurrentWorldEditorLink(vector position, vector angles, bool useWebPrefix = false)
+	{
+		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
+		if (!worldEditorAPI)
+			return string.Empty;
+
+		string fullLink;
+		worldEditorAPI.GetWorldPath(fullLink);
+
+		if (fullLink.IsEmpty())
+			return string.Empty;
+
+		string worldPath = fullLink;
+		if (worldPath[0] == "$")
+			worldPath = "~" + worldPath.Substring(1, worldPath.Length() - 1);
+		else
+		if (worldPath[0] != "~")
+		{
+			// if we don't have an exact path (should not happen),
+			// fallback to the original solution:
+
+			// we want to substring only /worlds/(...)
+			// to prevent exposing local folders, etc.
+			string fullLinkLC = fullLink;
+			fullLinkLC.ToLower();
+
+			int begin = fullLinkLC.IndexOf("worlds\\");
+			if (begin == -1)
+				begin = fullLinkLC.IndexOf("worlds/");
+
+			if (begin == -1)
+				return string.Empty;
+
+			worldPath = fullLink.Substring(begin, fullLink.Length() - begin);
+		}
+
+		// Have consistent link
+		worldPath.Replace("\\", "/");
+
+		if (position == vector.Zero && angles == vector.Zero)
+			return "enfusion://WorldEditor/" + worldPath;
+
+		return string.Format(
+				"enfusion://WorldEditor/%1;%2,%3,%4;%5,%6,%7",
+				worldPath,
+				position[0],
+				position[1],
+				position[2],
+				angles[1],
+				angles[0],
+				angles[2]);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! \return the currently loaded world's name, or "Unknown" if empty
 	static string GetWorldName()
 	{
@@ -84,7 +165,7 @@ class SCR_WorldEditorToolHelper
 	{
 		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
 		if (!worldEditorAPI)
-			return "";
+			return string.Empty;
 
 		string result;
 		worldEditorAPI.GetWorldPath(result);
@@ -92,16 +173,36 @@ class SCR_WorldEditorToolHelper
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! \return true if a world is loaded, false otherwise
+	//! \return true if a world is loaded, false otherwise - false if in Prefab Edit mode too
 	static bool IsWorldLoaded()
 	{
-		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
+		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+		if (!worldEditor)
+			return false;
+
+		if (worldEditor.IsPrefabEditMode())
+			return false;
+
+		WorldEditorAPI worldEditorAPI = worldEditor.GetApi();
 		if (!worldEditorAPI)
 			return false;
 
 		string worldPath;
 		worldEditorAPI.GetWorldPath(worldPath);
 		return worldPath && worldEditorAPI.GetWorld() != null; // !.IsEmpty()
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \return true if terrain has been generated, false if not or no terrain entity is present
+	static bool HasTerrainMesh()
+	{
+		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+		if (!worldEditor)
+			return false;
+
+		vector min, max;
+		worldEditor.GetTerrainBounds(min, max);
+		return max != vector.Zero || min != vector.Zero;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -123,7 +224,7 @@ class SCR_WorldEditorToolHelper
 		for (int i, entitiesCount = worldEditorAPI.GetEditorEntityCount(); i < entitiesCount; ++i)
 		{
 			entitySource = worldEditorAPI.GetEditorEntity(i);
-			if (entitySource && entitySource.GetClassName() == TERRAIN_ENTITY_CLASSNAME)
+			if (entitySource && entitySource.GetClassName().ToType() && entitySource.GetClassName().ToType().IsInherited(GenericTerrainEntity))
 				return entitySource;
 		}
 
@@ -131,17 +232,247 @@ class SCR_WorldEditorToolHelper
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! \return
+	//! \return { X, 0, Z } dimensions
 	static vector GetTerrainDimensions()
 	{
 		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
 		if (!worldEditorAPI)
 			return vector.Zero;
 
-		float terrainUnitScale = worldEditorAPI.GetTerrainUnitScale();
-		float terrainX = terrainUnitScale * worldEditorAPI.GetTerrainResolutionX();
-		float terrainZ = terrainX;
-		return { terrainX, 0, terrainZ };
+		return worldEditorAPI.GetTerrainUnitScale() * {
+			worldEditorAPI.GetTerrainResolutionX() - 1,
+			0,
+			worldEditorAPI.GetTerrainResolutionY() - 1
+		};
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \param[out] minY
+	//! \param[out] maxY
+	static void GetTerrainMinMaxY(out float minY, out float maxY)
+	{
+		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+		vector min, max;
+		worldEditor.GetTerrainBounds(min, max);
+
+		minY = min[1];
+		maxY = max[1];
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \param[out] min
+	//! \param[out] max
+	//! \return true on success, false otherwise (e.g no terrain)
+	static bool GetTerrainMinMaxElevationPositions(out vector min, out vector max)
+	{
+		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
+		if (!HasTerrainMesh())
+			return false;
+
+		float minY, maxY;
+		GetTerrainMinMaxY(minY, maxY);
+
+		vector terrainPosition = GetTerrainPosition();
+		float minX = terrainPosition[0];
+		float minZ = terrainPosition[2];
+
+		vector terrainDimensions = GetTerrainDimensions();
+		float maxX = minX + terrainDimensions[0];
+		float maxZ = minZ + terrainDimensions[2];
+
+		float step = worldEditorAPI.GetTerrainUnitScale();
+
+		bool hasMinY, hasMaxY;
+
+		float y;
+		for (float z = minZ, limitZ = maxZ; z <= limitZ; z += step)
+		{
+			for (float x = minX, limitX = maxX; x <= limitX; x += step)
+			{
+				if (!worldEditorAPI.TryGetTerrainSurfaceY(x, z, y))
+					continue;
+
+				if (!hasMaxY && y == maxY)
+				{
+					max = { x, y, z };
+					hasMaxY = true;
+				}
+				else
+				if (!hasMinY && y == minY)
+				{
+					min = { x, y, z };
+					hasMinY = true;
+				}
+
+				if (hasMinY && hasMaxY)
+					return true;
+			}
+		}
+
+		return hasMinY && hasMaxY;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \return array of Y vertice values or null if no terrain mesh
+	static array<float> GetTerrainHeightmap()
+	{
+		if (!HasTerrainMesh())
+			return null;
+
+		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
+
+		const int terrainIndex = 0;
+		int tileXCount = worldEditorAPI.GetTerrainTilesX(terrainIndex);
+		int tileYCount = worldEditorAPI.GetTerrainTilesY(terrainIndex);
+
+		int tileSideSize = (worldEditorAPI.GetTerrainResolutionX() - 1) / tileXCount;
+
+		int totalSideSizeX = tileSideSize * tileXCount;
+		int totalSideSizeY = tileSideSize * tileYCount; // should be equal to X assuming square terrain
+		int tileValuesCount = tileSideSize * tileSideSize;
+		int totalValuesCount = totalSideSizeX * totalSideSizeY;
+
+		array<float> result = {};
+		result.Resize(totalValuesCount);
+
+		array<float> tileYs = {};
+		tileYs.Resize(tileValuesCount);
+
+		for (int tileY; tileY < tileYCount; ++tileY)
+		{
+			for (int tileX; tileX < tileXCount; ++tileX)
+			{
+				worldEditorAPI.GetTerrainSurfaceTile(terrainIndex, tileX, tileY, tileYs);
+//				if (!worldEditorAPI.GetTerrainSurfaceTile(terrainIndex, tileX, tileY, tileYs))
+//				{
+//					PrintFormat("Invalid tile %1:%2", tileX, tileY, level: LogLevel.ERROR);
+//					return null;
+//				}
+
+				int left = tileX * tileSideSize;
+				int bottom = tileY * tileSideSize;
+				foreach (int yIndex, float yValue : tileYs)
+				{
+//					int x = left + yIndex % tileSideSize;
+//					int y = bottom + yIndex / tileSideSize;
+//					int newIndex = y * totalSideSizeX + x;
+
+					const int i = (bottom + yIndex / tileSideSize) * totalSideSizeX + left + yIndex % tileSideSize;
+					result[i] = yValue;
+				}
+			}
+		}
+
+		return result;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \return
+	static vector GetTerrainPosition()
+	{
+		IEntitySource terrainEntitySource = GetTerrainEntitySource();
+		if (!terrainEntitySource)
+			return vector.Zero;
+
+		vector result;
+		terrainEntitySource.Get("coords", result);
+		return result;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Can be VERY expensive depending on the step parameter
+	//! a terrain at the same level as the ocean is considered terrain
+	//! \param[in] step measurement precision in metres, range 0.1..worldSize/2
+	//! \return
+	//! - 1 if no ocean
+	//! - 0 if no land
+	//! - 1 if no land or ocean
+	//! otherwise the landMass/totalSize ratio in 0..1 range (oceanRatio = 1 - landRatio)
+	static float GetTerrainLandRatio(float step = 1)
+	{
+		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
+		BaseWorld world = worldEditorAPI.GetWorld();
+		if (!world.IsOcean())
+			return 1;
+
+		if (step < 0.1)
+			step = 0.1;
+
+		if (!HasTerrainMesh())
+			return 0;
+
+		vector terrainPosition = GetTerrainPosition();
+		vector terrainDimensions = GetTerrainDimensions();
+
+		if (step > terrainDimensions[0] * 0.5)
+			step = terrainDimensions[0] * 0.5;
+
+		float minX = terrainPosition[0];
+		float minZ = terrainPosition[2];
+		float maxX = minX + terrainDimensions[0];
+		float maxZ = minZ + terrainDimensions[2];
+
+		float offsetX = Math.Mod(terrainDimensions[0], step) * 0.5;
+		float offsetZ = Math.Mod(terrainDimensions[2], step) * 0.5;
+
+		float oceanLevel = world.GetOceanBaseHeight();
+		int aboveWater;
+		int belowWater;
+		float y;
+		for (float z = minZ + offsetZ, limitZ = maxZ + offsetZ; z <= limitZ; z += step)
+		{
+			for (float x = minX + offsetX, limitX = maxX + offsetX; x <= limitX; x += step)
+			{
+				if (!worldEditorAPI.TryGetTerrainSurfaceY(x, z, y) || y < oceanLevel)
+					++belowWater;
+				else
+					++aboveWater;
+			}
+		}
+
+		// (aboveWater + belowWater) should not be able to be zero; otherwise there is a big problem
+		return aboveWater / (aboveWater + belowWater);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \return
+	static IEntitySource GetTimeAndWeatherManagerEntitySource()
+	{
+		WorldEditor worldEditor = GetWorldEditor();
+		if (!worldEditor)
+			return null;
+
+		if (worldEditor.IsPrefabEditMode())
+			return null;
+
+		WorldEditorAPI worldEditorAPI = worldEditor.GetApi();
+		if (worldEditorAPI.GetEditorEntityCount() < 2) // world and Entity
+			return null;
+
+		IEntitySource entitySource;
+		for (int i, entitiesCount = worldEditorAPI.GetEditorEntityCount(); i < entitiesCount; ++i)
+		{
+			entitySource = worldEditorAPI.GetEditorEntity(i);
+			if (entitySource && entitySource.GetClassName().ToType() && entitySource.GetClassName().ToType().IsInherited(TimeAndWeatherManagerEntity))
+				return entitySource;
+		}
+
+		return null;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \param[out] direction
+	//! \return
+	static vector GetWorldEditorCameraPosition(out vector direction = vector.Zero)
+	{
+		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
+		if (!worldEditorAPI)
+			return vector.Zero;
+
+		vector result, traceEnd;
+		worldEditorAPI.TraceWorldPos(0, 0, 0, result, traceEnd, direction);
+
+		return result;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -273,7 +604,7 @@ class SCR_WorldEditorToolHelper
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Get all ResourceName that are selected in the Resource Browser
+	//! Get all ResourceName that are selected in the World Editor's Resource Browser
 	//! \param[in] recursive true to get a selected directory's files, false to stop at the directory
 	//! \return array of ResourceName of selected resources or null on error (e.g World Editor is not available)
 	static array<ResourceName> GetSelectedResources(bool recursive = true)

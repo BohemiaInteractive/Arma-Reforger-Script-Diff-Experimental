@@ -177,15 +177,18 @@ class SCR_EditableTaskComponent: SCR_EditableDescriptorComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	override void SetTransform(vector transform[4], bool changedByUser = false)
+	override bool SetTransform(vector transform[4], bool changedByUser = false)
 	{	
 		//--- If it is moved by the user and has attached task, unlink it
 		
 		if (m_AttachableTask && changedByUser)
 			AttachTo(null);
 		
-		super.SetTransform(transform, changedByUser);
+		if (!super.SetTransform(transform, changedByUser))
+			return false;
+
 		UpdateNearestLocation();
+		return true;
 	}
 	
 	/*
@@ -284,7 +287,7 @@ class SCR_EditableTaskComponent: SCR_EditableDescriptorComponent
 		{
 			AttachTo(parentEntity);
 			
-			m_AttachedToId = Replication.FindId(parentEntity);
+			m_AttachedToId = Replication.FindItemId(parentEntity);
 			Replication.BumpMe();
 			
 			super.OnParentEntityChanged(null, null, changedByUser); //--- Needed to continue entity registration

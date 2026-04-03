@@ -80,10 +80,12 @@ class SCR_PreviewEntityEditorComponent : SCR_BaseEditorComponent
 	private int m_iHeightIndicatorColor;
 	private bool m_bPreviewDisabled;
 	protected bool m_bCanMoveInRoot;
+	protected bool m_bCanAdjustVerticalPosition;
 	
 	protected SCR_LayersEditorComponent m_LayerManager;
 	protected SCR_StatesEditorComponent m_StateManager;
 	protected SCR_EditablePreviewEntity m_PreviewEntity;
+	protected ResourceName m_sPreviewPrefab;
 	private ResourceName m_SlotPrefab;
 	private vector m_aLocalOffset[4];
 	private SCR_EditableEntityComponent m_Entity;
@@ -107,6 +109,12 @@ class SCR_PreviewEntityEditorComponent : SCR_BaseEditorComponent
 	
 	protected const float VERTICAL_TRACE_OFFSET = 0.01; //--- Vertical offset of trace start to make sure it does not start inside geometry.
 	
+	//------------------------------------------------------------------------------------------------
+	bool GetCanAdjustVerticalPosition()
+	{
+		return m_bCanAdjustVerticalPosition;
+	}
+
 	/*!
 	Set transformation of the preview entity.
 	When editing is confirmed, real entities are moved to where the preview is.
@@ -682,6 +690,15 @@ class SCR_PreviewEntityEditorComponent : SCR_BaseEditorComponent
 	{
 		return m_PreviewEntity;
 	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Get preview prefab.
+	//! \return Preview prefab
+	ResourceName GetPreviewPrefab()
+	{
+		return m_sPreviewPrefab;
+	}
+
 	/*!
 	Get action context activated every frame.
 	\return Action context name
@@ -914,6 +931,7 @@ class SCR_PreviewEntityEditorComponent : SCR_BaseEditorComponent
 			m_SlotPrefab = SCR_EditableEntityComponentClass.GetSlotPrefab(entityComponent);
 			m_bIsFixedPosition = SCR_EditableEntityComponentClass.HasFlag(entityComponent, EEditableEntityFlag.STATIC_POSITION);
 			m_bCanMoveInRoot = !m_Interaction || m_Interaction.CanSetParent(SCR_EditableEntityInteraction.ROOT, 0);
+			m_sPreviewPrefab = prefab;
 			
 			if (m_bIsFixedPosition)
 			{
@@ -987,6 +1005,7 @@ class SCR_PreviewEntityEditorComponent : SCR_BaseEditorComponent
 		{
 			SCR_BasePreviewEntity previewEntity = m_PreviewEntity;
 			m_PreviewEntity = null;
+			m_sPreviewPrefab = string.Empty;
 			
 			previewEntity.GetWorldTransform(m_vTransform);
 			if (m_Target)
@@ -1109,7 +1128,10 @@ class SCR_PreviewEntityEditorComponent : SCR_BaseEditorComponent
 		GenericWorldEntity worldEntity = game.GetWorldEntity();
 		if (!worldEntity) 
 			return;
-		
+
+		// only this context has input that allows for adjusting vertical position
+		m_bCanAdjustVerticalPosition = m_sActionContext == "EditorPreviewContext"; 
+
 		m_bHasTerrain = worldEntity.GetTerrain(0, 0) != null;
 		
 		m_fPreviewTranslationInertia = 1 / Math.Max(m_fPreviewTranslationInertia, 0.001);

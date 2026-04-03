@@ -142,7 +142,11 @@ class SCR_NameTagDisplay : SCR_InfoDisplayExtended
 		{
 			SCR_NameTagData tagData = m_aNameTagEntities.Get(ent);
 			if (tagData)
+			{
 				tagData.SetGroup(group);
+				tagData.m_Flags &= ~ENameTagFlags.OBSTRUCTED;
+				tagData.m_Flags &= ~ENameTagFlags.FADE_TIMER;
+			}
 		}
 	}
 	

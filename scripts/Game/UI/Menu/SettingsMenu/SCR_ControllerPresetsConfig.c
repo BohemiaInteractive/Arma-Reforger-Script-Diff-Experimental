@@ -33,5 +33,17 @@ class SCR_ControllerPreset
 	{
 		return m_sPresetDisplayName;
 	}
+	
+	//------------------------------------------------------------------------------------------------
+	void SetResourceName(string preset)
+	{
+		m_sPreset = preset;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	void SetDisplayName(string name)
+	{
+		m_sPresetDisplayName = name;
+	}
 }
 

@@ -1,5 +1,8 @@
 class SCR_ControllerPresetsSettingsSubmenu: SCR_SettingsSubMenuBase
 {
+	
+	ref array<ref SCR_ControllerPreset> m_aJoystickPresets = {};
+	
 	//------------------------------------------------------------------------------------------------
 	override void OnTabHide()
 	{
@@ -13,8 +16,8 @@ class SCR_ControllerPresetsSettingsSubmenu: SCR_SettingsSubMenuBase
 	{
 		super.OnTabCreate(menuRoot, buttonsLayout, index);
 		
-		EPlatform platform = System.GetPlatform();
-		if (platform == EPlatform.PS4 || platform == EPlatform.PS5 || platform == EPlatform.PS5_PRO || platform == EPlatform.UNKNOWN)
+		PlatformKind platformKind = GetGame().GetPlatformService().GetLocalPlatformKind(); 
+		if (platformKind == PlatformKind.XBOX || platformKind == PlatformKind.PSN)
 		{
 			HideMenuItem("Devices");
 			HideMenuItem("JoystickPreset");
@@ -24,7 +27,6 @@ class SCR_ControllerPresetsSettingsSubmenu: SCR_SettingsSubMenuBase
 			//joysticks are for now supported only non non-PS
 			HandleJoystickDevices();
 		}
-		
 		
 		m_aSettingsBindings.Clear();
 
@@ -119,8 +121,14 @@ class SCR_ControllerPresetsSettingsSubmenu: SCR_SettingsSubMenuBase
 	void SelectJoystickPreset(SCR_ComboBoxComponent comp, int index)
 	{
 		SCR_SettingsManagerKeybindModule keybindModule = SCR_SettingsManagerKeybindModule.Cast(GetGame().GetSettingsManager().GetModule(ESettingManagerModuleType.SETTINGS_MANAGER_KEYBINDING));
-		if (keybindModule)
-			keybindModule.SelectJoystickPreset(index);
+		if (!keybindModule)
+			return;
+		
+		SCR_ControllerPreset preset = m_aJoystickPresets.Get(index);
+		if (!preset)
+			return;
+		
+		keybindModule.SelectJoystickPresetPath(preset.GetResourceName());
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -222,16 +230,39 @@ class SCR_ControllerPresetsSettingsSubmenu: SCR_SettingsSubMenuBase
 		if (!keybindModule)
 			return;
 		
-		array<ref SCR_ControllerPreset> joystickPresets = {};
+		m_aJoystickPresets.Clear();
+		keybindModule.GetJoystickPresets(m_aJoystickPresets);
 		
-		keybindModule.GetJoystickPresets(joystickPresets);
+		// load custom configs from profile folder
+		array<string> userConfigs = {};
+		FileIO.FindFiles(userConfigs.Insert, "$profile:.save/settings/customInputConfigs", ".conf");
+		foreach(string config : userConfigs)
+		{
+			bool found = false;
+			foreach (SCR_ControllerPreset preset : m_aJoystickPresets)
+			{
+				if (preset.GetResourceName() == config)
+				{
+					found = true;
+					break;
+				}
+			}
+			
+			if (found)
+				continue;
+			
+			SCR_ControllerPreset customPreset = new SCR_ControllerPreset();
+			customPreset.SetResourceName(config);
+			customPreset.SetDisplayName(FilePath.StripPath(config));
+			m_aJoystickPresets.Insert(customPreset);
+		}
 		
-		foreach (SCR_ControllerPreset preset : joystickPresets)
+		foreach (SCR_ControllerPreset preset : m_aJoystickPresets)
 		{
 			component.AddItem(preset.GetDisplayName());
 		}
 		
-		component.SetCurrentItem(keybindModule.GetActivePresetIndex(joystickPresets));
+		component.SetCurrentItem(keybindModule.GetActivePresetIndex(m_aJoystickPresets));
 		component.m_OnChanged.Insert(SelectJoystickPreset);
 	}
 }

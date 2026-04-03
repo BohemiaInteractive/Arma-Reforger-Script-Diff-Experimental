@@ -64,6 +64,12 @@ class SCR_HintUIInfo : SCR_BlockUIInfo
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void SetPriority(int priority)
+	{
+		m_iPriority = priority;
+	}
+	
+	//------------------------------------------------------------------------------------------------
 	//! Get priority of the hint. When another hint is already shown, this one will replace it only if it has the same or higher priority.
 	//! \return priority
 	int GetPriority()

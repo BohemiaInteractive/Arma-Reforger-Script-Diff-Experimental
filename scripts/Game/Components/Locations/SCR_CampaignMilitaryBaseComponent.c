@@ -11,6 +11,9 @@ class SCR_CampaignMilitaryBaseComponentClass : SCR_MilitaryBaseComponentClass
 	}
 }
 
+void OnBaseCapturedDelegate(SCR_CampaignMilitaryBaseComponent base, int playerId);
+typedef func OnBaseCapturedDelegate;
+
 void OnSpawnPointAssignedDelegate(SCR_SpawnPoint spawnpoint);
 typedef func OnSpawnPointAssignedDelegate;
 typedef ScriptInvokerBase<OnSpawnPointAssignedDelegate> OnSpawnPointAssignedInvoker;
@@ -26,6 +29,10 @@ typedef ScriptInvokerBase<OnSupplyLimitChangedDelegate> OnSupplyLimitChangedInvo
 void OnBaseAttackEndDelegate(SCR_CampaignMilitaryBaseComponent base);
 typedef func OnBaseAttackEndDelegate;
 typedef ScriptInvokerBase<OnBaseAttackEndDelegate> OnBaseAttackEndInvoker;
+
+void OnBaseCreatedAsFOBDelegate(SCR_CampaignMilitaryBaseComponent base, Faction establishingFaction);
+typedef func OnBaseCreatedAsFOBDelegate;
+typedef ScriptInvokerBase<OnBaseCreatedAsFOBDelegate> OnBaseCreatedAsFOBInvoker;
 
 class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 {
@@ -96,11 +103,14 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	protected static const int BASES_IN_RANGE_RESUPPLY_THRESHOLD = 5;	// max bases to be taken into account when calculating supply income
 	protected static const float HQ_VEHICLE_SPAWN_RADIUS = 40;
 	protected static const float HQ_VEHICLE_QUERY_SPACE = 6;
+	protected static const int ENEMY_PRESENCE_EVALUATION_PERIOD_MS = 3000;
 
 	protected ref OnSpawnPointAssignedInvoker m_OnSpawnPointAssigned;
 	protected static ref OnBaseStateChangedInvoker m_OnFactionChangedExtended;
 	protected static ref OnBaseStateChangedInvoker m_OnBaseUnderAttack;
 	protected static ref OnBaseAttackEndInvoker m_OnBaseAttackEnd;
+	protected static ref OnBaseCreatedAsFOBInvoker m_OnBaseCreatedasFOB;
+	protected static ref ScriptInvokerBase<OnBaseCapturedDelegate> s_OnBaseCaptured; // <base, playerID>
 
 	protected ref array<SCR_AmbientPatrolSpawnPointComponent> m_aRemnants = {};
 	protected ref array<IEntity> m_aStartingVehicles = {};
@@ -136,6 +146,7 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	protected ref ScriptInvokerInt m_OnSupplyRequestExecutionPriorityChanged;
 	protected ref ScriptInvokerFloat m_OnReservedSupplyAmountChanged;
 	protected ref ScriptInvokerVoid m_SuppliesArrivalInvoker;
+	protected ref ScriptInvokerBool m_OnEnemyPresenceChanged;
 
 	[RplProp(onRplName: "OnHQSet")]
 	protected bool m_bIsHQ;
@@ -162,13 +173,16 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	protected int m_iAttackingFaction = -1;
 
 	[RplProp()]
-	protected float m_fSuppliesArrivalTime = float.MAX;
+	protected WorldTimestamp m_fSuppliesArrivalTime;
 
 	[RplProp()]
 	protected bool m_bBuiltByPlayers;
 
 	[RplProp()]
 	protected FactionKey m_sBuiltFaction;
+
+	[RplProp(onRplName: "OnEnemyPresenceChanged")]
+	protected bool m_bEnemiesPresent;
 
 	//------------------------------------------------------------------------------------------------
 	ScriptInvokerVoid GetOnSuppliesArrivalInvoker()
@@ -204,6 +218,27 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 			m_OnReservedSupplyAmountChanged = new ScriptInvokerFloat();
 
 		return m_OnReservedSupplyAmountChanged;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	ScriptInvokerBool GetOnEnemyPresenceChanged()
+	{
+		if (!m_OnEnemyPresenceChanged)
+			m_OnEnemyPresenceChanged = new ScriptInvokerBool();
+
+		return m_OnEnemyPresenceChanged;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Get event called when the player captures a base.
+	//! Invoker params are: SCR_CampaignMilitaryBaseComponent base, int playerId
+	//! \return ScriptInvokerBase<OnBaseCapturedDelegate>
+	static ScriptInvokerBase<OnBaseCapturedDelegate> GetOnBaseCaptured()
+	{
+		if (!s_OnBaseCaptured)
+			s_OnBaseCaptured = new ScriptInvokerBase<OnBaseCapturedDelegate>();
+
+		return s_OnBaseCaptured;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -282,7 +317,7 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	float GetSuppliesArrivalTime()
+	WorldTimestamp GetSuppliesArrivalTime()
 	{
 		return m_fSuppliesArrivalTime;
 	}
@@ -407,6 +442,12 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	bool AreEnemiesPresent()
+	{
+		return m_bEnemiesPresent;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//!
 	//! \return
 	bool IsControlPoint()
@@ -429,7 +470,15 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	{
 		return m_bDisableWhenUnusedAsHQ;
 	}
-
+	
+	//------------------------------------------------------------------------------------------------
+	//!
+	//! \return
+	string GetLocationName()
+	{
+		return m_sMapLocationName;
+	}
+	
 	//------------------------------------------------------------------------------------------------
 	//! \return
 	WorldTimestamp GetRespawnTimestamp()
@@ -467,6 +516,7 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 		GetGame().GetCallqueue().Remove(SpawnBuilding);
 		GetGame().GetCallqueue().Remove(SpawnStartingVehicles);
 		GetGame().GetCallqueue().Remove(EvaluateDefenders);
+		GetGame().GetCallqueue().Remove(EvaluateEnemyPresence);
 		GetGame().GetCallqueue().Remove(SupplyIncomeTimer);
 		GetGame().GetCallqueue().Remove(HandleSpawnPointFaction);
 		DeleteStartingVehicles();
@@ -558,6 +608,8 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 			{
 				GetGame().GetCallqueue().CallLater(EvaluateDefenders, DEFENDERS_CHECK_PERIOD + Math.RandomIntInclusive(0, DEFENDERS_CHECK_PERIOD * 0.1), true);
 			}
+
+			GetGame().GetCallqueue().CallLater(EvaluateEnemyPresence, ENEMY_PRESENCE_EVALUATION_PERIOD_MS + Math.RandomIntInclusive(0, ENEMY_PRESENCE_EVALUATION_PERIOD_MS * 0.1), true);
 		}
 
 		SCR_CampaignSeizingComponent seizingComponent = SCR_CampaignSeizingComponent.Cast(GetOwner().FindComponent(SCR_CampaignSeizingComponent));
@@ -749,7 +801,7 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 		if (m_bIsHQ || m_bIsSupplyHub)
 		{
 			// If base has custom value, use it, otherwise use gamemode's regular supplies income
-			if (m_iRegularSuppliesIncomeBase > -1)
+			if (m_iRegularSuppliesIncomeBase > -1 && !campaign.GetSuppliesAutoRegenerationEnabled())
 				return m_iRegularSuppliesIncomeBase;
 			else
 				return campaign.GetRegularSuppliesIncome();
@@ -872,7 +924,7 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 				return;
 
 			service.SetDelegate(delegateComponent);
-			delegateComponent.SetParentBaseId(Replication.FindId(this));
+			delegateComponent.SetParentBaseId(Replication.FindItemId(this));
 		}
 
 		// Delayed call so clients know about the new delegate
@@ -1023,6 +1075,16 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 			m_OnBaseAttackEnd = new OnBaseAttackEndInvoker();
 
 		return m_OnBaseAttackEnd;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	
+	static OnBaseCreatedAsFOBInvoker GetOnBaseCreatedAsFOB()
+	{
+		if (!m_OnBaseCreatedasFOB)
+			m_OnBaseCreatedasFOB = new OnBaseCreatedAsFOBInvoker();
+
+		return m_OnBaseCreatedasFOB;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1251,6 +1313,36 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 			m_OnBaseUnderAttack.Invoke(this, GetFaction(true), faction);
 
 		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Transfers the ownership of a relay to a provided faction
+	//! \param[in] faction which captured the relay
+	//! \param[in] playerId who captured the relay
+	void CaptureRelay(notnull SCR_CampaignFaction faction, int playerId)
+	{
+		if (m_eType != SCR_ECampaignBaseType.RELAY)
+			return;
+
+		if (m_RplComponent.Role() != RplRole.Authority)
+			return;
+
+		if (BeginCapture(faction, playerId))
+			SetFaction(faction);
+
+		if (s_OnBaseCaptured)
+			s_OnBaseCaptured.Invoke(this, playerId);
+
+		if (playerId == INVALID_PLAYER_INDEX)
+			return;
+
+		SCR_PlayerController controller = SCR_PlayerController.Cast(GetGame().GetPlayerManager().GetPlayerController(playerId));
+		if (!controller)
+			return;
+
+		SCR_CampaignNetworkComponent networkComp = SCR_CampaignNetworkComponent.Cast(controller.FindComponent(SCR_CampaignNetworkComponent));
+		if (networkComp)
+			networkComp.SendPlayerMessage(SCR_ERadioMsg.RELAY);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1518,6 +1610,14 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 
 		m_OwningFactionPrevious = newCampaignFaction;
 	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Event which is triggered when creating a FOB
+	void OnBaseCreatedAsFOB(Faction establishingFaction)
+	{
+		if (m_OnBaseCreatedasFOB)
+			m_OnBaseCreatedasFOB.Invoke(this, establishingFaction);
+	}
 
 	//------------------------------------------------------------------------------------------------
 	//! \param[in] faction
@@ -1691,11 +1791,11 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 			return;
 		}
 
-		float curTime = world.GetWorldTime();
+		WorldTimestamp curTime = world.GetServerTimestamp();
 
 		if (reset)
 		{
-			SetSuppliesArrivalTime(curTime + (GetSuppliesArrivalTimer() * 1000));
+			SetSuppliesArrivalTime(curTime.PlusSeconds(GetSuppliesArrivalTimer()));
 			return;
 		}
 
@@ -1709,10 +1809,10 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 			return;
 		}
 
-		if (curTime >= m_fSuppliesArrivalTime)
+		if (curTime.GreaterEqual(m_fSuppliesArrivalTime))
 		{
 			AddRegularSupplyPackage(owner);
-			SetSuppliesArrivalTime(curTime + (GetSuppliesArrivalTimer() * 1000));
+			SetSuppliesArrivalTime(curTime.PlusSeconds(GetSuppliesArrivalTimer()));
 		}
 	}
 
@@ -1735,11 +1835,7 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 
 		spaceLimit = Math.Min(spaceLimit, maxSupplies - currentSupplies);
 		if (spaceLimit <= 0 || currentSupplies >= maxSupplies)
-		{
-			m_iSupplyRegenAmount = 0;
-			Replication.BumpMe();
 			return;
-		}
 
         AddSupplies(Math.Min(m_iSupplyRegenAmount, spaceLimit));
 	}
@@ -1886,7 +1982,7 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 		// Sandbox mil bases spawned via HQ tents are interfering with shown flag as they have different faction
 		// It's a temporary fix until we switch to full free building and bases on top of each other will no longer be a thing
 		if (flag && GetFaction())
-			GetGame().GetCallqueue().CallLater(ChangeFlags, 1000, false, GetFaction());
+			GetGame().GetCallqueue().CallLater(UpdateFlags, 1000, false);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -2011,19 +2107,23 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 
 	//------------------------------------------------------------------------------------------------
 	//! Change reinforcements timer
-	//! \param time This number is added to the timer
+	//! \param time (in seconds) This number is added to the timer
 	void AlterSupplyIncomeTimer(float time)
 	{
-		SetSuppliesArrivalTime(m_fSuppliesArrivalTime + time);
+		if (time == 0)
+			return;
+
+		m_fSuppliesArrivalTime.PlusSeconds(time);
+		Replication.BumpMe();
 	}
 
 	//------------------------------------------------------------------------------------------------
-	void SetSuppliesArrivalTime(float time)
+	void SetSuppliesArrivalTime(WorldTimestamp timestamp)
 	{
-		if (time == m_fSuppliesArrivalTime)
+		if (timestamp.Equals(m_fSuppliesArrivalTime))
 			return;
 
-		m_fSuppliesArrivalTime = time;
+		m_fSuppliesArrivalTime = timestamp;
 		Replication.BumpMe();
 	}
 
@@ -2268,7 +2368,9 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 		if (GetGame().GetWorld().GetWorldTime() > campaign.BACKEND_DELAY)
 		{
 			// Process recalculation immediately unless we're still within save loading period
-			bManager.RecalculateRadioCoverage(GetCampaignFaction());
+			const SCR_CampaignFaction faction = GetCampaignFaction();
+			if (faction)
+				bManager.RecalculateRadioCoverage(faction);
 		}
 		else
 		{
@@ -2549,6 +2651,65 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 
 			m_mDefendersData.Remove(playerId);
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void EvaluateEnemyPresence()
+	{
+		if (m_eType == SCR_ECampaignBaseType.RELAY || m_eType == SCR_ECampaignBaseType.SOURCE_BASE)
+			return;
+
+		SCR_CampaignFaction baseFaction = GetCampaignFaction();
+		if (!baseFaction || !baseFaction.IsPlayable())
+			return;
+
+		vector basePos = GetOwner().GetOrigin();
+		bool enemiesPresent = !GetOwner().GetWorld().QueryEntitiesBySphere(basePos, m_iRadius, EvaluateEnemyCharacterPresence, null, EQueryEntitiesFlags.DYNAMIC);
+
+		if (m_bEnemiesPresent == enemiesPresent)
+			return;
+
+		m_bEnemiesPresent = enemiesPresent;
+		Replication.BumpMe();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected bool EvaluateEnemyCharacterPresence(notnull IEntity entity)
+	{
+		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(entity);
+		if (!character)
+			return true;
+
+		SCR_CharacterDamageManagerComponent characterDamageManager = SCR_CharacterDamageManagerComponent.Cast(character.FindComponent(SCR_CharacterDamageManagerComponent));
+		if (!characterDamageManager || characterDamageManager.GetState() == EDamageState.DESTROYED)
+			return true;
+
+		if (!GetFaction().IsFactionEnemy(character.GetFaction()))
+			return true;
+
+		CharacterControllerComponent charController = character.GetCharacterController();
+		if (!charController)
+			return true;
+
+		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(entity);
+		if (playerId != 0)
+			return false;
+
+		AIControlComponent aiControlComponent = charController.GetAIControlComponent();
+		if (!aiControlComponent)
+			return true;
+
+		if (aiControlComponent.IsAIActivated())
+			return false;
+
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnEnemyPresenceChanged()
+	{
+		if (m_OnEnemyPresenceChanged)
+			m_OnEnemyPresenceChanged.Invoke(m_bEnemiesPresent);
 	}
 
 	protected void ConnectToCampaignBasesSystem()

@@ -37,11 +37,15 @@ class CharacterCamera1stPersonTurret extends CharacterCamera1stPerson
 			{
 				m_OwnerVehicle = compartment.GetVehicle();
 				
-				SCR_VehicleCameraDataComponent vehicleCamData = SCR_VehicleCameraDataComponent.Cast(m_OwnerVehicle.FindComponent(SCR_VehicleCameraDataComponent));
-				if (vehicleCamData)
+				SCR_VehicleCameraDataComponent vehicleCamDataComp = SCR_VehicleCameraDataComponent.Cast(m_OwnerVehicle.FindComponent(SCR_VehicleCameraDataComponent));
+				if (vehicleCamDataComp)
 				{
-					m_fRollFactor = vehicleCamData.m_fRollFactor;
-					m_fPitchFactor = vehicleCamData.m_fPitchFactor;
+					SCR_VehicleCameraDataComponentClass vehicleCamData = SCR_VehicleCameraDataComponentClass.Cast(vehicleCamDataComp.GetComponentData(m_OwnerVehicle));
+					if (vehicleCamData)
+					{
+						m_fRollFactor = vehicleCamData.m_fRollFactor;
+						m_fPitchFactor = vehicleCamData.m_fPitchFactor;
+					}
 				}
 				
 				m_pTurretController = TurretControllerComponent.Cast(compartment.GetController());
@@ -66,7 +70,8 @@ class CharacterCamera1stPersonTurret extends CharacterCamera1stPerson
 	//-----------------------------------------------------------------------------
 	override void OnDeactivate(ScriptedCameraItem pNextCamera)
 	{
-		m_CharacterHeadAimingComponent.ResetLimitAnglesOverride();
+		if (m_CharacterHeadAimingComponent)
+			m_CharacterHeadAimingComponent.ResetLimitAnglesOverride();
 	}
 	
 	//-----------------------------------------------------------------------------
@@ -154,15 +159,11 @@ class CharacterCamera1stPersonTurret extends CharacterCamera1stPerson
 		m_vPrevEyePosition = vector.Lerp(m_vPrevEyePosition, m_OwnerCharacter.EyePositionModel(), 0.25);
 		pOutResult.m_CameraTM[3] = m_vPrevEyePosition + offset;
 		
+		AddVehiclePitchRoll(m_OwnerVehicle, pDt, pOutResult.m_CameraTM);
+
 		// Apply shake
 		if (m_CharacterCameraHandler)
 			m_CharacterCameraHandler.AddShakeToToTransform(pOutResult.m_CameraTM, pOutResult.m_fFOV);
-	}
-	
-	//-----------------------------------------------------------------------------
-	override void OnAfterCameraUpdate(float pDt, bool pIsKeyframe, inout vector transformMS[4])
-	{
-		AddVehiclePitchRoll(m_OwnerVehicle, pDt, transformMS);
 	}
 	
 	//-----------------------------------------------------------------------------	

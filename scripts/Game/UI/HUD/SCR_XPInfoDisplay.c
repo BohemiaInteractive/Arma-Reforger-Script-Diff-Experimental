@@ -77,10 +77,19 @@ class SCR_XPInfoDisplay : SCR_InfoDisplayExtended
 		SCR_FactionManager factionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 		if (comp && factionManager)
 		{
+			SCR_RankContainer ranks = factionManager.GetFactionRanks(m_PlayerController.GetPlayerId());
+
 			int totalXP = comp.GetPlayerXP();
 			
 			hudXPWidget.UpdateXPTexts(false, false, 0, totalXP, false, m_EReward, m_sCurrentRankIcon, m_sCurrentRankName, m_sNextRankIcon, m_sRewardName);
-			hudXPWidget.UpdateXPProgressBar(factionManager, m_ECurrentRank, m_EPrevRank, 0, totalXP, false);
+			hudXPWidget.UpdateXPProgressBar(
+			factionManager, 
+			m_ECurrentRank, 
+			m_EPrevRank, 
+			0, 
+			totalXP, 
+			false, 
+			ranks);
 		}
 	}
 	
@@ -158,20 +167,22 @@ class SCR_XPInfoDisplay : SCR_InfoDisplayExtended
 		if (!factionManager)
 			return;
 		
-		m_ECurrentRank = factionManager.GetRankByXP(totalXP);
-		SCR_ECharacterRank nextRank = factionManager.GetRankNext(m_ECurrentRank);
+		SCR_RankContainer ranks = factionManager.GetFactionRanks(m_PlayerController.GetPlayerId());
+
+		m_ECurrentRank = ranks.GetRankByXP(totalXP);
+		SCR_ECharacterRank nextRank = ranks.GetRankNext(m_ECurrentRank);
 		
 		m_EReward = rewardID;
-		m_sCurrentRankIcon = faction.GetRankInsignia(m_ECurrentRank);
-		m_sNextRankIcon = faction.GetRankInsignia(nextRank);
-		m_sCurrentRankName = faction.GetRankName(m_ECurrentRank);
+		m_sCurrentRankIcon = ranks.GetRankInsignia(m_ECurrentRank);
+		m_sNextRankIcon = ranks.GetRankInsignia(nextRank);
+		m_sCurrentRankName = ranks.GetRankName(m_ECurrentRank);
 		m_sRewardName = m_PlayerXPComponent.GetXPRewardName(rewardID);
-		m_EPrevRank = factionManager.GetRankByXP(totalXP - XP);
+		m_EPrevRank = ranks.GetRankByXP(totalXP - XP);
 		
 		foreach(int id, SCR_XPInfoWidgetData widgetData: m_Widgets)
 		{
 			widgetData.UpdateXPTexts(toggled, volunteer, XP, totalXP, notify, m_EReward, m_sCurrentRankIcon, m_sCurrentRankName, m_sNextRankIcon, m_sRewardName);
-			widgetData.UpdateXPProgressBar(factionManager, m_ECurrentRank, m_EPrevRank, XP, totalXP, notify);
+			widgetData.UpdateXPProgressBar(factionManager, m_ECurrentRank, m_EPrevRank, XP, totalXP, notify, ranks);
 		}
 		
 		// Show skill info
@@ -247,21 +258,23 @@ class SCR_XPInfoDisplay : SCR_InfoDisplayExtended
 		if (!factionManager)
 			return;
 		
+		SCR_RankContainer ranks = factionManager.GetFactionRanks(m_PlayerController.GetPlayerId());
+
 		SCR_PlayerXPHandlerComponent comp = SCR_PlayerXPHandlerComponent.Cast(m_PlayerController.FindComponent(SCR_PlayerXPHandlerComponent));
 
 		if (!comp)
 			return;
 
 		int totalXP = comp.GetPlayerXP();
-		
-		m_ECurrentRank = factionManager.GetRankByXP(totalXP);
-		SCR_ECharacterRank nextRank = factionManager.GetRankNext(m_ECurrentRank);
-		
+
+		m_ECurrentRank = ranks.GetRankByXP(totalXP);
+		SCR_ECharacterRank nextRank = ranks.GetRankNext(m_ECurrentRank);
+
 		m_EReward = SCR_EXPRewards.UNDEFINED;
-		m_sCurrentRankIcon = faction.GetRankInsignia(m_ECurrentRank);
-		m_sCurrentRankName = faction.GetRankName(m_ECurrentRank);
+		m_sCurrentRankIcon = ranks.GetRankInsignia(m_ECurrentRank);
+		m_sCurrentRankName = ranks.GetRankName(m_ECurrentRank);
 		m_sRewardName = m_PlayerXPComponent.GetXPRewardName(m_EReward);
-		m_EPrevRank = factionManager.GetRankByXP(totalXP);
+		m_EPrevRank = ranks.GetRankByXP(totalXP);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -392,11 +405,12 @@ class SCR_XPInfoWidgetData
 			}
 		}
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
-	void UpdateXPProgressBar(notnull SCR_FactionManager factionManager, SCR_ECharacterRank curRank, SCR_ECharacterRank prevRank, int XP, int totalXP, bool notify)
-	{
-		if (factionManager.GetRankNext(curRank) == SCR_ECharacterRank.INVALID)
+	void UpdateXPProgressBar(notnull SCR_FactionManager factionManager, SCR_ECharacterRank curRank, SCR_ECharacterRank prevRank, int XP, int totalXP, bool notify, notnull SCR_RankContainer ranks)
+	{	
+
+		if (ranks.GetRankNext(curRank) == SCR_ECharacterRank.INVALID)
 		{
 			// Player at max level, no gain to show
 			m_wProgress.SetMin(0);
@@ -408,7 +422,7 @@ class SCR_XPInfoWidgetData
 		}
 		else
 		{
-			if (factionManager.GetRankPrev(curRank) == SCR_ECharacterRank.INVALID && XP < 0)
+			if (ranks.GetRankPrev(curRank) == SCR_ECharacterRank.INVALID && XP < 0)
 			{
 				// Player is renegade and losing XP, just show red bar
 				m_wProgress.SetMin(0);
@@ -420,12 +434,12 @@ class SCR_XPInfoWidgetData
 			}
 			else
 			{
-				int XPCurRank = factionManager.GetRequiredRankXP(curRank);
-				int XPNextRank = factionManager.GetRequiredRankXP(factionManager.GetRankNext(curRank));
+				int XPCurRank = ranks.GetRequiredRankXP(curRank);
+				int XPNextRank = ranks.GetRequiredRankXP(ranks.GetRankNext(curRank));
 
 				if (curRank == prevRank)
 				{
-					if (factionManager.GetRankPrev(curRank) != SCR_ECharacterRank.INVALID)
+					if (ranks.GetRankPrev(curRank) != SCR_ECharacterRank.INVALID)
 					{
 						// Standard XP change
 						m_wProgress.SetMin(XPCurRank);

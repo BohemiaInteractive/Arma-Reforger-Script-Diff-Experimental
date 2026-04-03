@@ -139,22 +139,19 @@ class SCR_CampaignDeployMobileAssemblyUserAction : ScriptedUserAction
 	//------------------------------------------------------------------------------------------------
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity) 
 	{
-		PlayerController playerController = GetGame().GetPlayerController();
-		
-		if (!playerController)
+		if (!m_AssemblyComponent)
 			return;
-		
-		SCR_CampaignNetworkComponent campaignNetworkComponent = SCR_CampaignNetworkComponent.Cast(playerController.FindComponent(SCR_CampaignNetworkComponent));
-		
-		if (!campaignNetworkComponent)
+
+		if (!CanBePerformed(pUserEntity))
 			return;
-		
-		campaignNetworkComponent.DeployMobileAsembly(m_AssemblyComponent, true);
+
+		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(pUserEntity);
+		m_AssemblyComponent.Deploy(SCR_EMobileAssemblyStatus.DEPLOYED, playerId);
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	override bool HasLocalEffectOnlyScript()
+	override bool CanBroadcastScript()
 	{
-		return true;
+		return false;
 	}
-};
+}

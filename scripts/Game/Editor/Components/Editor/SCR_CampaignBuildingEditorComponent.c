@@ -232,7 +232,7 @@ class SCR_CampaignBuildingEditorComponent : SCR_BaseEditorComponent
 			return null;
 
 		EntitySpawnParams params = new EntitySpawnParams();
-		params.TransformMode = ETransformMode.WORLD;
+		params.TransformMode = ETransformMode.LOCAL;
 		params.Parent = provider;
 
 		return ScriptedGameTriggerEntity.Cast(GetGame().SpawnEntityPrefab(resource, provider.GetWorld(), params));
@@ -468,7 +468,7 @@ class SCR_CampaignBuildingEditorComponent : SCR_BaseEditorComponent
 		if (!charControl || charControl.GetLifeState() == ECharacterLifeState.DEAD)
 			return false;
 
-		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(ent);
+		int playerId = SCR_PossessingManagerComponent.GetPlayerIdFromControlledEntity(ent);
 		if (playerId == 0)
 		{			
 			AIControlComponent ctrComp = charControl.GetAIControlComponent();

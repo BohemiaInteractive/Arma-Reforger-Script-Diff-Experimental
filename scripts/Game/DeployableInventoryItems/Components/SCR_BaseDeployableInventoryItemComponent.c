@@ -5,10 +5,28 @@ class SCR_BaseDeployableInventoryItemComponentClass : ScriptComponentClass
 	[Attribute(uiwidget: UIWidgets.ResourcePickerThumbnail, desc: "Prefab which will be spawned when this item is deployed", params: "et", category: "Setup")]
 	protected ResourceName m_sReplacementPrefab;
 
+	[Attribute(defvalue: "1", category: "General")]
+	protected bool m_bEnableSounds;
+
+	[Attribute(desc: "Should this entity be deleted when replacement prefab is destroyed.")]
+	protected bool m_bDeleteWhenDestroyed;
+
 	//------------------------------------------------------------------------------------------------
 	ResourceName GetReplacementPrefab()
 	{
 		return m_sReplacementPrefab;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool IsSoundEnabled()
+	{
+		return m_bEnableSounds;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool IsDeletedWhenDestroyed()
+	{
+		return m_bDeleteWhenDestroyed;
 	}
 }
 
@@ -19,12 +37,6 @@ typedef ScriptInvokerBase<DeployableStateChanged> SCR_DeployableItemState;
 //! Base class which all deployable inventory items inherit from
 class SCR_BaseDeployableInventoryItemComponent : ScriptComponent
 {
-	[Attribute(defvalue: "1", category: "General")]
-	protected bool m_bEnableSounds;
-
-	[Attribute(desc: "Should this entity be deleted when replacement prefab is destroyed.")]
-	protected bool m_bDeleteWhenDestroyed;
-
 	[RplProp(onRplName: "OnRplDeployed")]
 	protected bool m_bIsDeployed;
 
@@ -69,7 +81,12 @@ class SCR_BaseDeployableInventoryItemComponent : ScriptComponent
 	void OnCompositionDestroyed(IEntity instigator)
 	{
 		Dismantle(instigator);
-		if (m_bDeleteWhenDestroyed)//delay entity deltion to ensure that rpc calls will be able to complete
+
+		SCR_BaseDeployableInventoryItemComponentClass data = SCR_BaseDeployableInventoryItemComponentClass.Cast(GetComponentData(GetOwner()));
+		if (!data)
+			return;
+
+		if (data.IsDeletedWhenDestroyed())//delay entity deltion to ensure that rpc calls will be able to complete
 			GetGame().GetCallqueue().CallLater(RplComponent.DeleteRplEntity, param1: GetOwner(), param2: false);
 	}
 
@@ -114,14 +131,22 @@ class SCR_BaseDeployableInventoryItemComponent : ScriptComponent
 		if (m_bIsDeployed)
 			return;
 		
+		// transform containing information about the position where replacement entity is going to be spawned
 		vector transform[4];
-		IEntity owner = GetOwner();
-		SCR_TerrainHelper.GetTerrainBasis(owner.GetOrigin(), transform, GetGame().GetWorld(), false, new TraceParam());
+		const IEntity owner = GetOwner();
+		const World world = owner.GetWorld();
+		const TraceParam param = new TraceParam();
+		const array<IEntity> ignoredEntities = {owner, userEntity};
+		param.ExcludeArray = ignoredEntities;
+		param.LayerMask = EPhysicsLayerPresets.Projectile; // to prevent entites from being deployed on leaves
+		
+		// +10cm buffer to prevent it from being deployed inside other objects
+		SCR_TerrainHelper.GetTerrainBasis(owner.GetOrigin() + vector.Up * 0.1, transform, world, false, param);
 
-		m_aOriginalTransform = transform;
+		owner.GetWorldTransform(m_aOriginalTransform);
 
 		EntitySpawnParams params = new EntitySpawnParams();
-		params.Transform = m_aOriginalTransform;
+		params.Transform = transform;
 		params.TransformMode = ETransformMode.WORLD;
 
 		SCR_BaseDeployableInventoryItemComponentClass data = SCR_BaseDeployableInventoryItemComponentClass.Cast(GetComponentData(owner));
@@ -132,7 +157,7 @@ class SCR_BaseDeployableInventoryItemComponent : ScriptComponent
 		if (!resource.IsValid())
 			return;
 
-		m_ReplacementEntity = GetGame().SpawnEntityPrefab(resource, GetGame().GetWorld(), params);
+		m_ReplacementEntity = GetGame().SpawnEntityPrefab(resource, world, params);
 		if (!m_ReplacementEntity)
 			return;
 
@@ -153,7 +178,7 @@ class SCR_BaseDeployableInventoryItemComponent : ScriptComponent
 		SetItemOwner(GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(userEntity));
 		Replication.BumpMe();
 
-		if (m_bEnableSounds && !reload)
+		if (data.IsSoundEnabled() && !reload)
 		{
 			RPC_PlaySoundOnDeployBroadcast(m_bIsDeployed);
 			Rpc(RPC_PlaySoundOnDeployBroadcast, m_bIsDeployed);
@@ -194,7 +219,8 @@ class SCR_BaseDeployableInventoryItemComponent : ScriptComponent
 		m_iItemOwnerID = 0;
 		Replication.BumpMe();
 
-		if (m_bEnableSounds && !reload)
+		SCR_BaseDeployableInventoryItemComponentClass data = SCR_BaseDeployableInventoryItemComponentClass.Cast(GetComponentData(GetOwner()));
+		if (data && data.IsSoundEnabled() && !reload)
 		{
 			RPC_PlaySoundOnDeployBroadcast(m_bIsDeployed);
 			Rpc(RPC_PlaySoundOnDeployBroadcast, m_bIsDeployed);

@@ -37,53 +37,20 @@ class SCR_CampaignBuildingNetworkComponent : ScriptComponent
 	//! \param[in] playerID
 	//! \param[in] UserActionActivationOnly
 	//! \param[in] UserActionUsed
-	void RequestEnterBuildingMode(IEntity provider, int playerID, bool UserActionActivationOnly, bool UserActionUsed)
+	//! \param[in] useAllAvailableProviders true if game should use all available providers from that base
+	void RequestEnterBuildingMode(IEntity provider, int playerID, bool UserActionActivationOnly, bool UserActionUsed, bool useAllAvailableProviders = false)
 	{
 		RplComponent providerRplComp = RplComponent.Cast(provider.FindComponent(RplComponent));
 		if (!providerRplComp)
 			return;
 
-		Rpc(RpcAsk_RequestEnterBuildingMode, providerRplComp.Id(), playerID, UserActionActivationOnly, UserActionUsed);
+		SCR_PlayerController owner = SCR_PlayerController.Cast(GetOwner());
+		if (!owner || playerID != owner.GetPlayerId())
+			return; // requesting building mode for someone esle is not allowed!
+
+		Rpc(RpcAsk_RequestEnterBuildingMode, providerRplComp.Id(), playerID, UserActionActivationOnly, UserActionUsed, useAllAvailableProviders);
 	}
 
-	//------------------------------------------------------------------------------------------------
-	//! Delete composition by a tool
-	//! \param[in] composition
-	void DeleteCompositionByUserAction(notnull IEntity composition)
-	{
-		RplComponent comp = RplComponent.Cast(composition.FindComponent(RplComponent));
-		if (!comp)
-			return;
-
-		Rpc(RpcAsk_DeleteCompositionByUserAction, comp.Id());
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Delete base by a tool
-	//! \param[in] IEntity base
-	void DeleteBaseByUserAction(notnull IEntity base)
-	{
-		RplComponent comp = RplComponent.Cast(base.FindComponent(RplComponent));
-		if (!comp)
-			return;
-
-		Rpc(RpcAsk_DeleteBaseByUserAction, comp.Id());
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Send a notification about deleted composition
-	//! \param[in] composition
-	//! \param[in] playerId
-	//! \param[in] callsign
-	void SendDeleteNotification(notnull IEntity composition, int playerId, int callsign)
-	{
-		RplComponent comp = RplComponent.Cast(composition.FindComponent(RplComponent));
-		if (!comp)
-			return;
-
-		Rpc(RpcAsk_SendDeleteNotification, comp.Id(), playerId, callsign);
-	}
-	
 	//------------------------------------------------------------------------------------------------
 	void SetClientLock(bool lock, IEntity provider)
 	{
@@ -161,9 +128,14 @@ class SCR_CampaignBuildingNetworkComponent : ScriptComponent
 	//! \param[in] playerID
 	//! \param[in] UserActionActivationOnly
 	//! \param[in] UserActionUse
+	//! \param[in] useAllAvailableProviders true if game should use all available providers from that base
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_RequestEnterBuildingMode(RplId rplProviderId, int playerID, bool UserActionActivationOnly, bool UserActionUsed)
+	protected void RpcAsk_RequestEnterBuildingMode(RplId rplProviderId, int playerID, bool UserActionActivationOnly, bool UserActionUsed, bool useAllAvailableProviders)
 	{
+		SCR_PlayerController owner = SCR_PlayerController.Cast(GetOwner());
+		if (!owner || playerID != owner.GetPlayerId())
+			return;
+
 		IEntity provider = GetProviderFormRplId(rplProviderId);
 		if (!provider)
 			return;
@@ -173,71 +145,7 @@ class SCR_CampaignBuildingNetworkComponent : ScriptComponent
 		if (!buildingManagerComponent)
 			return;
 
-		buildingManagerComponent.GetEditorMode(playerID, provider, UserActionActivationOnly, UserActionUsed);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Delete composition, executed from user action
-	//! \param[in] rplCompositionId
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_DeleteCompositionByUserAction(RplId rplCompositionId)
-	{
-		IEntity composition = GetProviderFormRplId(rplCompositionId);
-		if (!composition)
-			return;
-		
-		SCR_CampaignBuildingCompositionComponent buildingComponent = SCR_CampaignBuildingCompositionComponent.Cast(composition.FindComponent(SCR_CampaignBuildingCompositionComponent));
-		if (buildingComponent)
-			buildingComponent.SetCanPlaySoundOnDeletion(true);
-
-		SCR_EditableEntityComponent editableEntity = SCR_EditableEntityComponent.Cast(composition.GetRootParent().FindComponent(SCR_EditableEntityComponent));
-		if (editableEntity)
-			editableEntity.Delete(true, true);
-		else
-		{
-			SCR_AIWorld aiWorld = SCR_AIWorld.Cast(GetGame().GetAIWorld());
-			if (aiWorld)
-			{
-				array<ref Tuple2<vector, vector>> areas = {}; // min, max
-				array<bool> redoAreas = {};
-				aiWorld.GetNavmeshRebuildAreas(composition.GetRootParent(), areas, redoAreas);
-				GetGame().GetCallqueue().CallLater(aiWorld.RequestNavmeshRebuildAreas, 1000, false, areas, redoAreas); //--- Called *before* the entity is deleted with a delay, ensures the regeneration doesn't accidentally get anything from the entity prior to full destruction
-			}
-			
-			RplComponent.DeleteRplEntity(composition, false);
-		}
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Delete base, executed from user action
-	//! \param[in] RplId rplBaseId
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_DeleteBaseByUserAction(RplId rplBaseId)
-	{
-		IEntity base = GetProviderFormRplId(rplBaseId);
-		if (!base)
-			return;
-
-		RplComponent.DeleteRplEntity(base, false);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Send delete notification.
-	//! \param[in] rplCompositionId
-	//! \param[in] playerId
-	//! \param[in] callsign
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_SendDeleteNotification(RplId rplCompositionId, int playerId, int callsign)
-	{
-		IEntity composition = GetProviderFormRplId(rplCompositionId);
-		if (!composition)
-			return;
-
-		SCR_Faction faction = SCR_Faction.Cast(SCR_FactionManager.SGetPlayerFaction(playerId));
-		if (!faction)
-			return;
-
-		SCR_NotificationsComponent.SendToFaction(faction, true, ENotification.EDITOR_SERVICE_DISASSEMBLED, playerId, rplCompositionId, callsign);
+		buildingManagerComponent.EnterEditorMode(playerID, provider, UserActionActivationOnly, UserActionUsed, useAllAvailableProviders);
 	}
 	
 	//------------------------------------------------------------------------------------------------

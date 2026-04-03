@@ -22,12 +22,15 @@ class SCR_MultiPartDeployableItemComponentClass : SCR_BaseDeployableInventoryIte
 	[Attribute(defvalue: SCR_ESurfaceMonitoringBehaviour.DONT_MONITOR.ToString(), desc: "How this entity should react if the object on which it was deployed was deleted/destroyed/dismantled.", uiwidget: UIWidgets.ComboBox, enumType: SCR_ESurfaceMonitoringBehaviour)]
 	protected SCR_ESurfaceMonitoringBehaviour m_eSurfaceObservationBehaviour;
 
+	[Attribute(desc: "If forward vector of spawned entity should face the player (by default it will face away from player)", category: "Setup")]
+	protected bool m_bFrontTowardPlayer;
+
 	protected IEntity m_PreviewEntity;
 	protected int m_iPreviewVariant = -1;
 	protected SCR_EPreviewState m_ePreviewState;
 
 	protected const LocalizedString REASON_NO_SPACE = "#AR-UserAction_Assemble_NoSpace";
-	protected const LocalizedString REASON_NO_SPACE_TERRAIN = "#AR-UserAction_Assemble_NoSpaceTerrain";
+	protected const LocalizedString REASON_NO_SPACE_TERRAIN = "#AR-UserAction_Assemble_BlockedByTerrain";
 	protected const LocalizedString REASON_OBSTRUCTED_BY = "#AR-UserAction_Assemble_ObstructedBy";
 
 	//------------------------------------------------------------------------------------------------
@@ -94,6 +97,12 @@ class SCR_MultiPartDeployableItemComponentClass : SCR_BaseDeployableInventoryIte
 	bool MustDropAllStoredItems()
 	{
 		return m_bRemoveAllItemsWhenDeleted;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool IsFrontFacingPlayer()
+	{
+		return m_bFrontTowardPlayer;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -181,9 +190,6 @@ class SCR_MultiPartDeployableItemComponentClass : SCR_BaseDeployableInventoryIte
 
 class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComponent
 {
-	[Attribute(desc: "If forward vector of spawned entity should face the player (by default it will face away from player)", category: "Setup")]
-	protected bool m_bFrontTowardPlayer;
-
 	protected ref SCR_DeployableVariantContainer m_VariantContainer;
 	protected ref array<ref SCR_RequiredDeployablePart> m_aFoundElements;
 	protected float m_fReplacementPrefabHealthScaled = 1;
@@ -272,6 +278,7 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 				continue;
 
 			owner.GetTransform(mat);
+			mat[3] = mat[3] + owner.VectorToParent(m_VariantContainer.GetAdditionaPlacementOffset());
 			if (!m_VariantContainer.IsUsingPartPositionAndRotation())
 				ComputeTransform(mat, owner.GetYawPitchRoll());
 
@@ -343,7 +350,11 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 	//! \return true if forward vector should face toward the player
 	bool GetFrontTowardPlayer()
 	{
-		return m_bFrontTowardPlayer;
+		SCR_MultiPartDeployableItemComponentClass data = SCR_MultiPartDeployableItemComponentClass.Cast(GetComponentData(GetOwner()));
+		if (!data)
+			return false;
+
+		return data.IsFrontFacingPlayer();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -416,6 +427,25 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 		}
 
 		return Math.Acos(vector.Dot(up, vector.Up)) * Math.RAD2DEG < maxTilt;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Validates if provided entity can be considered as a valid surface for deployment
+	//! \param[in] surfaceEnt entity on which the item is going to be deployed
+	//! \param[in] worldPosition position in world space
+	//! \param[in] surfaceNorm normal of the face on which the item is going to be deployed
+	//! \param[in] nodeIndex bone id to which is attached the collider on which the item is going to be deployed
+	//! \param[in] colliderIndex collider id on which the item is going to be deployed
+	//! \param[in] surfaceProps properties of the surface on which the item is going to be deployed
+	//! \param[in] surfaceMaterial name of the material of the surface on which the item is going to be deployed
+	//! \param[in] colliderName name of the collider on which the item is going to be deployed
+	//! \return true if item can be deployed on this surface, otherwise false
+	bool IsSurfaceValid(IEntity surfaceEnt, vector worldPosition, vector surfaceNorm, int nodeIndex, int colliderIndex, SurfaceProperties surfaceProps, string surfaceMaterial, string colliderName)
+	{
+		if (!m_VariantContainer)
+			return false;
+
+		return m_VariantContainer.IsSurfaceValid(surfaceEnt, worldPosition, surfaceNorm, nodeIndex, colliderIndex, surfaceProps, surfaceMaterial, colliderName);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -542,7 +572,7 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 		if (DiagMenu.GetBool(SCR_DebugMenuID.DEBUGUI_ITEM_PLACEMENT_VISUALIZATION))
 		{
 			m_DebugShapeMgr.Clear();
-			ShapeFlags shapeFlags = ShapeFlags.ONCE | ShapeFlags.WIREFRAME;
+			ShapeFlags shapeFlags = ShapeFlags.WIREFRAME;
 
 			int color = Color.RED;
 			if (!paramOBB.TraceEnt)
@@ -654,6 +684,9 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 		if (!data)
 			return;
 
+		if (!m_VariantContainer || m_iCurrentVariant != data.GetPreviewVariantId())
+			return;
+
 		IEntity previewEnt = data.GetPreviewEntity();
 		if (!previewEnt)
 			return;
@@ -672,6 +705,9 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 				break;
 
 			case SCR_EPreviewState.NONE:
+#ifdef ENABLE_DIAG
+	m_DebugShapeMgr.Clear();		
+#endif
 				SCR_Global.SetMaterial(previewEnt, TRANSPARENT_MATERIAL);
 				break;
 		}
@@ -737,7 +773,11 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 		SCR_TerrainHelper.GetTerrainBasis(position, m_aOriginalTransform, GetGame().GetWorld(), false, param);
 
 		if (!m_VariantContainer.IsUsingPartPositionAndRotation())
+		{
 			ComputeTransform(m_aOriginalTransform, direction);
+			if (!IsSurfaceValid(param.TraceEnt, m_aOriginalTransform[3], param.TraceNorm, param.NodeIndex, param.ColliderIndex, param.SurfaceProps, param.TraceMaterial, param.ColliderName))
+				return;
+		}
 
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.Transform = m_aOriginalTransform;
@@ -780,7 +820,8 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 		m_bIsDeployed = state;
 		Replication.BumpMe();
 
-		if (m_bEnableSounds && !reload)
+		SCR_BaseDeployableInventoryItemComponentClass data = SCR_BaseDeployableInventoryItemComponentClass.Cast(GetComponentData(GetOwner()));
+		if (data && data.IsSoundEnabled() && !reload)
 		{
 			RPC_PlaySoundOnDeployBroadcast(m_bIsDeployed);
 			Rpc(RPC_PlaySoundOnDeployBroadcast, m_bIsDeployed);
@@ -824,7 +865,7 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 		if (parentDamageManager)
 		{
 			SCR_HitZone hitZone = SCR_HitZone.Cast(parentDamageManager.GetDefaultHitZone());
-			if (hitZone)
+			if (hitZone && !parentDamageManager.IsInherited(SCR_DestructibleBuildingComponent))  // destructible building component has its own logic for this
 				hitZone.GetOnDamageStateChanged().Insert(OnMonitoredSurfaceDamageStateChanged);
 		}
 
@@ -853,7 +894,7 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 				observedHitZone = SCR_HitZone.Cast(surfaceDamageManager.GetDefaultHitZone());
 		}
 
-		if (observedHitZone)
+		if (observedHitZone && !observedHitZone.GetHitZoneContainer().IsInherited(SCR_DestructibleBuildingComponent))  // destructible building component has its own logic for this
 			observedHitZone.GetOnDamageStateChanged().Remove(OnMonitoredSurfaceDamageStateChanged);
 
 		SCR_EditableEntityComponent editableComponent = SCR_EditableEntityComponent.Cast(ent.FindComponent(SCR_EditableEntityComponent));
@@ -940,7 +981,7 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 	//! Transform to have the right direction
 	//! \param[inout] transform matrix with position - marked as inout as operations done on static arrays are done through the pointers thus will impact what is passed into the method
 	//! \param[in] direction in which spawned entity should be aligned to
-	protected void ComputeTransform(inout vector transform[4], vector direction)
+	void ComputeTransform(inout vector transform[4], vector direction)
 	{
 		vector directionTrans[4];
 		direction += m_VariantContainer.GetAdditionaPlacementRotation();
@@ -951,7 +992,9 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 		vector forward = transform[1] * right;
 		right.Normalize();
 		forward.Normalize();
-		if (m_bFrontTowardPlayer)
+
+		SCR_MultiPartDeployableItemComponentClass data = SCR_MultiPartDeployableItemComponentClass.Cast(GetComponentData(GetOwner()));
+		if (data && data.IsFrontFacingPlayer())
 		{
 			transform[0] = forward;
 			transform[2] = right;
@@ -1107,6 +1150,12 @@ class SCR_MultiPartDeployableItemComponent : SCR_BaseDeployableInventoryItemComp
 	//------------------------------------------------------------------------------------------------
 	protected override void OnDelete(IEntity owner)
 	{
+		if (m_VariantContainer)
+		{
+			SetPreviewState(SCR_EPreviewState.NONE);
+			ClearCache();
+		}
+
 		SCR_MultiPartDeployableItemComponentClass data = SCR_MultiPartDeployableItemComponentClass.Cast(GetComponentData(GetOwner()));
 		if (!data)
 			return;

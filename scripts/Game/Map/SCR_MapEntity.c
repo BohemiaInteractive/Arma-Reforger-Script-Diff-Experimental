@@ -721,7 +721,7 @@ class SCR_MapEntity: MapEntity
 	//! \param y is vertical screen UNSCALED coordinate
 	//! \param center determines whether the map should center to the supplied coordinates
 	//! \param IsPanEnd determines whether this is also the end of panning operation, resetting the start pos for drag pannning
-	void SetPan(float x, float y, bool isPanEnd = true, bool center = true)
+	void SetPan(float x, float y, bool isPanEnd = true, bool center = true, bool updatingPan = false)
 	{	
 		if (m_iDelayCounter > 0)
 		{
@@ -734,6 +734,18 @@ class SCR_MapEntity: MapEntity
 		// test bounds
 		if (!FitPanBounds(x, y, center))
 			adjustedPan = true;
+
+		if (m_bIsPanInterp && !updatingPan)
+		{
+			float diffX = x - m_iPanX;
+			float diffY = y - m_iPanY;
+
+			m_aStartPan[0] = m_aStartPan[0] - diffX;
+			m_aStartPan[1] = m_aStartPan[1] - diffY;
+
+			m_aTargetPan[0] = m_aTargetPan[0] - diffX;
+			m_aTargetPan[1] = m_aTargetPan[1] - diffY;
+		}
 		
 		// save current pan
 		m_iPanX = x;
@@ -1383,14 +1395,14 @@ class SCR_MapEntity: MapEntity
 		if (m_fPanSlice <= 0)
 		{
 			m_bIsPanInterp = false;
-			SetPan(m_aTargetPan[0], m_aTargetPan[1]);
+			SetPan(m_aTargetPan[0], m_aTargetPan[1], true, true, true);
 			s_OnMapPanEnd.Invoke(m_aTargetPan[0],  m_aTargetPan[1]);
 		}
 		else
 		{
 			int panX = Math.Lerp(m_aStartPan[0], m_aTargetPan[0], 1 - m_fPanSlice);
 			int panY = Math.Lerp(m_aStartPan[1], m_aTargetPan[1], 1 - m_fPanSlice);
-			SetPan(panX, panY, false);
+			SetPan(panX, panY, false, true, true);
 		}
 	}
 	

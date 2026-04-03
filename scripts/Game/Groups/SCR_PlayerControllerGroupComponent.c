@@ -228,29 +228,15 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 		SCR_Faction scrPlayerFaction = SCR_Faction.Cast(playerFaction);
 		if (scrPlayerFaction)
 		{
-			SCR_GroupRolePresetConfig groupPreset;
-			SCR_EGroupRole groupRole = group.GetGroupRole();
-
 			// Commander can only join group with Commander role
+			SCR_EGroupRole groupRole = group.GetGroupRole();
 			if (scrPlayerFaction.GetCommanderId() == playerID && groupRole != SCR_EGroupRole.COMMANDER)
 				return false;
 
 			// Check if player has required rank for group loadouts
-			array<SCR_GroupRolePresetConfig> availableGroupRolePresetConfigs = {};
-			scrPlayerFaction.GetGroupRolePresetConfigs(availableGroupRolePresetConfigs);
-			foreach (SCR_GroupRolePresetConfig groupRolePreset : availableGroupRolePresetConfigs)
-			{
-				if (groupRolePreset.GetGroupRole() == group.GetGroupRole())
-				{
-					groupPreset = groupRolePreset;
-					break;
-				}
-			}
-
+			SCR_GroupRolePresetConfig groupPreset = groupsManager.FindGroupRolePresetConfig(scrPlayerFaction, groupRole);
 			if (groupPreset)
-			{
 				return groupsManager.HasPlayerRequiredRank(groupPreset, playerID, true);
-			}
 		}
 
 		return true;
@@ -445,23 +431,46 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 	//!
 	void AcceptInvite()
 	{
-		if (m_iGroupInviteID >= 0)
-		{
-			SCR_GroupsManagerComponent groupManager = SCR_GroupsManagerComponent.GetInstance();
-			if (!groupManager)
-				return;
-			
-			SCR_AIGroup group = groupManager.FindGroup(m_iGroupInviteID);
-			if (!group)
-				return;
-			
-			group.RemoveRequester(GetPlayerID());
-			
-			RequestJoinGroup(m_iGroupInviteID);
-			m_iGroupInviteID = -1;
-			if (m_OnInviteAccepted)
-				m_OnInviteAccepted.Invoke();
-		}
+		if (m_iGroupInviteID < 0)
+			return;
+
+		SCR_GroupsManagerComponent groupManager = SCR_GroupsManagerComponent.GetInstance();
+		if (!groupManager)
+			return;
+
+		SCR_AIGroup group = groupManager.FindGroup(m_iGroupInviteID);
+		if (!group)
+			return;
+
+		group.RemoveRequester(GetPlayerID());
+
+		RequestJoinGroup(m_iGroupInviteID);
+		m_iGroupInviteID = -1;
+		if (m_OnInviteAccepted)
+			m_OnInviteAccepted.Invoke();
+
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//!
+	void DeclineInvite()
+	{
+		if (m_iGroupInviteID < 0)
+			return;
+
+		SCR_GroupsManagerComponent groupManager = SCR_GroupsManagerComponent.GetInstance();
+		if (!groupManager)
+			return;
+
+		SCR_AIGroup group = groupManager.FindGroup(m_iGroupInviteID);
+		if (!group)
+			return;
+
+		group.RemoveRequester(GetPlayerID());
+
+		m_iGroupInviteID = -1;
+		if (m_OnInviteCancelled)
+			m_OnInviteCancelled.Invoke();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -598,7 +607,20 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 			if (inviterComponent && socialComp.IsRestricted(inviterComponent.GetPlayerId(), EUserInteraction.Invitation))
 				return;
 		}
-		
+
+		SCR_GroupsManagerComponent groupsManager = SCR_GroupsManagerComponent.GetInstance();
+		SCR_AIGroup group = groupsManager.FindGroup(m_iGroupID);
+		if (!group)
+			return;
+
+		SCR_GroupRolePresetConfig groupPreset = groupsManager.FindGroupRolePresetConfig(group.GetFaction(), group.GetGroupRole());
+		if (groupPreset && !groupsManager.HasPlayerRequiredRank(groupPreset, playerID, true))
+		{
+			// Show "Insufficient rank" notification to client
+			SCR_NotificationsComponent.SendToPlayer(GetPlayerID(), ENotification.GROUPS_INVITE_CANCELLED_INSUFFICIENT_RANK);
+			return;
+		}
+
 		invitedPlayerGroupComponent.InviteThisPlayer(m_iGroupID, GetPlayerID());
 	}
 	
@@ -665,8 +687,15 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 		if (!scrFaction)
 			return;
 
+		array<SCR_EGroupRole> availableGroupRoles = groupsManager.GetAvailableGroupRoles(faction, playerId);
+		if (!availableGroupRoles || !availableGroupRoles.Contains(groupRole))
+		{
+			Print("Group role is not available", level: LogLevel.WARNING);
+			return;
+		}
+
 		// No empty group found, we allow creation of new group
-		SCR_AIGroup newGroup = groupsManager.CreateNewPlayableGroup(faction);
+		SCR_AIGroup newGroup = groupsManager.CreateNewPlayableGroup(faction, groupRole);
 
 		// No new group was created, return
 		if (!newGroup)
@@ -722,6 +751,18 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 		if (!group.IsPlayerLeader(GetPlayerID()))
 			return;
 		
+		// if we have a reserves group, we prioritize putting the kicked player in there.
+		array<SCR_AIGroup> playableGroups = groupsManager.GetPlayableGroupsByFaction(group.GetFaction());
+		foreach (SCR_AIGroup groupInstance : playableGroups)
+		{
+			if (groupInstance.GetGroupRole() == SCR_EGroupRole.RESERVES)
+			{
+				playerGroupController.RequestJoinGroup(groupInstance.GetGroupID());
+				return;
+			}
+		}
+		
+		// No reserve group found, so we will create a new group.
 		SCR_AIGroup newGroup = groupsManager.GetFirstNotFullForFaction(group.GetFaction(), group, true);
 		if (!newGroup)
 			newGroup = groupsManager.CreateNewPlayableGroup(group.GetFaction());
@@ -823,6 +864,37 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 			m_iGroupID = groupIDAfter;
 			Rpc(RPC_DoChangeGroupID, groupIDAfter);
 		}
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Remove player from group
+	//! \param[in] playerID
+	void RequestRemovePlayer(int playerID)
+	{
+		Rpc(RpcAsk_RemovePlayer, playerID);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Ask the server to remove a player from player group
+	//! \param[in] playerID
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	void RpcAsk_RemovePlayer(int playerID)
+	{
+		if (m_iGroupID < 0)
+			return;
+		
+		SCR_GroupsManagerComponent groupsManager = SCR_GroupsManagerComponent.GetInstance();
+		if (!groupsManager)
+			return;
+		
+		SCR_AIGroup group = groupsManager.FindGroup(m_iGroupID);
+		if (!group)
+			return;
+		
+		m_iGroupID = -1;
+		group.RemovePlayer(playerID);
+		if (group.GetPlayerCount() == 0) // is the group still nonempty?
+			groupsManager.DeleteGroupDelayed(group);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -1019,7 +1091,7 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 		if (!group)
 			return;
 		
-		if (group.GetMaxMembers() == maxMembers || maxMembers < 0)
+		if (group.GetMaxMembers() == maxMembers)
 			return;
 		
 		Rpc(RPC_AskSetGroupMaxMembers, groupID, maxMembers);
@@ -1040,7 +1112,7 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 		if (!group)
 			return;
 		
-		if (group.GetMaxMembers() == maxMembers || maxMembers < 0)
+		if (group.GetMaxMembers() == maxMembers)
 			return;
 		
 		group.SetMaxMembers(maxMembers);
@@ -1577,8 +1649,8 @@ class SCR_PlayerControllerGroupComponent : ScriptComponent
 			return;
 
 #ifdef ENABLE_DIAG
-		DiagMenu.RegisterMenu(SCR_DebugMenuID.DEBUGUI_GROUPS, "Groups", "GameCode");
-		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_GROUPS_ENABLE_DIAG, "", "Enable groups diag", "Groups");
+		DiagMenu.RegisterMenu(SCR_DebugMenuID.DEBUGUI_GROUPS, "Game Groups", "GameCode");
+		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_GROUPS_ENABLE_DIAG, "", "Enable groups diag", "Game Groups");
 		ConnectToDiagSystem(owner);
 #endif
 		groupsManager.GetOnPlayableGroupRemoved().Insert(OnGroupDeleted);

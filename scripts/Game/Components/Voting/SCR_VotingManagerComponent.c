@@ -714,6 +714,16 @@ class SCR_VotingManagerComponent : SCR_BaseGameModeComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	bool GetVoteAlwaysDisplayVoteInitiatorVotingTimer(EVotingType type, int value = SCR_VotingBase.DEFAULT_VALUE)
+	{
+		SCR_VotingBase voting = FindVoting(type, value);
+		if (!voting)
+			return false;
+
+		return voting.GetAlwaysDisplayVoteInitiatorVotingTimer();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Print out information about all ongoing voting instances.
 	void Log()
 	{
@@ -735,6 +745,7 @@ class SCR_VotingManagerComponent : SCR_BaseGameModeComponent
 		EVotingType type = voting.GetType();
 		int value = voting.GetValue();
 		int winner = SCR_VotingBase.DEFAULT_VALUE;
+		bool resultSuccessful = false;
 		
 		switch (outcome)
 		{
@@ -751,13 +762,17 @@ class SCR_VotingManagerComponent : SCR_BaseGameModeComponent
 		EndVotingBroadcast(type, value, winner);
 		Rpc(EndVotingBroadcast, type, value, winner);
 		
-		if (type != EVotingType.KICK)
-			return;
-
 		if (winner != SCR_VotingBase.DEFAULT_VALUE)
-			SCR_AnalyticsApplication.GetInstance().VoteToKickSucessful();
-		else
-			SCR_AnalyticsApplication.GetInstance().VoteToKickFailed();
+			resultSuccessful = true;
+		
+		// As we are only tracking positive votes, we are gonna filter this to only get results in GROUP LEADER where there's a winner to prevent some errors
+		// This should be a temporal bad fix just to not spoil analytics, but original issue in voting group leader should be fixed
+		if (type == EVotingType.GROUP_LEADER && winner == -1)
+			return;
+		
+		string authorIdentityID = SCR_PlayerIdentityUtils.GetPlayerIdentityId(voting.GetAuthorId());
+		string winnerIdentityID = SCR_PlayerIdentityUtils.GetPlayerIdentityId(winner);
+		SCR_AnalyticsApplication.GetInstance().VoteToKickResult(type, authorIdentityID, winnerIdentityID, resultSuccessful);
 	}
 
 	//------------------------------------------------------------------------------------------------

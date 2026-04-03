@@ -692,8 +692,8 @@ class SCR_PreviewEntityEditorUIComponent : SCR_BaseEditorUIComponent
 		m_Operation = EPreviewEntityEditorOperation.MOVE_HORIZONTAL;
 				
 		SCR_EPreviewState previewState = SCR_EPreviewState.PLACEABLE;
-		ENotification outNotification;
-		m_PlacingManager.CanCreateEntity(outNotification, previewState);
+		SCR_EditorPreviewParams params = SCR_EditorPreviewParams.CreateParamsFromPreview(m_PreviewEntityManager);
+		m_PlacingManager.CanCreateEntity(previewStateToShow: previewState, params: params);
 		m_PreviewEntityManager.SetPreviewState(previewState);
 		
 		//--- There are numerous issues with editing along geometry, so it's disabled for now

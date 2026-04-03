@@ -114,8 +114,8 @@ class SCR_BaseRadialCommand
 			if (!userFaction)
 				return false;
 
-			string requiredRankName = userFaction.GetRankName(m_eRequiredRank);
-			string currentRankName = userFaction.GetRankName(currentRank);
+			string requiredRankName = userFaction.GetRanks().GetRankName(m_eRequiredRank);
+			string currentRankName = userFaction.GetRanks().GetRankName(currentRank);
 			SetCannotPerformReason(WidgetManager.Translate(CANNOT_PERFORM_RANK_TOO_LOW, requiredRankName, currentRankName));
 			return false;
 		}
@@ -128,7 +128,7 @@ class SCR_BaseRadialCommand
 	Returns true if target of the command - typically cursortarget - can execute the command
 	\param[in] target entity, that should execute the command
 	*/	
-	bool CanBeExecuted(notnull IEntity target)
+	bool CanBeExecuted(IEntity target)
 	{
 		return true;
 	}

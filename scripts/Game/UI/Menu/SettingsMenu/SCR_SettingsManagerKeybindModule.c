@@ -399,6 +399,26 @@ class SCR_SettingsManagerKeybindModule : SCR_SettingsManagerModuleBase
 		m_Binding.Save();
 	}
 	
+	
+	//------------------------------------------------------------------------------------------------
+	//! Combines selected presets and feeds it to SetCustomConfigs
+	//! \param[in] presetIndex
+	void SelectJoystickPresetPath(string path)
+	{
+		if (!m_Binding)
+			return;
+
+		array<ref SCR_ControllerPreset> joystickPresets = {};
+		GetJoystickPresets(joystickPresets);
+
+		//empty preset config means we set it to default
+		array<ResourceName> presets = {};
+		presets.Insert(path);
+
+		m_Binding.SetCustomConfigs(presets);
+		m_Binding.Save();
+	}
+	
 	//------------------------------------------------------------------------------------------------
 	//! Find index of active preset from provided controller preset list
 	//! \param[in] presets
@@ -410,7 +430,6 @@ class SCR_SettingsManagerKeybindModule : SCR_SettingsManagerModuleBase
 		
 		array<ResourceName> setPresets = {};
 		m_Binding.GetCustomConfigs(setPresets);
-		
 		foreach (int i, SCR_ControllerPreset preset : presets)
 		{
 			if (setPresets.Contains(preset.GetResourceName()))

@@ -2,7 +2,6 @@ void ScriptInvoker_FactionPlayableChangedMethod(SCR_Faction faction, bool playab
 typedef func ScriptInvoker_FactionPlayableChangedMethod;
 typedef ScriptInvokerBase<ScriptInvoker_FactionPlayableChangedMethod> ScriptInvoker_FactionPlayableChanged;
 
-//------------------------------------------------------------------------------------------------
 class SCR_Faction : ScriptedFaction
 {
 	[Attribute(defvalue: "0", desc: "Order in which the faction appears in the list. Lower values are first.")]
@@ -22,12 +21,18 @@ class SCR_Faction : ScriptedFaction
 
 	[Attribute(defvalue: "1", desc: "Will the faction appear in the respawn menu?")]
 	protected bool m_bIsPlayable;
+	
+	[Attribute(defvalue: "1", desc: "Will players in the faction be able to volunteer to become a commander? \nKeep in mind commanders might be disabled altogether in the mission header.")]
+	protected bool m_bIsCommanderAvailable;
 
 	[Attribute(defvalue: "1", desc: "If true will show the faction in the welcome screen even if it is not playable")]
 	protected bool m_bShowInWelcomeScreenIfNonPlayable;
 	
 	[Attribute("true", desc: "Is this a military faction? This affects AI functionality related to combat.")]
 	protected bool m_bIsMilitary;
+	
+	[Attribute("true", desc: "This faction can receive tasks.")]
+	protected bool m_bTasksEnabled;
 	
 	[Attribute("", UIWidgets.ResourcePickerThumbnail, "Flag icon of this particular faction.", params: "edds")]
 	private ResourceName m_sFactionFlag;
@@ -53,6 +58,9 @@ class SCR_Faction : ScriptedFaction
 	[Attribute(desc: "Group preset for predefined groups")]
 	protected ref array<ref SCR_GroupPreset> m_aPredefinedGroups;
 
+	[Attribute(SCR_EGroupRole.ASSAULT.ToString(), UIWidgets.ComboBox, "Default group role when creating a new group", enumType: SCR_EGroupRole)]
+	protected SCR_EGroupRole m_eDefaultGroupRoleForNewGroup;
+
 	[Attribute(desc: "Create only predefined groups")]
 	protected bool m_bCreateOnlyPredefinedGroups;
 
@@ -65,8 +73,8 @@ class SCR_Faction : ScriptedFaction
 	protected ref array<string>> m_aAncestors;
 	protected ref ScriptInvoker_FactionPlayableChanged m_OnFactionPlayableChanged; //Gives Faction and Bool enabled
 
-	[Attribute("", UIWidgets.Object, "List of ranks")]
-	protected ref array<ref SCR_CharacterRank> m_aRanks;
+	[Attribute(desc: "List of ranks")]
+	protected ref SCR_RankContainer m_FactionRankInfo;
 	
 	[Attribute(desc: "List of Entity catalogs. Each holds a list of entity Prefab and data of a given type. Catalogs of the same type are merged into one. Note this array is moved to a map on init and set to null")]
 	protected ref array<ref SCR_EntityCatalog> m_aEntityCatalogs;
@@ -86,7 +94,7 @@ class SCR_Faction : ScriptedFaction
 	[Attribute("", UIWidgets.ResourcePickerThumbnail, "Background imageset for this faction background", params:"imageset")]
 	protected ResourceName m_sFactionBackground;
 	
-	[Attribute("", desc:"Identity voice signal", params:"0 inf")]
+	[Attribute("0", desc:"Identity voice signal", params:"0 inf")]
 	protected int m_iIdentityVoiceSignal;
 
 	[Attribute()]
@@ -133,8 +141,16 @@ class SCR_Faction : ScriptedFaction
 	{
 		for (int i = 0, count = m_aPredefinedGroups.Count(); i < count; i++)
 		{
-			groupArray.Insert(m_aPredefinedGroups[i]);
+			if (m_aPredefinedGroups[i].IsEnabled())
+				groupArray.Insert(m_aPredefinedGroups[i]);
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \return default group role for a new group
+	SCR_EGroupRole GetDefaultGroupRoleForNewGroup()
+	{
+		return m_eDefaultGroupRoleForNewGroup;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -150,14 +166,30 @@ class SCR_Faction : ScriptedFaction
 	{
 		foreach (SCR_GroupRolePresetConfig preset : m_aGroupRolePresetConfigs)
 		{
-			groupArray.Insert(preset);
+			if (preset.IsEnabled())
+				groupArray.Insert(preset);
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	SCR_RankContainer GetRanks()
+	{
+		return m_FactionRankInfo;
 	}
 
 	//------------------------------------------------------------------------------------------------
 	bool IsGroupRolesConfigured()
 	{
-		return !m_aGroupRolePresetConfigs.IsEmpty();
+		if (m_aGroupRolePresetConfigs.IsEmpty())
+			return false;
+
+		foreach (SCR_GroupRolePresetConfig preset : m_aGroupRolePresetConfigs)
+		{
+			if (preset.IsEnabled())
+				return true;
+		}
+
+		return false;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -282,6 +314,12 @@ class SCR_Faction : ScriptedFaction
 	}
 	
 	//------------------------------------------------------------------------------------------------
+	bool IsCommanderAvailable()
+	{
+		return m_bIsCommanderAvailable;
+	}
+	
+	//------------------------------------------------------------------------------------------------
 	//! If faction should be shown in the welcome screen if it is not playable
 	//! \return True if it should show even if not playable otherwise hide
 	bool IsShownInWelcomeScreenIfNonPlayable()
@@ -305,6 +343,21 @@ class SCR_Faction : ScriptedFaction
 			m_bIsPlayable = false;
 		else
 			m_bIsPlayable = isPlayable;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Check if the faction should receive tasks
+	//! \return
+	bool IsTasksEnabled()
+	{
+		return m_bTasksEnabled;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \param isTasksEnabled 
+	void SetTasksEnabled(bool isTasksEnabled)
+	{
+		m_bTasksEnabled = isTasksEnabled;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -511,73 +564,6 @@ class SCR_Faction : ScriptedFaction
 	int GetFactionRadioFrequency()
 	{
 		return m_iFactionRadioFrequency;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected SCR_CharacterRank GetRankByID(SCR_ECharacterRank rankID)
-	{
-		if (!m_aRanks)
-			return null;
-
-		foreach (SCR_CharacterRank rank : m_aRanks)
-		{
-			if (rank.GetRankID() == rankID)
-				return rank;
-		}
-
-		return null;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! \param rankID
-	//! \return
-	string GetRankName(SCR_ECharacterRank rankID)
-	{
-		SCR_CharacterRank rank = GetRankByID(rankID);
-
-		if (rank)
-			return rank.GetRankName();
-		else
-			return string.Empty;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! \param rankID
-	//! \return
-	string GetRankNameUpperCase(SCR_ECharacterRank rankID)
-	{
-		SCR_CharacterRank rank = GetRankByID(rankID);
-
-		if (rank)
-			return rank.GetRankNameUpperCase();
-		else
-			return string.Empty;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! \param rankID
-	//! \return
-	string GetRankNameShort(SCR_ECharacterRank rankID)
-	{
-		SCR_CharacterRank rank = GetRankByID(rankID);
-
-		if (rank)
-			return rank.GetRankNameShort();
-		else
-			return string.Empty;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! \param rankID
-	//! \return
-	string GetRankInsignia(SCR_ECharacterRank rankID)
-	{
-		SCR_CharacterRank rank = GetRankByID(rankID);
-
-		if (rank)
-			return rank.GetRankInsignia();
-		else
-			return string.Empty;
 	}
 	
 	//------------------------------------------------------------------------------------------------ 
@@ -859,6 +845,7 @@ class SCR_Faction : ScriptedFaction
 		{
 			result.Insert(key);
 		}
+		
 		return result;
 	}
 
@@ -873,9 +860,31 @@ class SCR_Faction : ScriptedFaction
 	{
 		return m_bIsPlayableDefault;
 	}
+	
+	//------------------------------------------------------------------------------------------------
+	bool DoRplSave(ScriptBitWriter writer)
+	{
+		writer.WriteBool(IsTasksEnabled());
+		writer.WriteInt(GetPlayerLimit());
+		return true;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	bool DoRplLoad(ScriptBitReader reader)
+	{
+		bool isTasksEnabled;
+		reader.ReadBool(isTasksEnabled);
+
+		SetTasksEnabled(isTasksEnabled);
+		
+		int playerLimit;
+		reader.ReadInt(playerLimit);
+		
+		SetPlayerLimit(playerLimit);
+		return true;
+	}
 }
 
-//------------------------------------------------------------------------------------------------
 [BaseContainerProps(), SCR_BaseContainerCustomTitleField("m_sCallsign")]
 class SCR_MilitaryBaseCallsign
 {

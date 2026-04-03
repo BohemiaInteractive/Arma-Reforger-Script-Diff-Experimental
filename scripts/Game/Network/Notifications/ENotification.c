@@ -248,6 +248,8 @@ enum ENotification
 	VOTING_KICK_SUCCEED_SUBJECT_LEFT = 1036, //!< Voting notification shown when vote to kick ends when kicked player left the server
 	VOTING_COMMANDER_DONE = 1037, ///< Voting succeeded for a new faction commander (param1 = player id)
 	VOTING_COMMANDER_WITHDRAW = 1038, ///< Faction commander left their role (param1 = player id)
+	VOTING_COMMANDER_RELIEVE_SUCCESSFUL = 1039, ///< Voting to relieve faction commander successful (param1 = player id)
+	VOTING_COMMANDER_RELIEVE_FAILED = 1040, ///< Voting to relieve faction commander failed (param1 = player id)
 	
 	//GROUPS 
 	GROUPS_PLAYER_JOINED = 1101, //!< Player joined the group (param1 = player id)
@@ -261,6 +263,7 @@ enum ENotification
 	GROUPS_REQUEST_ACCEPTED = 1109, //!< player was accepted to private group
 	GROUPS_REQUEST_DENIED = 1110, //!< player was accepted to private group
 	GROUPS_REQUEST_CANCELLED = 1111, //!< players join request was canceled by group leader change
+	GROUPS_INVITE_CANCELLED_INSUFFICIENT_RANK = 1112, //!< Player invite was not sent due to invitee's insufficient rank to join group
 	
 	//OTHERS
 	ACTION_ON_COOLDOWN = 1200, //!< Action is on cooldown and cannot be executed

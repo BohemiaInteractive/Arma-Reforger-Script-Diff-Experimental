@@ -15,11 +15,8 @@ enum ECampaignClientNotificationID
 	RESPAWN
 }
 
-void OnBaseCapturedDelegate(SCR_CampaignMilitaryBaseComponent base, int playerId);
-typedef func OnBaseCapturedDelegate;
-
 //~ Supplies transfer invoker
-void ScriptInvokerTransferSuppliesMethod(EResourcePlayerInteractionType interactionType, SCR_ResourceComponent resourceComponentFrom, SCR_ResourceComponent resourceComponentTo, EResourceType resourceType, float resourceValue);
+void ScriptInvokerTransferSuppliesMethod(EResourcePlayerInteractionType interactionType, notnull SCR_ResourceComponent resourceComponentFrom, notnull SCR_ResourceComponent resourceComponentTo, EResourceType resourceType, float resourceValue, PlayerController playerController);
 typedef func ScriptInvokerTransferSuppliesMethod;
 typedef ScriptInvokerBase<ScriptInvokerTransferSuppliesMethod> ScriptInvokerTransferSupplies;
 
@@ -41,7 +38,6 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	protected int m_iTotalSuppliesDelivered;
 
 	protected static ref ScriptInvokerInt3 s_OnSuppliesDelivered;
-	protected static ref ScriptInvokerBase<OnBaseCapturedDelegate> s_OnBaseCaptured; // <base, playerID>
 	protected static ref ScriptInvokerTransferSupplies s_OnSuppliesTransferred;
 
 	static const int SUPPLY_DELIVERY_XP_PERCENT = 100; // Decimal fraction used in formula to calculate XP reward
@@ -121,18 +117,6 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Get event called when the player captures a base.
-	//! Invoker params are: SCR_CampaignMilitaryBaseComponent base, int playerId
-	//! \return ScriptInvokerBase<OnBaseCapturedDelegate>
-	static ScriptInvokerBase<OnBaseCapturedDelegate> GetOnBaseCaptured()
-	{
-		if (!s_OnBaseCaptured)
-			s_OnBaseCaptured = new ScriptInvokerBase<OnBaseCapturedDelegate>();
-
-		return s_OnBaseCaptured;
-	}
-
-	//------------------------------------------------------------------------------------------------
 	//! \return if the session is run as client
 	protected bool IsProxy()
 	{
@@ -144,269 +128,20 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	void RepairComposition(int index, int repairCost, int destructibleID, SCR_SiteSlotEntity slotEnt, notnull SCR_CampaignMilitaryBaseComponent base)
 	{
 #ifdef ENABLE_BASE_DESTRUCTION
-		Rpc(RpcAsk_RepairComposition, index, repairCost, destructibleID, Replication.FindId(slotEnt), Replication.FindId(base));
+		Rpc(RpcAsk_RepairComposition, index, repairCost, destructibleID, Replication.FindItemId(slotEnt), Replication.FindItemId(base));
 #endif
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//! Send server request to load supplies at a base
-	//! \param[in] suppliesID Unique ID identifying the supplies
-	//! \param[in] player Player trying to unload supplies
-	//! \param[in] base Base at which the supplies are being unloaded
-	//! \param[in] amount
-	void LoadSupplies(RplId suppliesID, IEntity player, SCR_CampaignMilitaryBaseComponent base, int amount = 0)
-	{
-		if (!player || !base)
-			return;
-		
-		RplId baseID = Replication.FindId(base);
-		
-		if (!m_PlayerController)
-			return;
-		
-		int playerID = m_PlayerController.GetPlayerId();
-		Rpc(RpcAsk_LoadSupplies, suppliesID, playerID, baseID, amount);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] suppliesID
-	//! \param[in] player
-	//! \param[in] depot
-	//! \param[in] amount
-	void LoadSuppliesStandalone(RplId suppliesID, IEntity player, SCR_CampaignSuppliesComponent depot, int amount = 0)
-	{
-		if (!player || !depot)
-			return;
-		
-		RplId depotID = Replication.FindId(depot);
-		
-		if (!m_PlayerController)
-			return;
-		
-		int playerID = m_PlayerController.GetPlayerId();
-		Rpc(RpcAsk_LoadSuppliesStandalone, suppliesID, playerID, depotID, amount);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] suppliesID
-	//! \param[in] supplies
-	//! \param[in] IsUnloading
-	void StartLoading(RplId suppliesID, int supplies, bool IsUnloading = false)
-	{
-		int playerID = m_PlayerController.GetPlayerId();
-		Rpc(RpcAsk_SuppliesLoadingStarted, suppliesID, playerID, supplies, IsUnloading);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] suppliesID
-	//! \param[in] IsUnloading
-	void StopLoading(RplId suppliesID, bool IsUnloading = false)
-	{
-		int playerID = m_PlayerController.GetPlayerId();
-		Rpc(RpcAsk_SuppliesLoadingCanceled, suppliesID, playerID, IsUnloading);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//! Send server request to unload supplies at a base
-	//! \param[in] truckID Unique ID identifying the supply truck
-	//! \param[in] player Player trying to unload supplies
-	//! \param[in] base Base at which the supplies are being unloaded
-	void UnloadSupplies(RplId suppliesID, IEntity player, SCR_CampaignMilitaryBaseComponent base, int amount = 0)
-	{
-		if (!player || !base)
-			return;
-		
-		RplId baseID = Replication.FindId(base);
-		
-		if (!m_PlayerController)
-			return;
-		
-		int playerID = m_PlayerController.GetPlayerId();
-		Rpc(RpcAsk_UnloadSupplies, suppliesID, playerID, baseID, amount);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//!
-	void AddRadio()
-	{
-		Rpc(RpcAsk_AddRadio, SCR_PlayerController.GetLocalPlayerId());
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_AddRadio(int playerID)
-	{
-		PlayerManager pMan = GetGame().GetPlayerManager();
-		
-		if (!pMan)
-			return;
-		
-		SCR_ChimeraCharacter player = SCR_ChimeraCharacter.Cast(pMan.GetPlayerControlledEntity(playerID));
-		
-		if (!player)
-			return;
-		
-		EntitySpawnParams spawnParams = EntitySpawnParams();	
-		spawnParams.TransformMode = ETransformMode.WORLD;
-		player.GetWorldTransform(spawnParams.Transform);
-		
-		SCR_CampaignFaction faction = SCR_CampaignFaction.Cast(player.GetFaction());
-		
-		if (!faction)
-			return;
-		
-		Resource res = Resource.Load(faction.GetRadioPrefab());
-		
-		if (!res)
-			return;
-		
-		IEntity radio = GetGame().SpawnEntityPrefab(res, GetGame().GetWorld(),spawnParams);
-		
-		if (!radio)
-			return;
-		
-		RplComponent rplC = RplComponent.Cast(radio.FindComponent(RplComponent));
-		
-		if (!rplC)
-			return;
-		
-		Rpc(RpcDo_AddRadio, rplC.Id());
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
-	protected void RpcDo_AddRadio(RplId ID)
-	{
-		GetGame().GetCallqueue().CallLater(FindRadioDelayed, 10, true, ID)
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	protected void FindRadioDelayed(RplId ID)
-	{
-		RplComponent rplC = RplComponent.Cast(Replication.FindItem(ID));
-		
-		if (!rplC)
-			return;
-		
-		GetGame().GetCallqueue().Remove(FindRadioDelayed);
-		IEntity player = SCR_PlayerController.GetLocalControlledEntity();
-		
-		if (!player)
-			return;
-		
-		IEntity radio = rplC.GetEntity();
-		
-		if (!radio)
-			return;
-		
-		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(player.FindComponent(SCR_InventoryStorageManagerComponent));
-		
-		if (!inventory)
-			return;
-			
-		inventory.InsertItem(radio);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] comp
-	//! \param[in] deploy
-	void DeployMobileAsembly(notnull SCR_CampaignMobileAssemblyComponent comp, bool deploy)
-	{
-		Rpc(RpcAsk_DeployMobileAsembly, Replication.FindId(comp), deploy, SCR_PlayerController.GetLocalPlayerId());
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_DeployMobileAsembly(RplId assemblyComponentID, bool deploy, int playerID)
-	{
-		SCR_CampaignMobileAssemblyComponent comp = SCR_CampaignMobileAssemblyComponent.Cast(Replication.FindItem(assemblyComponentID));
-		
-		if (!comp)
-			return;
-		
-		float depth;
-		
-		if (SCR_WorldTools.IsObjectUnderwater(comp.GetOwner(), vector.Zero, -1, depth) && depth > SCR_CampaignMobileAssemblyComponent.MAX_WATER_DEPTH)
-			return;
-		
-		if (comp.IsDeployed() == deploy)
-			return;
-		
-		if (deploy)
-			comp.Deploy(SCR_EMobileAssemblyStatus.DEPLOYED, playerID);
-		else
-			comp.Deploy(SCR_EMobileAssemblyStatus.DISMANTLED, playerID);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//! Send server request to capture a base (change its owner)
-	//! \param[in] base Base to be captured
-	void CaptureBase(SCR_CampaignMilitaryBaseComponent base)
-	{
-		if (!base)
-			return;
-		
-		Faction faction = SCR_FactionManager.SGetLocalPlayerFaction();
-		int factionID = SCR_CampaignFactionManager.Cast(GetGame().GetFactionManager()).GetFactionIndex(faction);
-		int playerID = m_PlayerController.GetPlayerId();
-		IEntity player = m_PlayerController.GetControlledEntity();
-		
-		if (!player)
-			return;
-		
-		CharacterControllerComponent comp = CharacterControllerComponent.Cast(player.FindComponent(CharacterControllerComponent));
-		
-		if (!comp)
-			return;
-		
-		if (comp.IsDead())
-			return;
-		
-		Rpc(RpcAsk_CaptureBase, Replication.FindId(base), factionID, playerID);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] base
-	//! \param[in] factionIndex
-	void CaptureBaseGM(SCR_CampaignMilitaryBaseComponent base, int factionIndex)
-	{
-		if (!base)
-			return;
-		
-		Rpc(RpcAsk_CaptureBase, Replication.FindId(base), factionIndex, SCR_CampaignMilitaryBaseComponent.INVALID_PLAYER_INDEX);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] base
-	//! \param[in] isBeingCaptured
-	void ToggleBaseCapture(notnull SCR_CampaignMilitaryBaseComponent base, bool isBeingCaptured)
-	{
-		Faction faction = SCR_FactionManager.SGetLocalPlayerFaction();
-		int factionID = SCR_CampaignFactionManager.Cast(GetGame().GetFactionManager()).GetFactionIndex(faction);
-		int playerID = m_PlayerController.GetPlayerId();
-		
-		if (isBeingCaptured)
-			Rpc(RpcAsk_CaptureBaseBegin, Replication.FindId(base), factionID, playerID);
-		else
-			Rpc(RpcAsk_CaptureBaseEnd, Replication.FindId(base));
 	}
 	
 	//***********//
 	//RPC METHODS//
 	//***********//
 	
-#ifdef ENABLE_BASE_DESTRUCTION
 	//------------------------------------------------------------------------------------------------
 	//! Repair damaged entity in composition
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_RepairComposition(int index, int repairCost, int destructibleID, RplId slotID, RplId baseID)
 	{
+#ifdef ENABLE_BASE_DESTRUCTION
 		if (index == -1 || repairCost == -1 || destructibleID == -1)
 			return;
 		
@@ -451,352 +186,11 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 		// Update map UI
 		if (RplSession.Mode() != RplMode.Dedicated)
 			base.GetMapDescriptor().HandleMapInfo();
-	}
 #endif
-	
-	//------------------------------------------------------------------------------------------------
-	//!
-	//! \param[in] base
-	//! \param[in] suppliesCnt
-	void AddSuppliesFromContextMenu(notnull SCR_CampaignMilitaryBaseComponent base, int suppliesCnt)
-	{
-		RplId baseID = Replication.FindId(base);
-		
-		if (!baseID.IsValid())
-			return;
-		
-		Rpc(RpcAsk_AddSuppliesFromContextMenu, baseID, suppliesCnt);
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_AddSuppliesFromContextMenu(RplId baseID, int suppliesCnt)
-	{
-		SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(Replication.FindItem(baseID));
-		
-		if (!base)
-			return;
-		
-		if (base.GetSupplies() >= base.GetSuppliesMax())
-			return;
-		
-		base.AddSupplies(Math.Min(suppliesCnt, base.GetSuppliesMax() - base.GetSupplies()));
-	}
-	//------------------------------------------------------------------------------------------------
-	// Sends player notification to players inside Vehicle
-	//! \param[in] messageID
-	//! \param[in] vehicleEntity entity of vehicle
-	//! \param[in] playerID ID of player to notify about
-	//! \param[in] number optional second parameter for another int number
-	protected void SendToVehicleOccupants(ENotification messageID, IEntity vehicleEntity, int playerID, int number = 0)
-	{
-		if (!vehicleEntity)
-			return;
-
-		IEntity parentVehicle = vehicleEntity.GetParent();
-		if (!parentVehicle)
-			return;
-		
-		//Gettings players from inside of vehicle. Condition allows spawning only Cargo.
-		SCR_BaseCompartmentManagerComponent comp = SCR_BaseCompartmentManagerComponent.Cast(parentVehicle.FindComponent(SCR_BaseCompartmentManagerComponent));
-		if (!comp)
-			return;
-
-		array<IEntity> occupants = {};
-		comp.GetOccupants(occupants);
-		
-		if(occupants.IsEmpty())
-			return;
-		
-		foreach (IEntity occupant : occupants)
-		{
-			int occupantID = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(occupant);
-			if(number != 0)
-				SCR_NotificationsComponent.SendToPlayer(occupantID, messageID, playerID, number);
-			else
-				SCR_NotificationsComponent.SendToPlayer(occupantID, messageID, playerID);
-		}
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	// Handles start of loading/unloading supplies
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_SuppliesLoadingStarted(RplId suppliesID, int playerID, int supplies, bool IsUnloading)
-	{
-		SCR_CampaignSuppliesComponent suppliesComponent = SCR_CampaignSuppliesComponent.Cast(Replication.FindItem(suppliesID));
-		array<IEntity> occupants = {}; //new array<IEntity>;
-		
-		if(!suppliesComponent)
-			return;
-		
-		//Gettings vehicle entity from cargo
-		IEntity vehicleEntity = suppliesComponent.GetOwner();
-		
-		if(!IsUnloading)
-		{
-			//suppliesComponent.SetSupplyLoadingPlayer(playerID);
-			SendToVehicleOccupants(ENotification.SUPPLY_TRUCK_LOADING_PLAYER, vehicleEntity, playerID, supplies);
-		}
-		else
-		{
-			//suppliesComponent.SetSupplyUnloadingPlayer(playerID);
-			SendToVehicleOccupants(ENotification.SUPPLY_TRUCK_UNLOADING_PLAYER, vehicleEntity, playerID, supplies);
-		}
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	// Handles canceling of loading/unloading supplies
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_SuppliesLoadingCanceled(RplId suppliesID, int playerID, bool IsUnloading)
-	{
-		SCR_CampaignSuppliesComponent suppliesComponent = SCR_CampaignSuppliesComponent.Cast(Replication.FindItem(suppliesID));
-		
-		if(!suppliesComponent)
-			return;
-		
-		//Gettings vehicle entity from cargo
-		IEntity vehicleEntity = suppliesComponent.GetOwner();
-		
-		if(!IsUnloading)
-		{
-			//suppliesComponent.DeleteSupplyLoadingPlayer(playerID);
-			SendToVehicleOccupants(ENotification.SUPPLY_TRUCK_LOADING_PLAYER_STOPPED, vehicleEntity, playerID);
-		}
-		else
-		{
-			//suppliesComponent.DeleteSupplyUnloadingPlayer(playerID);
-			SendToVehicleOccupants(ENotification.SUPPLY_TRUCK_UNLOADING_PLAYER_STOPPED, vehicleEntity, playerID);
-		}
-		
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//! Load supplies at a base
-	//! \param[in] suppliesID supplies entity ID
-	//! \param[in] playerID player entity ID
-	//! \param[in] baseID base entity ID
-	//! \param[in] amount
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_LoadSupplies(RplId suppliesID, int playerID, RplId baseID, int amount)
-	{
-		SCR_CampaignSuppliesComponent suppliesComponent = SCR_CampaignSuppliesComponent.Cast(Replication.FindItem(suppliesID));
-
-		if (!suppliesComponent)
-			return;
-
-		IEntity box = suppliesComponent.GetOwner();
-		
-		if (!box)
-			return;
-
-		SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(Replication.FindItem(baseID));
-		
-		if (!base)
-			return;
-		
-		if (amount > base.GetSupplies())
-			return;
-
-		IEntity player = GetGame().GetPlayerManager().GetPlayerControlledEntity(playerID);
-		
-		if (!player)
-			return;
-		
-//		if (suppliesComponent.GetSupplies() == suppliesComponent.GetSuppliesMax())
-//			return;
-		
-		Faction playerFaction = SCR_CampaignReconfigureRelayUserAction.GetPlayerFaction(player);
-		
-		if (!playerFaction || playerFaction != base.GetFaction())
-			return;
-		
-		SCR_CampaignSuppliesComponent baseSuppliesComponent = SCR_CampaignSuppliesComponent.Cast(base.GetOwner().FindComponent(SCR_CampaignSuppliesComponent));
-		if (!baseSuppliesComponent)
-			return;
-
-//		float distSq = Math.Pow(baseSuppliesComponent.GetOperationalRadius(), 2);
-//		vector vehPos = box.GetOrigin();
-//
-//		if (vector.DistanceSq(vehPos, player.GetOrigin()) > 100)
-//			return;
-//
-//		if (vector.DistanceSq(vehPos, base.GetOwner().GetOrigin()) > distSq)
-//		{
-//			SCR_ServicePointComponent service = base.GetServiceByType(SCR_EServicePointType.SUPPLY_DEPOT);
-//			if (!service)
-//				return;
-//
-//			if (vector.DistanceSq(vehPos, service.GetOwner().GetOrigin()) > distSq)
-//				return;
-//		}
-//
-//		// Validity check passed, perform action
-//		int finalAmount = Math.Min(suppliesComponent.GetSuppliesMax() - suppliesComponent.GetSupplies(), amount);
-//		suppliesComponent.AddSupplies(finalAmount);
-//		base.AddSupplies(-finalAmount);
-//		suppliesComponent.SetLastLoadedAt(base);
-//		Rpc(RpcDo_PlayerFeedbackValueBase, ECampaignClientNotificationID.SUPPLIES_LOADED, (float)finalAmount, base.GetCallsign());
-//		suppliesComponent.DeleteSupplyLoadingPlayer(playerID);
-		
-		SendToVehicleOccupants(ENotification.SUPPLY_TRUCK_LOADING_PLAYER_FINISHED, box, playerID);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_LoadSuppliesStandalone(RplId suppliesID, int playerID, RplId depotID, int amount)
-	{
-		SCR_CampaignSuppliesComponent suppliesComponent = SCR_CampaignSuppliesComponent.Cast(Replication.FindItem(suppliesID));
-
-		if (!suppliesComponent)
-			return;
-		
-		SCR_CampaignSuppliesComponent depot = SCR_CampaignSuppliesComponent.Cast(Replication.FindItem(depotID));
-		
-		if (!depot)
-			return;
-		
-		IEntity player = GetGame().GetPlayerManager().GetPlayerControlledEntity(playerID);
-		
-		if (!player)
-			return;
-		
-		IEntity box = suppliesComponent.GetOwner();
-		
-		if (!box)
-			return;
-		
-//		if (amount > depot.GetSupplies())
-//			return;
-//
-//		if (suppliesComponent.GetSupplies() == suppliesComponent.GetSuppliesMax())
-//			return;
-//
-//		float distSq = Math.Pow(depot.GetOperationalRadius(), 2);
-//		vector vehPos = box.GetOrigin();
-//
-//		if (vector.DistanceSq(vehPos, depot.GetOwner().GetOrigin()) > distSq || vector.DistanceSq(vehPos, player.GetOrigin()) > 100)
-//			return;
-//
-//		// Validity check passed, perform action
-//		int finalAmount = Math.Min(suppliesComponent.GetSuppliesMax() - suppliesComponent.GetSupplies(), amount);
-//		suppliesComponent.AddSupplies(finalAmount);
-//		Rpc(RpcDo_PlayerFeedbackValueBase, ECampaignClientNotificationID.SUPPLIES_LOADED, (float)finalAmount, -1);
-//		suppliesComponent.DeleteSupplyLoadingPlayer(playerID);
-		SendToVehicleOccupants(ENotification.SUPPLY_TRUCK_LOADING_PLAYER_FINISHED, box, playerID);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//! Unload supplies at a base
-	//! \param[in] vehicleID Vehicle entity ID
-	//! \param[in] playerID Vehicle entity ID
-	//! \param[in] baseID Vehicle entity ID
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_UnloadSupplies(RplId suppliesID, int playerID, RplId baseID, int amount)
-	{
-		SCR_CampaignSuppliesComponent suppliesComponent = SCR_CampaignSuppliesComponent.Cast(Replication.FindItem(suppliesID));
-
-		if (!suppliesComponent)
-			return;
-		
-		SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(Replication.FindItem(baseID));
-		
-		if (!base)
-			return;
-		
-		IEntity player = GetGame().GetPlayerManager().GetPlayerControlledEntity(playerID);
-		
-		if (!player)
-			return;
-		
-		IEntity box = suppliesComponent.GetOwner();
-		
-		if (!box)
-			return;
-		
-//		if (amount > suppliesComponent.GetSupplies())
-//			return;
-//
-//		Faction playerFaction = SCR_CampaignReconfigureRelayUserAction.GetPlayerFaction(player);
-//		SCR_CampaignFaction owningFaction = base.GetCampaignFaction();
-//
-//		if (!playerFaction || playerFaction != owningFaction)
-//			return;
-//
-//		SCR_CampaignSuppliesComponent baseSuppliesComponent = SCR_CampaignSuppliesComponent.Cast(base.GetOwner().FindComponent(SCR_CampaignSuppliesComponent));
-//		if (!baseSuppliesComponent)
-//			return;
-//
-//		float distSq = Math.Pow(baseSuppliesComponent.GetOperationalRadius(), 2);
-//		vector vehPos = box.GetOrigin();
-//
-//		if (vector.DistanceSq(vehPos, player.GetOrigin()) > 100)
-//			return;
-//
-//		if (vector.DistanceSq(vehPos, base.GetOwner().GetOrigin()) > distSq)
-//		{
-//			SCR_ServicePointComponent service = base.GetServiceByType(SCR_EServicePointType.SUPPLY_DEPOT);
-//			if (!service)
-//				return;
-//
-//			if (vector.DistanceSq(vehPos, service.GetOwner().GetOrigin()) > distSq)
-//				return;
-//		}
-//
-//		// Validity check passed, perform action
-//		int suppliesCur = base.GetSupplies();
-//		int suppliesMax = base.GetSuppliesMax();
-//		int suppliesCnt = Math.Min(amount, suppliesMax - suppliesCur);
-//		float rewardMultiplier = suppliesCnt / suppliesComponent.GetSuppliesMax();
-//		suppliesComponent.AddSupplies(-suppliesCnt);
-//		base.AddSupplies(suppliesCnt);
-//		suppliesComponent.SetLastUnloadedAt(base);
-//		Rpc(RpcDo_PlayerFeedbackValueBase, ECampaignClientNotificationID.SUPPLIES_UNLOADED, (float)suppliesCnt, base.GetCallsign());
-//
-//		SCR_XPHandlerComponent compXP = SCR_XPHandlerComponent.Cast(GetGame().GetGameMode().FindComponent(SCR_XPHandlerComponent));
-//
-//		// Award XP unless the truck was just loaded in this base
-//		// ... or if it was both loaded and unloaded in the previous base
-//		// (handled in suppliesComponent)
-//		if (compXP && suppliesComponent.AwardXP())
-//			compXP.AwardXP(playerID, SCR_EXPRewards.SUPPLIES_DELIVERED, rewardMultiplier);
-//
-//		SendPlayerMessage(SCR_ERadioMsg.SUPPLIES, base.GetCallsign(), public: false);
-//		suppliesComponent.DeleteSupplyUnloadingPlayer(playerID);
-		
-		SendToVehicleOccupants(ENotification.SUPPLY_TRUCK_UNLOADING_PLAYER_FINISHED, box, playerID);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_CaptureBaseBegin(RplId baseID, int factionIndex, int playerID)
-	{
-		SCR_CampaignFaction faction = SCR_CampaignFactionManager.Cast(GetGame().GetFactionManager()).GetCampaignFactionByIndex(factionIndex);
-		
-		if (!faction)
-			return;
-		
-		SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(Replication.FindItem(baseID));
-		
-		if (!base)
-			return;
-		
-		base.BeginCapture(faction, playerID);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_CaptureBaseEnd(RplId baseID)
-	{
-		SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(Replication.FindItem(baseID));
-		
-		if (!base)
-			return;
-		
-		base.EndCapture();
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//!
+	//! Server side method used to send a notification to the owner of the controller on which component resides
 	//! \param[in] msgType
 	//! \param[in] baseCallsign
 	//! \param[in] calledID
@@ -861,7 +255,7 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 		msg.SetRadioMsg(msgType);
 		msg.SetFactionId(factionId);
 		msg.SetBaseCallsign(baseCallsign);
-		msg.SetCallerCallsign(companyCallsignIndexCaller, platoonCallsignIndexCaller, squadCallsignIndexCaller);
+		msg.SetCallerCallsign(companyCallsignIndexCaller, platoonCallsignIndexCaller, squadCallsignIndexCaller, characterCallsignIndexCaller);
 		msg.SetIsPublic(public);
 		msg.SetParam(param);
 		msg.SetPlayerID(m_PlayerController.GetPlayerId());
@@ -870,9 +264,9 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 		int companyCallsignIndexCalled, platoonCallsignIndexCalled, squadCallsignIndexCalled, characterCallsignIndexCalled;
 		
 		if (called && callsignManager.GetEntityCallsignIndexes(called, companyCallsignIndexCalled, platoonCallsignIndexCalled, squadCallsignIndexCalled, characterCallsignIndexCalled))
-			msg.SetCalledCallsign(companyCallsignIndexCalled, platoonCallsignIndexCalled, squadCallsignIndexCalled);
+			msg.SetCalledCallsign(companyCallsignIndexCalled, platoonCallsignIndexCalled, squadCallsignIndexCalled, characterCallsignIndexCalled);
 
-		Rpc(RpcDo_PlayRadioMsg, msgType, factionId, baseCallsign, CompressCallsign(companyCallsignIndexCaller, platoonCallsignIndexCaller, squadCallsignIndexCaller), CompressCallsign(companyCallsignIndexCalled, platoonCallsignIndexCalled, squadCallsignIndexCalled), param, msg.GetSeed(), 1.0);
+		Rpc(RpcDo_PlayRadioMsg, msgType, factionId, baseCallsign, CompressCallsign(companyCallsignIndexCaller, platoonCallsignIndexCaller, squadCallsignIndexCaller, characterCallsignIndexCaller), CompressCallsign(companyCallsignIndexCalled, platoonCallsignIndexCalled, squadCallsignIndexCalled, characterCallsignIndexCalled), param, msg.GetSeed(), 1.0);
 		
 		if (public)
 			transmitter.BeginTransmission(msg);
@@ -887,49 +281,24 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	protected int CompressCallsign(int company, int platoon, int squad)
+	protected int CompressCallsign(int company, int platoon, int squad, int character)
 	{
-		return (company * 10000) + (platoon * 100) + squad;
+		return (company * 1000000) + (platoon * 10000) + (squad * 100) + character;
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	protected void DecompressCallsign(int callsign, out int company, out int platoon, out int squad)
+	protected void DecompressCallsign(int callsign, out int company, out int platoon, out int squad, out int character)
 	{
-		company = Math.Floor(callsign * 0.0001);
-		callsign = callsign - (company * 10000);
+		company = Math.Floor(callsign * 0.000001);
+		callsign = callsign - (company * 1000000);
 		
-		platoon = Math.Floor(callsign * 0.01);
-		callsign = callsign - (platoon * 100);
+		platoon = Math.Floor(callsign * 0.0001);
+		callsign = callsign - (platoon * 10000);
 		
-		squad = callsign;
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	//! Capture a base (change its owner)
-	//! \param[in] baseID Base entity ID
-	//! \param[in] factionIndex Index of new faction to own the base
-	//! \param[in] playerID
-	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_CaptureBase(RplId baseID, int factionIndex, int playerID)
-	{
-		SCR_CampaignFaction faction = SCR_CampaignFactionManager.Cast(GetGame().GetFactionManager()).GetCampaignFactionByIndex(factionIndex);
-		
-		if (!faction)
-			return;
-		
-		SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(Replication.FindItem(baseID));
-		
-		if (!base)
-			return;
-		
-		if (base.BeginCapture(faction, playerID))
-			base.SetFaction(faction);
-		
-		if (base.GetType() == SCR_ECampaignBaseType.RELAY && playerID != SCR_CampaignMilitaryBaseComponent.INVALID_PLAYER_INDEX)
-			SendPlayerMessage(SCR_ERadioMsg.RELAY);
+		squad = Math.Floor(callsign * 0.01);
+		callsign = callsign - (squad * 100);
 
-		if (s_OnBaseCaptured)
-			s_OnBaseCaptured.Invoke(base, playerID);
+		character = callsign;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -1150,7 +519,7 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	
 	//------------------------------------------------------------------------------------------------
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
-	void RpcDo_UpdatePlayerSpawnHint(bool show, vector position)
+	protected void RpcDo_UpdatePlayerSpawnHint(bool show, vector position)
 	{
 		SCR_CampaignFeedbackComponent comp = SCR_CampaignFeedbackComponent.GetInstance();
 		comp.UpdatePlayerSpawnHint(show, position);
@@ -1206,9 +575,41 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 		if (data)
 			suicidePenalty = data.GetRespawnPenalty();
 		
-		timer.SetRespawnTime(playerId, fManager.GetRankRadioRespawnCooldown(SCR_CharacterRankComponent.GetCharacterRank(operator)) + suicidePenalty);
+		timer.SetRespawnTime(playerId, fManager.GetRankRadioRespawnCooldown(SCR_CharacterRankComponent.GetCharacterRank(operator), playerId) + suicidePenalty);
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! Play task notification msg
+	//! \param[in] taskNotification
+	//! \param[in] msg
+	//! \param[in] factionId
+	//! \param[in] baseCallsign
+	//! \param[in] callerGroupId
+	//! \param[in] calledGroupId
+	//! \param[in] grid
+	//! \param[in] quality
+	//! \param[in] playerID
+	void PlayTaskNotificationMsg(SCR_ETaskNotification taskNotification, SCR_ETaskNotificationMsg msg, int factionId, int baseCallsign, int callerGroupId, int calledGroupId, int grid, float quality, int playerID)
+	{
+		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.GetInstance();
+		if (!campaign)
+			return;
+
+		if (playerID == 0 || playerID > 0 && playerID == m_PlayerController.GetPlayerId())
+			Rpc(RpcDo_PlayTaskNotificationMsg, taskNotification, msg, factionId, baseCallsign, callerGroupId, calledGroupId, grid, quality);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_PlayTaskNotificationMsg(SCR_ETaskNotification taskNotification, SCR_ETaskNotificationMsg msg, int factionId, int baseCallsign, int callerGroupId, int calledGroupId, int grid, float quality)
+	{
+		SCR_TaskNotificationManagerComponent taskNotificationManager = SCR_TaskNotificationManagerComponent.GetInstance();
+		if (!taskNotificationManager)
+			return;
+
+		taskNotificationManager.PlayTaskNotificationMsg(taskNotification, msg, factionId, baseCallsign, callerGroupId, calledGroupId, grid, quality);
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//!
 	//! \param[in] msg
@@ -1217,31 +618,20 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	//! \param[in] callerCallsignCompany
 	//! \param[in] callerCallsignPlatoon
 	//! \param[in] callerCallsignSquad
+	//! \param[in] callerCallsignCharacter
 	//! \param[in] calledCallsignCompany
 	//! \param[in] calledCallsignPlatoon
 	//! \param[in] calledCallsignSquad
+	//! \param[in] calledCallsignCharacter
 	//! \param[in] isPublic
 	//! \param[in] param
 	//! \param[in] seed
 	//! \param[in] quality
 	//! \param[in] playerID
-	void PlayRadioMsg(SCR_ERadioMsg msg, int FactionId, int baseCallsign, int callerCallsignCompany, int callerCallsignPlatoon, int callerCallsignSquad, int calledCallsignCompany, int calledCallsignPlatoon, int calledCallsignSquad, bool isPublic, int param, float seed, float quality, int playerID)
+	void PlayRadioMsg(SCR_ERadioMsg msg, int FactionId, int baseCallsign, int callerCallsignCompany, int callerCallsignPlatoon, int callerCallsignSquad, int callerCallsignCharacter, int calledCallsignCompany, int calledCallsignPlatoon, int calledCallsignSquad, int calledCallsignCharacter, bool isPublic, int param, float seed, float quality, int playerID)
 	{
-		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.GetInstance();
-		
-		if (!campaign)
-			return;
-		
-		SCR_CallsignManagerComponent callsignManager = SCR_CallsignManagerComponent.Cast(campaign.FindComponent(SCR_CallsignManagerComponent));
-		
-		if (!callsignManager)
-			return;
-		
-		int playerCallsignCompany, playerCallsignPlatoon, playerCallsignSquad, playerCallsignCharacter;
-		callsignManager.GetEntityCallsignIndexes(m_PlayerController.GetMainEntity(), playerCallsignCompany, playerCallsignPlatoon, playerCallsignSquad, playerCallsignCharacter);
-		
 		if (isPublic || playerID == m_PlayerController.GetPlayerId())
-			Rpc(RpcDo_PlayRadioMsg, msg, FactionId, baseCallsign, CompressCallsign(callerCallsignCompany, callerCallsignPlatoon, callerCallsignSquad), CompressCallsign(calledCallsignCompany, calledCallsignPlatoon, calledCallsignSquad), param, seed, quality);
+			Rpc(RpcDo_PlayRadioMsg, msg, FactionId, baseCallsign, CompressCallsign(callerCallsignCompany, callerCallsignPlatoon, callerCallsignSquad, callerCallsignCharacter), CompressCallsign(calledCallsignCompany, calledCallsignPlatoon, calledCallsignSquad, calledCallsignCharacter), param, seed, quality);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -1255,37 +645,25 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	//! \param[in] seed
 	//! \param[in] quality
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
-	void RpcDo_PlayRadioMsg(SCR_ERadioMsg msg, int factionId, int baseCallsign, int callerCallsign, int calledCallsign, int param, float seed, float quality)
+	protected void RpcDo_PlayRadioMsg(SCR_ERadioMsg msg, int factionId, int baseCallsign, int callerCallsign, int calledCallsign, int param, float seed, float quality)
 	{
 		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.GetInstance();
 		
-		int callerCallsignCompany, callerCallsignPlatoon, callerCallsignSquad, calledCallsignCompany, calledCallsignPlatoon, calledCallsignSquad;
-		DecompressCallsign(callerCallsign, callerCallsignCompany, callerCallsignPlatoon, callerCallsignSquad);
-		DecompressCallsign(calledCallsign, calledCallsignCompany, calledCallsignPlatoon, calledCallsignSquad);
+		int callerCallsignCompany, callerCallsignPlatoon, callerCallsignSquad, callerCallsignCharacter, calledCallsignCompany, calledCallsignPlatoon, calledCallsignSquad, calledCallsignCharacter;
+		DecompressCallsign(callerCallsign, callerCallsignCompany, callerCallsignPlatoon, callerCallsignSquad, callerCallsignCharacter);
+		DecompressCallsign(calledCallsign, calledCallsignCompany, calledCallsignPlatoon, calledCallsignSquad, calledCallsignCharacter);
 		
 		SCR_CampaignFeedbackComponent comp = SCR_CampaignFeedbackComponent.GetInstance();
 		
 		if (!comp)
 			return;
 		
-		comp.PlayRadioMsg(msg, factionId, baseCallsign, callerCallsignCompany, callerCallsignPlatoon, callerCallsignSquad, calledCallsignCompany, calledCallsignPlatoon, calledCallsignSquad, param, seed, quality);
-
-//		if (checkHQReached)
-//			GetGame().GetCallqueue().CallLater(CheckHQReached, 7000)
-	}
-		
-	//------------------------------------------------------------------------------------------------
-	//!
-	void CheckHQReached()
-	{
-//		ChimeraWorld world = GetOwner().GetWorld();
-//		if (m_fLastHQRadioMessageTimestamp.PlusMilliseconds(8000).Less(world.GetServerTimestamp()))
-//			return;
+		comp.PlayRadioMsg(msg, factionId, baseCallsign, callerCallsignCompany, callerCallsignPlatoon, callerCallsignSquad, callerCallsignCharacter, calledCallsignCompany, calledCallsignPlatoon, calledCallsignSquad, calledCallsignCharacter, param, seed, quality);
 	}
 
 	//------------------------------------------------------------------------------------------------
 	//! Callback
-	void OnBeforePlayerInteraction(EResourcePlayerInteractionType interactionType, PlayerController playerController, SCR_ResourceComponent resourceComponentFrom, SCR_ResourceComponent resourceComponentTo, EResourceType resourceType, float resourceValue)
+	protected void OnBeforePlayerInteraction(EResourcePlayerInteractionType interactionType, PlayerController playerController, SCR_ResourceComponent resourceComponentFrom, SCR_ResourceComponent resourceComponentTo, EResourceType resourceType, float resourceValue)
 	{
 		m_bOrphanSuppliesLoaded = false;
 		SCR_ResourceConsumer consumer = resourceComponentFrom.GetConsumer(EResourceGeneratorID.VEHICLE_LOAD, resourceType);
@@ -1293,7 +671,7 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 		if (!consumer && !resourceComponentFrom.GetConsumer(EResourceGeneratorID.DEFAULT, resourceType, consumer))
 			return;
 		
-		SCR_ResourceContainerQueue<SCR_ResourceConsumer> containerQueue = SCR_ResourceContainerQueue<SCR_ResourceConsumer>.Cast(consumer.GetContainerQueue());
+		SCR_ResourceContainerQueue containerQueue = SCR_ResourceContainerQueue.Cast(consumer.GetContainerQueue());
 
 		if (containerQueue.GetStorageTypeCount(EResourceContainerStorageType.STORED) == 0)
 			m_bOrphanSuppliesLoaded = true;
@@ -1306,12 +684,12 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	//! \param[in] resourceComponentTo
 	//! \param[in] resourceType
 	//! \param[in] resourceValue
-	void OnPlayerSuppliesInteraction(EResourcePlayerInteractionType interactionType, PlayerController playerController, SCR_ResourceComponent resourceComponentFrom, SCR_ResourceComponent resourceComponentTo, EResourceType resourceType, float resourceValue)
+	protected void OnPlayerSuppliesInteraction(EResourcePlayerInteractionType interactionType, PlayerController playerController, SCR_ResourceComponent resourceComponentFrom, SCR_ResourceComponent resourceComponentTo, EResourceType resourceType, float resourceValue)
 	{
 		if (!playerController || !resourceComponentFrom || !resourceComponentTo)
 			return;
 		
-		GetOnTransferSupplies().Invoke(interactionType, resourceComponentFrom, resourceComponentTo, resourceType, resourceValue);
+		GetOnTransferSupplies().Invoke(interactionType, resourceComponentFrom, resourceComponentTo, resourceType, resourceValue, playerController);
 
 		vector pos = resourceComponentFrom.GetOwner().GetOrigin();
 
@@ -1393,7 +771,7 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	void OnSuppliesUnloaded(vector position, float amount, int playerId, notnull SCR_ResourceComponent resourceComponentFrom, int assistantId = 0)
+	protected void OnSuppliesUnloaded(vector position, float amount, int playerId, notnull SCR_ResourceComponent resourceComponentFrom, int assistantId = 0)
 	{
 		// Identify the player who actually loaded the supplies
 		if (resourceComponentFrom != m_LastLoadedComponent)
@@ -1473,7 +851,7 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 
 	//------------------------------------------------------------------------------------------------
 	// Init
-	override void EOnInit(IEntity owner)
+	override protected void EOnInit(IEntity owner)
 	{
 		m_PlayerController = SCR_PlayerController.Cast(PlayerController.Cast(owner));
 		
@@ -1501,7 +879,7 @@ class SCR_CampaignNetworkComponent : ScriptComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	override void OnPostInit(IEntity owner)
+	override protected void OnPostInit(IEntity owner)
 	{
 		super.OnPostInit(owner);
 		SetEventMask(owner, EntityEvent.INIT);

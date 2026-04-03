@@ -33,7 +33,8 @@ class SCR_MapMarkerSquadLeaderComponent : SCR_MapMarkerDynamicWComponent
 	protected int m_iGroupInfoOffset;
 		
 	protected ref array<int> m_aDisplayedPlayerIDs = {};
-
+	protected ref map<Widget, Widget> m_groupCohesionWidgetCache = new map<Widget, Widget>();
+	
 	//------------------------------------------------------------------------------------------------
 	//! Differentiates visuals between our group and the others
 	//! \param[in] state
@@ -211,13 +212,47 @@ class SCR_MapMarkerSquadLeaderComponent : SCR_MapMarkerDynamicWComponent
 				cohesionComponent.GetPlayersInCohesion(cluster);
 				OnClusterUpdated(cluster);
 			}
+			else
+			{
+				HideCohesionWidget();
+			}
 		}
-		
+
 		m_bIsHovered = true;
-		
+
 		return true;
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	Widget GetCohesionWidget(Widget entry)
+	{
+		Widget cohesionWidget;
+		if (m_groupCohesionWidgetCache.Contains(entry))
+		{
+			cohesionWidget = m_groupCohesionWidgetCache.Get(entry);
+		}
+		else
+		{
+			cohesionWidget = entry.FindAnyWidget(m_sGroupCohesionWidgetName);
+			m_groupCohesionWidgetCache.Insert(entry, cohesionWidget);
+		}
+
+		return cohesionWidget;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void HideCohesionWidget()
+	{
+		foreach (Widget entry : m_aGroupMemberEntries)
+		{
+			Widget cohesionWidget = GetCohesionWidget(entry);
+			if (!cohesionWidget)
+				continue;
+
+			cohesionWidget.SetVisible(false);
+		}
+	}
+
 	//------------------------------------------------------------------------------------------------
 	protected void OnClusterUpdated(notnull array<int> cluster)
 	{
@@ -227,12 +262,12 @@ class SCR_MapMarkerSquadLeaderComponent : SCR_MapMarkerDynamicWComponent
 
 		foreach (int i, int playerID : m_aDisplayedPlayerIDs)
 		{
-			int playerId = m_aDisplayedPlayerIDs[i];
-			ImageWidget cohesionImage = ImageWidget.Cast(m_aGroupMemberEntries[i].FindAnyWidget(m_sGroupCohesionWidgetName));
+			Widget entry = m_aGroupMemberEntries[i];
+			ImageWidget cohesionImage = ImageWidget.Cast(GetCohesionWidget(entry));
 			if (!cohesionImage)
 				continue;
 
-			if (cluster.Contains(playerId))
+			if (cluster.Contains(playerID))
 				cohesionImage.SetColor(Color.FromInt(Color.WHITE));
 			else
 				cohesionImage.SetColor(Color.FromInt(Color.GRAY_25));
