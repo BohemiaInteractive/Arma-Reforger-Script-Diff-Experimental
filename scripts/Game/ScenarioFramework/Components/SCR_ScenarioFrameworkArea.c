@@ -634,4 +634,12 @@ class SCR_ScenarioFrameworkArea : SCR_ScenarioFrameworkLayerBase
 		m_iDebugShapeColor = ARGB(32, 0x99, 0xF3, 0x12);
 #endif
 	}
+	
+	//------------------------------------------------------------------------------------------------
+	void ~SCR_ScenarioFrameworkArea()
+	{
+		SCR_ScenarioFrameworkSystem scenarioFrameworkSystem = SCR_ScenarioFrameworkSystem.GetInstance();
+		if (scenarioFrameworkSystem)
+			scenarioFrameworkSystem.UnregisterArea(this);
+	}
 }

@@ -599,6 +599,15 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 		if (!m_aAreas.Contains(area))
 			m_aAreas.Insert(area);
 	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Registers new area in scenario framework areas list.
+	//! \param[in] area to be registered.
+	void UnregisterArea(SCR_ScenarioFrameworkArea area)
+	{
+		if (m_aAreas)
+			m_aAreas.RemoveItem(area);
+	}
 
 	//------------------------------------------------------------------------------------------------
 	//! Loads component settings from SCR_GameModeSFManager
@@ -725,8 +734,8 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 		if (m_aDebugAreas.IsEmpty())
 		{
 			foreach (SCR_ScenarioFrameworkArea area : m_aAreas)
-			{
-				if (area.GetDynamicDespawnEnabled())
+			{	
+				if (!area || area.GetDynamicDespawnEnabled())
 					continue;
 
 				area.Init();
@@ -1293,7 +1302,7 @@ class SCR_ScenarioFrameworkSystem : GameSystem
 
 		foreach (SCR_ScenarioFrameworkArea area : m_aAreas)
 		{
-			if (!area.GetDynamicDespawnEnabled())
+			if (!area || !area.GetDynamicDespawnEnabled())
 				continue;
 
 			int despawnRange = area.GetDynamicDespawnRange();

@@ -958,6 +958,7 @@ class SCR_InventoryStorageBaseUI : ScriptedWidgetComponent
 			else
 			{
 				uiSlot.IncreaseStackNumber();		//if it exists, just increase the stacked number and don't create new slot
+				uiSlot.OverrideReferencedComponent(iic); // always point at the last item from the stack, to prevent tile from changing position when removing items
 			}
 
 			iCompensationOffset++;
@@ -970,30 +971,55 @@ class SCR_InventoryStorageBaseUI : ScriptedWidgetComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	void UpdateSlotUI(ResourceName item)
+	void UpdateSlotUI(ResourceName itemPrefab)
 	{
-		int id = GetSlotIdForItem(item);
-
 		array<IEntity> pItemsInStorage = {};
 
 		BaseInventoryStorageComponent storage = GetCurrentNavigationStorage();
 	
 		GetAllItems(pItemsInStorage, storage);
 
-		int count = pItemsInStorage.Count();
-		int newStackCount = 0;
-		InventoryItemComponent comp;
-
-		for (int i = 0; i < count; ++i)
+		//! key - ui slot id
+		//! value - tuple3 container:
+		//! {
+		//! 	param1 - old stack size
+		//! 	param2 - new stack size
+		//! 	param3 - last item in stack
+		//! }
+		map<int, ref Tuple3<int, int, InventoryItemComponent>> changeMap = new map<int, ref Tuple3<int, int, InventoryItemComponent>>();
+		foreach (int slotId, SCR_InventorySlotUI slot : m_aSlots)
 		{
-			if (pItemsInStorage[i].GetPrefabData().GetPrefabName() == item)
-			{
-				comp = GetItemComponentFromEntity(pItemsInStorage[i]);
-				newStackCount++;
-			}
+			if (slot.GetInventoryItemComponent().GetOwner().GetPrefabData().GetPrefabName() != itemPrefab)
+				continue;
+
+			changeMap.Set(slotId, new Tuple3<int, int, InventoryItemComponent>(slot.GetStackNumber(), 0, null));
 		}
-		
-		m_aSlots[id].UpdateInventorySlot(comp, newStackCount);
+
+		InventoryItemComponent iic;
+		Tuple3<int, int, InventoryItemComponent> stackChange;
+		foreach (IEntity item : pItemsInStorage)
+		{
+			if (item.GetPrefabData().GetPrefabName() != itemPrefab)
+				continue;
+
+			iic = InventoryItemComponent.Cast(item.FindComponent(InventoryItemComponent));
+			int slotId = FindItem(iic);
+			stackChange = changeMap.Get(slotId);
+			if (!stackChange)
+				continue;
+
+			stackChange.param2++;
+			stackChange.param3 = iic; // keep the reference to the last item in the stack
+		}
+
+		SCR_InventorySlotUI slot;
+		foreach (int slotId, Tuple3<int, int, InventoryItemComponent> finalChange : changeMap)
+		{
+			if (finalChange.param1 == finalChange.param2)
+				continue;
+
+			m_aSlots[slotId].UpdateInventorySlot(finalChange.param3, finalChange.param2);
+		}
 	}
 	
 	//------------------------------------------------------------------------------------------------

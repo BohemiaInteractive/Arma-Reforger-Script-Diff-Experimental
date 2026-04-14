@@ -339,6 +339,33 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 	//! \param[in] config
 	void OnMapOpen(MapConfiguration config)
 	{
+		// ---- FUNCTIONAL: Always register radial menu & hover listeners ----
+		SCR_MapRadialUI mapContextualMenu = SCR_MapRadialUI.GetInstance();
+		if (mapContextualMenu)
+		{
+			SCR_RadialMenu radialMenu = mapContextualMenu.GetRadialController().GetRadialMenu();
+			if (radialMenu)
+			{
+				// Available now — hook directly
+				radialMenu.GetOnEntryPerformed().Insert(OnEntryPerformed);
+				radialMenu.GetOnOpen().Insert(OnRadialMenuOpen);
+			}
+			else
+			{
+				// Not ready yet — wait for init (deferred)
+				mapContextualMenu.GetOnMenuInitInvoker().Insert(OnRadialMenuAvailable);
+			}
+		}	
+		
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		if (mapEntity)
+		{
+			SCR_MapCampaignUI mapCampaignUI = SCR_MapCampaignUI.Cast(mapEntity.GetMapUIComponent(SCR_MapCampaignUI));
+			if (mapCampaignUI)
+				mapCampaignUI.GetOnBaseHovered().Insert(OnBaseHovered);
+		}
+		
+		// ---- HINTS: Guard only the hint logic, may early exit ----
 		if (GetGame().GetWorld().GetWorldTime() < FEATURE_HINT_DELAY)
 			return;
 
@@ -381,23 +408,6 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 
 		if (SCR_PlayerController.GetLocalPlayerId() == playerGroup.GetLeaderID() && SCR_PlayerController.GetLocalPlayerId() != playerFaction.GetCommanderId())
 			ShowHint(EHint.CONFLICT_SQUAD_LEADER_COMMUNICATION);
-
-		SCR_MapRadialUI mapContextualMenu = SCR_MapRadialUI.GetInstance();
-		if (!mapContextualMenu)
-			return;
-
-		mapContextualMenu.GetOnMenuInitInvoker().Insert(OnRadialMenuAvailable);
-
-		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
-		if (!mapEntity)
-			return;
-
-		SCR_MapCampaignUI mapCampaignUI = SCR_MapCampaignUI.Cast(mapEntity.GetMapUIComponent(SCR_MapCampaignUI));
-
-		if (!mapCampaignUI)
-			return;
-
-		mapCampaignUI.GetOnBaseHovered().Insert(OnBaseHovered);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -406,13 +416,14 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 		SCR_MapRadialUI mapMenu = SCR_MapRadialUI.GetInstance();
 		if (!mapMenu)
 			return;
-
-		mapMenu.GetOnMenuInitInvoker().Insert(OnRadialMenuAvailable);
-		SCR_RadialMenu m_RadialMenu = mapMenu.GetRadialController().GetRadialMenu();
-		if (m_RadialMenu)
+		
+		mapMenu.GetOnMenuInitInvoker().Remove(OnRadialMenuAvailable);
+		// adding radial menu-related invokers deferred, remove in OnMapClose
+		SCR_RadialMenu radialMenu = mapMenu.GetRadialController().GetRadialMenu();
+		if (radialMenu)
 		{
-			m_RadialMenu.GetOnEntryPerformed().Insert(OnEntryPerformed);
-			m_RadialMenu.GetOnOpen().Insert(OnRadialMenuOpen);
+			radialMenu.GetOnEntryPerformed().Insert(OnEntryPerformed);
+			radialMenu.GetOnOpen().Insert(OnRadialMenuOpen);
 		}
 	}
 
@@ -438,22 +449,25 @@ class SCR_CampaignFeedbackComponent : ScriptComponent
 	void OnMapClose(MapConfiguration config)
 	{
 		SCR_MapRadialUI mapMenu = SCR_MapRadialUI.GetInstance();
-		if (!mapMenu)
-			return;
-
-		SCR_RadialMenu m_RadialMenu = mapMenu.GetRadialController().GetRadialMenu();
-		if (m_RadialMenu)
+		if (mapMenu)
 		{
-			m_RadialMenu.GetOnEntryPerformed().Remove(OnEntryPerformed);
-			m_RadialMenu.GetOnOpen().Remove(OnRadialMenuOpen);
+			mapMenu.GetOnMenuInitInvoker().Remove(OnRadialMenuAvailable);
+		
+			SCR_RadialMenu radialMenu = mapMenu.GetRadialController().GetRadialMenu();
+			if (radialMenu)
+			{
+				radialMenu.GetOnEntryPerformed().Remove(OnEntryPerformed);
+				radialMenu.GetOnOpen().Remove(OnRadialMenuOpen);
+			}
 		}
-
+		
 		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
-		if (!mapEntity) return;
+		if (mapEntity)
+		{
 			SCR_MapCampaignUI mapCampaignUI = SCR_MapCampaignUI.Cast(mapEntity.GetMapUIComponent(SCR_MapCampaignUI));
-
-		if (!mapCampaignUI) return;
-			mapCampaignUI.GetOnBaseHovered().Remove(OnBaseHovered)
+			if (mapCampaignUI) 
+				mapCampaignUI.GetOnBaseHovered().Remove(OnBaseHovered)
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------

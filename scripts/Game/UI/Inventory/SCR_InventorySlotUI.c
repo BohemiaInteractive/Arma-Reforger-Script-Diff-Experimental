@@ -79,7 +79,13 @@ class SCR_InventorySlotUI : ScriptedWidgetComponent
 	{
 		return m_pStorageUI.GetAnalyticalItemSlotType();
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	void OverrideReferencedComponent(notnull InventoryItemComponent iic)
+	{
+		m_pItem = iic;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	void UpdateReferencedComponent( InventoryItemComponent pComponent, SCR_ItemAttributeCollection attributes = null )
 	{
@@ -208,10 +214,18 @@ class SCR_InventorySlotUI : ScriptedWidgetComponent
 		
 		return pClothComponent.GetAreaType();
 	}
-	
-	
+
 	//------------------------------------------------------------------------------------------------
-	void SetStackNumber( int i ) { m_iStackNumber = i; }
+	void SetStackNumber(int i)
+	{
+		m_iStackNumber = i;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	int GetStackNumber()
+	{
+		return m_iStackNumber;
+	}
 
 	//------------------------------------------------------------------------------------------------
 	void IncreaseStackNumber() 
