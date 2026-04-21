@@ -18,6 +18,9 @@ class SCR_RestrictedDeployableSpawnPointComponent : SCR_BaseDeployableSpawnPoint
 	[Attribute("{5A258632A5C32E48}Prefabs/MP/Spawning/ItemSpecifics/RestrictedDeployableSpawnPoint_Radio_Supplies.et", uiwidget: UIWidgets.ResourcePickerThumbnail, params: "et", category: "Setup")]
 	protected ResourceName m_sSpawnPointPrefabSupplies;
 	
+	[Attribute(defvalue: "1", desc: "Should it follow gamemode restrictions", category: "General")]
+	protected bool m_bRestrictDeploy;
+	
 	// General	
 	[Attribute(defvalue: "1", desc: "Play audio cue once spawn point can/cannot be deployed", category: "General")]
 	protected bool m_bPlaySoundOnZoneEntered;
@@ -226,7 +229,7 @@ class SCR_RestrictedDeployableSpawnPointComponent : SCR_BaseDeployableSpawnPoint
 	//------------------------------------------------------------------------------------------------
 	protected bool CanActionBeShown(notnull IEntity userEntity, bool checkFaction, bool checkGroupID)
 	{
-		if (!m_bDeployableSpawnPointsEnabled)
+		if (m_bRestrictDeploy && !m_bDeployableSpawnPointsEnabled)
 			return false;
 
 		FactionAffiliationComponent factionAffiliation = FactionAffiliationComponent.Cast(userEntity.FindComponent(FactionAffiliationComponent));
@@ -415,6 +418,10 @@ class SCR_RestrictedDeployableSpawnPointComponent : SCR_BaseDeployableSpawnPoint
 	//! Check if deploy is possible, then call super.Deploy()
 	override void Deploy(IEntity userEntity, bool reload = false)
 	{
+		//~ Not allowed to deploy
+		if (m_bRestrictDeploy && !m_bDeployableSpawnPointsEnabled)
+			return;
+			
 		if (!m_RplComponent || m_RplComponent.IsProxy())
 			return;
 		
@@ -845,7 +852,7 @@ class SCR_RestrictedDeployableSpawnPointComponent : SCR_BaseDeployableSpawnPoint
 			s_aDebugShapes.Clear();
 #endif
 		
-		if (!m_bDeployableSpawnPointsEnabled)
+		if (m_bRestrictDeploy && !m_bDeployableSpawnPointsEnabled)
 			return;
 		
 		if (!m_RplComponent || m_RplComponent.IsProxy())

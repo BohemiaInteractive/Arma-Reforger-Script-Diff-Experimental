@@ -10,7 +10,7 @@
 [WorkbenchPluginAttribute(
 	name: PLUGIN_NAME,
 	description: "Detect rough vertices on terrain.",
-	shortcut: "",
+//	shortcut: "",
 	wbModules: { "WorldEditor" },
 	category: "Terrain",
 	awesomeFontCode: 0xF1B3)]
@@ -20,7 +20,7 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 	protected float m_fMinAngleDifference;
 
 	[Attribute(defvalue: "0", uiwidget: UIWidgets.ComboBox, desc: "GetHeightmap mode - under, over water, or both", enums: SCR_ParamEnumArray.FromString("Everything;Above water only;Underwater only"))]
-	protected int m_iMode; //!< 0 = everything, 1 = above water, 2 = underwater
+	protected int m_eMode; //!< 0 = everything, 1 = above water, 2 = underwater
 
 	[Attribute(defvalue: "33", uiwidget: UIWidgets.Slider, desc: "Trace to find if an entity is hiding the bad vertice (0 = no trace)", params: "0 100 0.1")]
 	protected float m_fEntityTraceOffset;
@@ -35,7 +35,7 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 	[Attribute(defvalue: "1", desc: "Draw arrows pointing at result vertices")]
 	protected bool m_bDrawDebugShapes;
 
-	protected ref array<float> m_aHeightmap;
+	protected ref array<ref array<ref array<float>>> m_aHeightmaps;
 	protected string m_sLastLoadedWorld;
 	protected ref SCR_DebugShapeManager m_DebugShapeManager = new SCR_DebugShapeManager();
 
@@ -69,12 +69,14 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 		if (Workbench.ScriptDialog(PLUGIN_NAME, "", this) == 0)
 			return;
 
-		if (m_bForceHeightmapRefresh || !m_aHeightmap || m_sLastLoadedWorld != worldPath)
+		if (m_bForceHeightmapRefresh || !m_aHeightmaps || m_sLastLoadedWorld != worldPath)
 		{
 			WBProgressDialog progress = new WBProgressDialog("Gathering terrain heightmap, please wait...", Workbench.GetModule(WorldEditor));
 			progress.SetProgress(0.42);
-			m_aHeightmap = SCR_WorldEditorToolHelper.GetTerrainHeightmap();
-			if (!m_aHeightmap)
+			Debug.BeginTimeMeasure();
+			m_aHeightmaps = GetTerrainHeightmaps();
+			Debug.EndTimeMeasure("Obtaining heightmap as one array");
+			if (!m_aHeightmaps)
 			{
 				SCR_WorkbenchHelper.PrintDialog("Cannot load terrain's heightmap.", PLUGIN_NAME, LogLevel.ERROR);
 				return;
@@ -83,7 +85,16 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 			worldEditorAPI.GetWorldPath(m_sLastLoadedWorld);
 		}
 
-		if (Workbench.ScriptDialog(PLUGIN_NAME, "You are about to process " + m_aHeightmap.Count() + " vertices; continue?", new WorkbenchDialog_OKCancel()) == 0)
+		int verticesCount;
+		foreach (array<ref array<float>> cols : m_aHeightmaps)
+		{
+			foreach (array<float> yValues : cols)
+			{
+				verticesCount += yValues.Count();
+			}
+		}
+
+		if (Workbench.ScriptDialog(PLUGIN_NAME, "You are about to process " + verticesCount + " vertices; continue?", new WorkbenchDialog_OKCancel()) == 0)
 			return;
 
 		array<vector> resultPositions = {};
@@ -127,13 +138,13 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 			"World: %1\n%2 suspect vertices (angle > %3 degrees):",
 			FilePath.StripExtension(FilePath.StripPath(worldPathNoFS)),
 			count.ToString(),
-			SCR_FormatHelper.FloatToStringNoZeroDecimalEndings(m_fMinAngleDifference, 2));
+			SCR_FormatHelper.FloatToDecString(m_fMinAngleDifference, 2));
 
 		foreach (int i, vector position : resultPositions)
 		{
 			resultStr += "\n" + resultAngles[i].ToString(6, 2) + "deg at ";
 			if (m_bOutputAsWorkbenchLinks)
-				resultStr += string.Format("enfusion:/" + "/WorldEditor/%1;%2,%3,%4;-70.12,315,0", worldPathNoFS, position[0] + 1.808, position[1] + 5, position[2] - 1.808);
+				resultStr += string.Format("enfusion://WorldEditor/%1;%2,%3,%4;-70.12,315,0", worldPathNoFS, position[0] + 1.808, position[1] + 5, position[2] - 1.808);
 			else
 				resultStr += position.ToString();
 
@@ -167,6 +178,40 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! \return array(x) of array(y) of tiles
+	protected array<ref array<ref array<float>>> GetTerrainHeightmaps()
+	{
+		const int terrainIndex = 0;
+
+		WorldEditorAPI worldEditorAPI = SCR_WorldEditorToolHelper.GetWorldEditorAPI();
+		if (!worldEditorAPI)
+			return null;
+
+		int tilesCountX = worldEditorAPI.GetTerrainTilesX(terrainIndex);
+		if (tilesCountX < 1)
+			return null;
+
+		int tilesCountY = worldEditorAPI.GetTerrainTilesY(terrainIndex);
+
+		array<ref array<ref array<float>>> result = {};
+		result.Resize(tilesCountX);
+		array<float> tileTempArray;
+		for (int tileX; tileX < tilesCountY; ++tileX)
+		{
+			result[tileX] = {};
+			result[tileX].Resize(tilesCountY);
+			for (int tileY; tileY < tilesCountY; ++tileY)
+			{
+				tileTempArray = {};
+				worldEditorAPI.GetTerrainSurfaceTile(terrainIndex, tileX, tileY, tileTempArray);
+				result[tileX][tileY] = tileTempArray;
+			}
+		}
+
+		return result;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void GetSuspectVertices(notnull out array<vector> vertices, out notnull array<float> angles)
 	{
 		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
@@ -175,27 +220,32 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 
 		int mode;
 		bool hasOcean = world.IsOcean();
-		if (!hasOcean && m_iMode == MODE_UNDER_WATER)
+		if (!hasOcean && m_eMode == MODE_UNDER_WATER)
 		{
 			SCR_WorkbenchHelper.PrintDialog("Temporarily changing mode from underwater to all terrain, provided this terrain has no ocean.", PLUGIN_NAME, LogLevel.NORMAL);
 			mode = 0;
 		}
 		else
 		{
-			mode = m_iMode;
+			mode = m_eMode;
 		}
 
 		float oceanLevel;
 		if (hasOcean)
 			oceanLevel = world.GetOceanBaseHeight();
 
-		int verticesXMinus1 = worldEditorAPI.GetTerrainResolutionX() - 1;
-		int verticesZMinus1 = worldEditorAPI.GetTerrainResolutionY() - 1;
-		int verticesXMinus2 = verticesXMinus1 - 1;
-		int verticesZMinus2 = verticesZMinus1 - 1;
-		float step = worldEditorAPI.GetTerrainUnitScale();
+		const int terrainIndex = 0;
+		int terrainResolutionX = worldEditorAPI.GetTerrainResolutionX(terrainIndex);
+		int terrainResolutionY = worldEditorAPI.GetTerrainResolutionY(terrainIndex);
+		int terrainResolutionXMinus1 = terrainResolutionX - 1;
+		int terrainResolutionYMinus1 = terrainResolutionY - 1;
+		int tileSizeX = terrainResolutionXMinus1 / worldEditorAPI.GetTerrainTilesX(terrainIndex) + 1;
+		int tileSizeZ = terrainResolutionYMinus1 / worldEditorAPI.GetTerrainTilesY(terrainIndex) + 1;
+		int tileSizeXMinus1 = tileSizeX - 1;
+		int tileSizeZMinus1 = tileSizeZ - 1;
+		float step = worldEditorAPI.GetTerrainUnitScale(terrainIndex);
 
-		int totalPoints = verticesXMinus2 * verticesZMinus2;
+		int totalPoints = (terrainResolutionXMinus1 - 1) * (terrainResolutionYMinus1 - 1);
 
 		TraceParam traceParam;
 		if (m_fEntityTraceOffset > 0)
@@ -214,61 +264,106 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 		int progressStep, progressStepLimit = totalPoints * 0.01;
 		Debug.BeginTimeMeasure();
 
-		for (int z = 1; z < verticesZMinus2; ++z)
+		int progressCount;
+		array<float> leftTile;
+		array<float> belowTile;
+		foreach (int tileX, array<ref array<float>> xTiles : m_aHeightmaps)
 		{
-			for (int x = 1; x < verticesXMinus2; ++x)
+			foreach (int tileY, array<float> tileHeightmap : xTiles)
 			{
-				++progressStep;
-				if (progressStep >= progressStepLimit) // min 1%
+				for (int z; z < tileSizeZMinus1; ++z)
 				{
-					progress.SetProgress((verticesXMinus1 * z + x) / totalPoints); // expensive
-					progressStep = 0;
-				}
+					if (z == 0)
+					{
+						if (tileY == 0)
+							continue;
 
-				int currIndex = verticesZMinus1 * z + x;
+						belowTile = m_aHeightmaps[tileX][tileY - 1];
+					}
 
-				float currY = m_aHeightmap[currIndex];
+					for (int x; x < tileSizeXMinus1; ++x)
+					{
+						if (x == 0)
+						{
+							if (tileX == 0)
+								continue;
+						}
 
-				if (mode == MODE_ABOVE_WATER)
-				{
-					if (currY < oceanLevel)
-						continue;
-				}
-				else
-				if (mode == MODE_UNDER_WATER)
-				{
-					if (currY >= oceanLevel)
-						continue;
-				}
+						++progressStep;
+						++progressCount;
+						if (progressStep >= progressStepLimit) // min 1%
+						{
+							progress.SetProgress(progressCount / totalPoints); // expensive
+							progressStep = 0;
+						}
 
-				vector pos = { x, 0, z } * step + { 0, currY, 0 };
+						int currIndex = x + z * tileSizeX;
 
-				float outAngle;
-				// west-east
-				if (IsAngleBad(pos, outAngle, m_aHeightmap[currIndex - 1], m_aHeightmap[currIndex + 1], step, minAngleDifferenceRad, traceParam, world))
-				{
-					vertices.Insert(pos);
-					angles.Insert(outAngle);
-					continue;
-				}
+						float currY = tileHeightmap[currIndex];
 
-				// south-north
-				if (IsAngleBad(pos, outAngle, m_aHeightmap[currIndex - 1], m_aHeightmap[currIndex + 1], step, minAngleDifferenceRad, traceParam, world))
-				{
-					vertices.Insert(pos);
-					angles.Insert(outAngle);
-					// continue;
+						if (mode == MODE_ABOVE_WATER)
+						{
+							if (currY < oceanLevel)
+								continue;
+						}
+						else
+						if (mode == MODE_UNDER_WATER)
+						{
+							if (currY >= oceanLevel)
+								continue;
+						}
+
+						vector pos = {
+							(x + tileX * tileSizeXMinus1) * step,
+							currY,
+							(z + tileY * tileSizeZMinus1) * step
+						};
+
+						float outAngle;
+						// west-east
+
+						float leftY;
+						if (x == 0)
+						{
+							leftTile = m_aHeightmaps[tileX - 1][tileY];
+							leftY = leftTile[tileSizeXMinus1 + z * tileSizeX];
+						}
+						else
+						{
+							leftY = tileHeightmap[currIndex - 1];
+						}
+
+						float rightY = tileHeightmap[currIndex + 1];
+
+						float belowY;
+						if (z == 0)
+							belowY = belowTile[x + tileSizeZMinus1 * tileSizeX];
+						else
+							belowY = tileHeightmap[currIndex - tileSizeX];
+
+						float aboveY = tileHeightmap[currIndex + tileSizeX];
+
+						if (IsAngleBad(pos, outAngle, leftY, rightY, step, minAngleDifferenceRad, traceParam, world))
+						{
+							vertices.Insert(pos);
+							angles.Insert(outAngle);
+							continue;
+						}
+
+						// south-north
+						if (IsAngleBad(pos, outAngle, belowY, aboveY, step, minAngleDifferenceRad, traceParam, world))
+						{
+							vertices.Insert(pos);
+							angles.Insert(outAngle);
+							// continue;
+						}
+					}
 				}
 			}
 		}
 
 		Debug.EndTimeMeasure("Comparing angles");
 	}
-
-	//------------------------------------------------------------------------------------------------
-	//! \param[in] mode \see m_iMode
-	//! \return array of floats grouped by 4 format x, y, z, angle
-//	protected array<float> GetSuspectVerticesPerTile(int mode)
 
 	//------------------------------------------------------------------------------------------------
 	//!
@@ -278,7 +373,7 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 	//! \param[in] nextY
 	//! \param[in] step
 	//! \param[in] minAngleDifferenceRad
-	//! \param[in] traceParam
+	//! \param[in] traceParam null = no trace
 	//! \param[in] world
 	//! \return
 	bool IsAngleBad(
@@ -310,10 +405,10 @@ class SCR_TerrainEdgesFinderPlugin : WorldEditorPlugin
 		{
 			traceParam.Start = position + { 0, m_fEntityTraceOffset, 0 };
 			traceParam.End = position;
-		}
 
-		if (traceParam && world.TraceMove(traceParam) != 1)
-			return false;
+			if (world.TraceMove(traceParam) != 1)
+				return false;
+		}
 
 		angle = difference * Math.RAD2DEG;
 

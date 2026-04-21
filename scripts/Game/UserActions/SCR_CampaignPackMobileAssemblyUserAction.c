@@ -33,7 +33,7 @@ class SCR_CampaignPackMobileAssemblyUserAction : SCR_CampaignDeployMobileAssembl
 		if (!campaign)
 			return false;
 
-		if (SCR_FactionManager.SGetLocalPlayerFaction() != m_AssemblyComponent.GetParentFaction())
+		if (SCR_FactionManager.SGetLocalPlayerFaction() != m_AssemblyComponent.GetAffiliatedFaction())
 			return false;
 		
 		SCR_SpawnPoint spawnpoint = m_AssemblyComponent.GetSpawnPoint();

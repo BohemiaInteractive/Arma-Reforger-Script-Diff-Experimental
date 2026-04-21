@@ -161,7 +161,6 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 		InsertStaticMarker(marker, isLocal, isServerMarker);
 	}
 	
-	
 	//------------------------------------------------------------------------------------------------
 	//! Insert customized static marker
 	//! \param[in] marker is the subject
@@ -618,6 +617,7 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 	//------------------------------------------------------------------------------------------------
 	protected void OnMapPanEnd(float x, float y)
 	{
+		m_MapEntity.UpdateViewPort();
 		m_MapEntity.GetMapVisibleFrame(m_vVisibleFrameMin, m_vVisibleFrameMax);
 		
 		for (int i = m_aDisabledMarkers.Count() - 1; i >= 0; i--)
@@ -650,6 +650,10 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 	//------------------------------------------------------------------------------------------------
 	protected void OnMapOpen(MapConfiguration mapConfig)
 	{
+		m_MapEntity.UpdateViewPort();
+		
+		m_MapEntity.GetMapVisibleFrame(m_vVisibleFrameMin, m_vVisibleFrameMax);
+		
 		for (int i = m_aDisabledMarkers.Count() - 1; i >= 0; i--)
 		{
 			SetStaticMarkerDisabled(m_aDisabledMarkers[i], !m_aDisabledMarkers[i].TestVisibleFrame(m_vVisibleFrameMin, m_vVisibleFrameMax));
@@ -713,7 +717,6 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 			if (!texts.IsIndexValid(i))
 				break;
 			
-
 			if (isPlatformXbox)
 			{
 				string resultText;
@@ -724,6 +727,7 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 			{
 				marker.SetCustomText(texts[i]);
 			}
+			
 			i++;
 		}
 	}
@@ -821,8 +825,7 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 		array<string> textsToFilter = {};
 		
 		for (int i; i < count; i++)
-		{	
-				
+		{		
 			reader.ReadInt(posX);
 			reader.ReadInt(posY);
 			reader.ReadInt(markerID);
@@ -903,7 +906,7 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 		s_Instance = this;
 		m_MapEntity = SCR_MapEntity.GetMapInstance();
 		m_MapEntity.GetOnMapPanEnd().Insert(OnMapPanEnd);
-		m_MapEntity.GetOnMapOpen().Insert(OnMapOpen);
+		m_MapEntity.GetOnMapOpenComplete().Insert(OnMapOpen);
 		
 		Resource container = BaseContainerTools.LoadContainer(m_sMarkerCfgPath);
 		if (container)

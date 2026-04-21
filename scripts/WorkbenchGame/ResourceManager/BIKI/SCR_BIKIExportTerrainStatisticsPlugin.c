@@ -190,8 +190,8 @@ class SCR_BIKIExportTerrainStatisticsPlugin : SCR_BIKIExportBasePlugin
 		//
 
 		Debug.BeginTimeMeasure();
-		float landRatio = SCR_WorldEditorToolHelper.GetTerrainLandRatio(m_fTerrainMeasurementResolution);
-		Debug.EndTimeMeasure(string.Format("Getting land ratio for %1: %2%% with a %3m step", worldPath, landRatio, m_fTerrainMeasurementResolution));
+		float landSurface = SCR_WorldEditorToolHelper.GetTerrainLandArea();
+		Debug.EndTimeMeasure(string.Format("Getting land surface for %1: %2 km² with a %3m step", worldPath, (landSurface * 0.000001).ToString(lenDec: 2), m_fTerrainMeasurementResolution));
 
 		vector terrainDimensions = SCR_WorldEditorToolHelper.GetTerrainDimensions();
 		float terrainSurface = terrainDimensions[0] * terrainDimensions[2];
@@ -201,7 +201,7 @@ class SCR_BIKIExportTerrainStatisticsPlugin : SCR_BIKIExportBasePlugin
 			"landArea",
 			string.Format(
 				"<span title=\"%2 measurement precision\">%1</span>",
-				FormatSurface(terrainSurface * landRatio),
+				FormatSurface(landSurface),
 				FormatDistance(m_fTerrainMeasurementResolution)));
 
 		// totalArea

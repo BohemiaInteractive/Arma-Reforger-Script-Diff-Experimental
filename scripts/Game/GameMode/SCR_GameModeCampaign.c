@@ -1564,38 +1564,29 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 			}
 		}
 
+		// Handle Conflict-specific vehicles
 		SlotManagerComponent slotManager = SlotManagerComponent.Cast(spawnedEntity.FindComponent(SlotManagerComponent));
-
 		if (!slotManager)
 			return;
 
 		array<EntitySlotInfo> slots = {};
 		slotManager.GetSlotInfos(slots);
-
+	
 		IEntity truckBed;
-		SCR_CampaignSuppliesComponent suppliesComponent;
 		SCR_CampaignMobileAssemblyComponent mobileAssemblyComponent;
-		EventHandlerManagerComponent eventHandlerManager;
 
-		// Handle Conflict-specific vehicles
 		foreach (EntitySlotInfo slot : slots)
 		{
 			if (!slot)
 				continue;
 
 			truckBed = slot.GetAttachedEntity();
-
 			if (!truckBed)
 				continue;
 
 			mobileAssemblyComponent = SCR_CampaignMobileAssemblyComponent.Cast(truckBed.FindComponent(SCR_CampaignMobileAssemblyComponent));
-
-			// Mobile HQ
 			if (mobileAssemblyComponent)
-			{
-				mobileAssemblyComponent.SetParentFactionID(GetGame().GetFactionManager().GetFactionIndex(faction));
 				networkComp.SendVehicleSpawnHint(EHint.CONFLICT_MOBILE_HQ);
-			}
 		}
 	}
 

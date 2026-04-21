@@ -30,7 +30,6 @@ class SCR_CampaignMobileAssemblyComponentSerializer : ScriptedComponentSerialize
 		context.Read(deployed);
 		if (deployed)
 		{
-			mobileAssembly.SetParentFactionID(GetGame().GetFactionManager().GetFactionIndex(SCR_FactionManager.SGetFaction(owner)));
 			mobileAssembly.UpdateRadioCoverage();
 			mobileAssembly.Deploy(SCR_EMobileAssemblyStatus.DEPLOYED, silent: true);
 		}

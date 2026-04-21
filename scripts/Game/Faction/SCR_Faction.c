@@ -40,7 +40,7 @@ class SCR_Faction : ScriptedFaction
 	[Attribute("", UIWidgets.ResourcePickerThumbnail, "Faction flag material, used on flag poles.", params: "emat")]
 	protected ResourceName m_FactionFlagMaterial;
 
-	[Attribute("0", UIWidgets.SearchComboBox, "", enums: ParamEnumArray.FromEnum(EEditableEntityLabel))]
+	[Attribute("0", UIWidgets.SearchComboBox, "", enumType: EEditableEntityLabel)]
 	protected EEditableEntityLabel m_FactionLabel;
 	
 	[Attribute("1", desc: "If this is false it would mean that every AI will be hostile towards their own faction members and essentially allow for Deathmatch. Use with caution, only checked on init, you can still set the faction hostile towards itself in runtime. This essentially makes sure it adds itself to FriendlyFactionsIds.")]

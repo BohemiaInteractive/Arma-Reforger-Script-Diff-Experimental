@@ -70,8 +70,8 @@ class SCR_WorldEditorToolHelper
 
 	//------------------------------------------------------------------------------------------------
 	//! Get a World Editor link in Enfusion protocol format (enfusion://) using current camera's position/angles
-	//! \param[in] useWebPrefix use WEB_PREFIX or not
-	//! \return Enfusion protocol World Editor link or empty on 
+	//! \param[in] useWebPrefix use enfusionengine.com prefix or not
+	//! \return Enfusion protocol World Editor link or empty on
 	static string GetCurrentWorldEditorLink(bool useWebPrefix = false)
 	{
 		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
@@ -93,8 +93,8 @@ class SCR_WorldEditorToolHelper
 	//! position and camera are ignored if both are 0 0 0
 	//! \param[in] position camera position
 	//! \param[in] angles camera angles (pitch yaw roll) (NOT direction!)
-	//! \param[in] useWebPrefix use WEB_PREFIX or not
-	//! \return Enfusion protocol World Editor link or empty on 
+	//! \param[in] useWebPrefix use enfusionengine.com prefix or not
+	//! \return Enfusion protocol World Editor link or empty on error/no world loaded
 	static string GetCurrentWorldEditorLink(vector position, vector angles, bool useWebPrefix = false)
 	{
 		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
@@ -137,15 +137,20 @@ class SCR_WorldEditorToolHelper
 		if (position == vector.Zero && angles == vector.Zero)
 			return "enfusion://WorldEditor/" + worldPath;
 
-		return string.Format(
-				"enfusion://WorldEditor/%1;%2,%3,%4;%5,%6,%7",
-				worldPath,
-				position[0],
-				position[1],
-				position[2],
-				angles[1],
-				angles[0],
-				angles[2]);
+		string result = string.Format(
+			"enfusion://WorldEditor/%1;%2,%3,%4;%5,%6,%7",
+			worldPath,
+			position[0],
+			position[1],
+			position[2],
+			angles[1],
+			angles[0],
+			angles[2]);
+
+		if (useWebPrefix)
+			return WEB_PREFIX + result;
+		else
+			return result;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -232,18 +237,13 @@ class SCR_WorldEditorToolHelper
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! \return { X, 0, Z } dimensions
+	//! \return terrain's absolute dimensions (using terrain bounds)
 	static vector GetTerrainDimensions()
 	{
-		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
-		if (!worldEditorAPI)
-			return vector.Zero;
-
-		return worldEditorAPI.GetTerrainUnitScale() * {
-			worldEditorAPI.GetTerrainResolutionX() - 1,
-			0,
-			worldEditorAPI.GetTerrainResolutionY() - 1
-		};
+		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+		vector min, max;
+		worldEditor.GetTerrainBounds(min, max);
+		return max - min;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -313,57 +313,196 @@ class SCR_WorldEditorToolHelper
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! \return array of Y vertice values or null if no terrain mesh
-	static array<float> GetTerrainHeightmap()
+	//! Get current terrain's land area (Y >= ocean level) in square metres, or -1 if no terrain is loaded or on wrong terrain index
+	//! \param[in] terrainIndex 0 or above
+	//! \return the land area in m² (multiply by 0.000001 to convert to km²)
+	static float GetTerrainLandArea(int terrainIndex = 0)
 	{
-		if (!HasTerrainMesh())
-			return null;
+		if (terrainIndex < 0)
+			return -1;
 
-		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
+		WorldEditorAPI worldEditorAPI = SCR_WorldEditorToolHelper.GetWorldEditorAPI();
 
-		const int terrainIndex = 0;
-		int tileXCount = worldEditorAPI.GetTerrainTilesX(terrainIndex);
-		int tileYCount = worldEditorAPI.GetTerrainTilesY(terrainIndex);
+		BaseWorld world = worldEditorAPI.GetWorld();
+		if (!world)
+			return -1;
 
-		int tileSideSize = (worldEditorAPI.GetTerrainResolutionX() - 1) / tileXCount;
+		const float cellSideSize = worldEditorAPI.GetTerrainUnitScale(terrainIndex);
+		if (cellSideSize <= 0)
+			return -1; // wrong terrain index or no terrain loaded
 
-		int totalSideSizeX = tileSideSize * tileXCount;
-		int totalSideSizeY = tileSideSize * tileYCount; // should be equal to X assuming square terrain
-		int tileValuesCount = tileSideSize * tileSideSize;
-		int totalValuesCount = totalSideSizeX * totalSideSizeY;
+		const float cellSideSizeSq = cellSideSize * cellSideSize;
 
-		array<float> result = {};
-		result.Resize(totalValuesCount);
+		if (!world.IsOcean()) // no ocean = everything is land
+		{
+			return cellSideSizeSq
+				* (worldEditorAPI.GetTerrainResolutionX(terrainIndex) - 1)
+				* (worldEditorAPI.GetTerrainResolutionY(terrainIndex) - 1);
+		}
 
+		const float oceanLevel = worldEditorAPI.GetWorld().GetOceanBaseHeight();
+		if (oceanLevel == -float.MAX) // just some safety, most likely not needed
+		{
+			return cellSideSizeSq
+				* (worldEditorAPI.GetTerrainResolutionX(terrainIndex) - 1)
+				* (worldEditorAPI.GetTerrainResolutionY(terrainIndex) - 1);
+		}
+
+		const int tileXCount = worldEditorAPI.GetTerrainTilesX(terrainIndex);
+		const int tileYCount = worldEditorAPI.GetTerrainTilesY(terrainIndex);
+
+		const int tileSideSizeX = (worldEditorAPI.GetTerrainResolutionX(terrainIndex) - 1) / tileXCount;
+		const int tileSideSizeY = (worldEditorAPI.GetTerrainResolutionY(terrainIndex) - 1) / tileYCount;
+
+		const int tileArea = tileSideSizeX * tileSideSizeY;
+		const int tileValuesCount = (tileSideSizeX + 1) * (tileSideSizeY + 1); // +1 - e.g 32×32 cells = 33×33 vertices
 		array<float> tileYs = {};
 		tileYs.Resize(tileValuesCount);
 
+		float result;
+
+		int bottomLeftIndex, bottomRightIndex;
+		float topLeftY, bottomLeftY, topRightY, bottomRightY;
+		bool aboveZeroTL, aboveZeroTR, aboveZeroBL, aboveZeroBR;
+		bool tileHasAboveZeroArea, tileHasBelowZeroArea;
 		for (int tileY; tileY < tileYCount; ++tileY)
 		{
 			for (int tileX; tileX < tileXCount; ++tileX)
 			{
-				worldEditorAPI.GetTerrainSurfaceTile(terrainIndex, tileX, tileY, tileYs);
-//				if (!worldEditorAPI.GetTerrainSurfaceTile(terrainIndex, tileX, tileY, tileYs))
-//				{
-//					PrintFormat("Invalid tile %1:%2", tileX, tileY, level: LogLevel.ERROR);
-//					return null;
-//				}
-
-				int left = tileX * tileSideSize;
-				int bottom = tileY * tileSideSize;
-				foreach (int yIndex, float yValue : tileYs)
+				if (!worldEditorAPI.GetTerrainSurfaceTile(terrainIndex, tileX, tileY, tileYs))
 				{
-//					int x = left + yIndex % tileSideSize;
-//					int y = bottom + yIndex / tileSideSize;
-//					int newIndex = y * totalSideSizeX + x;
-
-					const int i = (bottom + yIndex / tileSideSize) * totalSideSizeX + left + yIndex % tileSideSize;
-					result[i] = yValue;
+					PrintFormat("Invalid tile %1:%2", tileX, tileY, level: LogLevel.ERROR);
+					return -1;
 				}
+
+				tileHasAboveZeroArea = false;
+				tileHasBelowZeroArea = false;
+				foreach (float yValue : tileYs)
+				{
+					if (yValue >= oceanLevel)
+					{
+						tileHasAboveZeroArea = true;
+						if (tileHasBelowZeroArea)
+							break;
+					}
+					else
+					{
+						tileHasBelowZeroArea = true;
+						if (tileHasAboveZeroArea)
+							break;
+					}
+				}
+
+				if (!tileHasAboveZeroArea) // full underwater
+					continue;
+
+				if (!tileHasBelowZeroArea) // full above water
+				{
+					result += tileArea * cellSideSizeSq;
+					continue;
+				}
+
+				float tileSurface; // intermediate variable needed for big terrains (e.g Balta) due to float precision
+				for (int tileValueY = 1; tileValueY <= tileSideSizeY; ++tileValueY)
+				{
+					for (int tileValueX = 1; tileValueX <= tileSideSizeX; ++tileValueX)
+					{
+						if (tileValueX == 1)
+						{
+							bottomLeftIndex = tileValueX - 1 + tileSideSizeY * (tileValueY - 1);
+							topLeftY = tileYs[bottomLeftIndex + tileSideSizeY];
+							bottomLeftY = tileYs[bottomLeftIndex];
+						}
+						else
+						{
+							bottomLeftIndex = bottomRightIndex;
+							topLeftY = topRightY;
+							bottomLeftY = bottomRightY;
+						}
+
+						bottomRightIndex = bottomLeftIndex + 1;
+						topRightY = tileYs[bottomLeftIndex + tileSideSizeY + 1];
+						bottomRightY = tileYs[bottomRightIndex];
+
+						aboveZeroTL = topLeftY >= 0;
+						aboveZeroTR = topRightY >= 0;
+						aboveZeroBL = bottomLeftY >= 0;
+						aboveZeroBR = bottomRightY >= 0;
+						if (aboveZeroTL == aboveZeroTR && aboveZeroTL == aboveZeroBL && aboveZeroTL == aboveZeroBR) // everything equal
+						{
+							if (aboveZeroTL) // all points are >= 0
+								tileSurface += 1; // one full cell
+
+							continue;
+						}
+
+						// top-right triangle
+						if (aboveZeroTL == aboveZeroTR && aboveZeroTL == aboveZeroBR)
+						{
+							if (aboveZeroTL)
+								tileSurface += 0.5;
+						}
+						else
+						{
+							tileSurface += GetTriangle2DAreaAboveOceanLevel(topLeftY, topRightY, bottomRightY, oceanLevel);
+						}
+
+						// bottom-left triangle
+						if (aboveZeroTL == aboveZeroBL && aboveZeroTL == aboveZeroBR)
+						{
+							if (aboveZeroTL)
+								tileSurface += 0.5;
+						}
+						else
+						{
+							tileSurface += GetTriangle2DAreaAboveOceanLevel(topLeftY, bottomLeftY, bottomRightY, oceanLevel);
+						}
+					}
+				}
+
+				result += tileSurface * cellSideSizeSq;
 			}
 		}
 
 		return result;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Get the above-ocean 2D area of a triangle
+	//! \param[in] a y value at pos 0,0
+	//! \param[in] b y value at pos 0,1
+	//! \param[in] c y value at pos 1,1
+	//! \param[in] oceanLevel
+	//! \return triangle surface above zero in range 0..0.5 (given it is a half-cell triangle)
+	protected static float GetTriangle2DAreaAboveOceanLevel(float a, float b, float c, float oceanLevel = 0)
+	{
+		array<float> heights = { a - oceanLevel, b - oceanLevel, c - oceanLevel };
+		heights.Sort();
+
+		if (heights[2] < 0)
+			return 0;
+
+		const float area = 0.5;
+
+		// all above zero
+		if (heights[0] >= 0)
+			return area;
+
+		// only heights[2] is above zero → small positive triangle near heights[2]
+		if (heights[1] < 0)
+		{
+			float r1 = heights[2] / (heights[2] - heights[0]);
+			float r2 = heights[2] / (heights[2] - heights[1]);
+			return area * r1 * r2 * heights[2] / 3;
+		}
+
+		// heights[0] < 0, heights[1] >= 0, heights[2] > 0 → cut away negative triangle near heights[0]
+		float s1 = -heights[0] / (heights[1] - heights[0]);
+		float s2 = -heights[0] / (heights[2] - heights[0]);
+		float negSubArea = area * s1 * s2;
+		// negative sub-triangle has heights (heights[0], 0, 0), volume = negSubArea * heights[0] / 3
+		// total = full volume - negative sub volume
+		return area * (heights[0] + heights[1] + heights[2]) / 3 - negSubArea * heights[0] / 3;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -377,61 +516,6 @@ class SCR_WorldEditorToolHelper
 		vector result;
 		terrainEntitySource.Get("coords", result);
 		return result;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Can be VERY expensive depending on the step parameter
-	//! a terrain at the same level as the ocean is considered terrain
-	//! \param[in] step measurement precision in metres, range 0.1..worldSize/2
-	//! \return
-	//! - 1 if no ocean
-	//! - 0 if no land
-	//! - 1 if no land or ocean
-	//! otherwise the landMass/totalSize ratio in 0..1 range (oceanRatio = 1 - landRatio)
-	static float GetTerrainLandRatio(float step = 1)
-	{
-		WorldEditorAPI worldEditorAPI = GetWorldEditorAPI();
-		BaseWorld world = worldEditorAPI.GetWorld();
-		if (!world.IsOcean())
-			return 1;
-
-		if (step < 0.1)
-			step = 0.1;
-
-		if (!HasTerrainMesh())
-			return 0;
-
-		vector terrainPosition = GetTerrainPosition();
-		vector terrainDimensions = GetTerrainDimensions();
-
-		if (step > terrainDimensions[0] * 0.5)
-			step = terrainDimensions[0] * 0.5;
-
-		float minX = terrainPosition[0];
-		float minZ = terrainPosition[2];
-		float maxX = minX + terrainDimensions[0];
-		float maxZ = minZ + terrainDimensions[2];
-
-		float offsetX = Math.Mod(terrainDimensions[0], step) * 0.5;
-		float offsetZ = Math.Mod(terrainDimensions[2], step) * 0.5;
-
-		float oceanLevel = world.GetOceanBaseHeight();
-		int aboveWater;
-		int belowWater;
-		float y;
-		for (float z = minZ + offsetZ, limitZ = maxZ + offsetZ; z <= limitZ; z += step)
-		{
-			for (float x = minX + offsetX, limitX = maxX + offsetX; x <= limitX; x += step)
-			{
-				if (!worldEditorAPI.TryGetTerrainSurfaceY(x, z, y) || y < oceanLevel)
-					++belowWater;
-				else
-					++aboveWater;
-			}
-		}
-
-		// (aboveWater + belowWater) should not be able to be zero; otherwise there is a big problem
-		return aboveWater / (aboveWater + belowWater);
 	}
 
 	//------------------------------------------------------------------------------------------------
