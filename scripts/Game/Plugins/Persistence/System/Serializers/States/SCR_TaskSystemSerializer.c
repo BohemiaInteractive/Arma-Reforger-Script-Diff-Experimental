@@ -213,8 +213,18 @@ class SCR_TaskSave
 		task.SetTaskVisibility(m_eVisibility);
 		task.SetTaskUIVisibility(m_eUIVisibility);
 
-		foreach (auto factionKey : m_aOwnerFactionKeys)
+		foreach (int idx, auto factionKey : m_aOwnerFactionKeys)
 		{
+			if (idx == 0)
+			{
+				const SCR_EditableTaskComponent editableTask = SCR_EditableTaskComponent.Cast(task.FindComponent(SCR_EditableTaskComponent));
+				if (editableTask && !editableTask.GetFaction())
+				{
+					const Faction faction = GetGame().GetFactionManager().GetFactionByKey(factionKey);
+					editableTask.SetTargetFaction(faction);
+				}
+			}
+
 			task.AddOwnerFactionKey(factionKey);
 		}
 

@@ -47,7 +47,11 @@ class SCR_FactionManagerSerializer : ScriptedEntitySerializer
 			foreach (auto friendly : defaultFriendlies)
 			{
 				friendlies.Insert(friendly);
-				friendlyDefaultMapping.Get(friendly).Insert(key);
+
+				// defaultFriendlies Can contain a faction key from old config not known to faction manager.
+				set<FactionKey> reverseMapping = friendlyDefaultMapping.Get(friendly);
+				if (reverseMapping)
+					reverseMapping.Insert(key);
 			}
 		}
 

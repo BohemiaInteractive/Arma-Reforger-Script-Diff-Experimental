@@ -201,11 +201,9 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 #ifdef DEBUG_GROUPS
 		SCR_GroupsManagerComponent.GetInstance().UpdateDebugUI();
 #endif
-		if (m_GroupComponent.GetSelectedGroupID() == -1)
-		{
-			s_OnGroupButtonClicked.Invoke();
-			m_GroupComponent.SetSelectedGroupID(m_iGroupID);
-		}
+
+		m_GroupComponent.SetSelectedGroupID(m_iGroupID);
+		s_OnGroupButtonClicked.Invoke();
 
 		return true;
 	}
@@ -266,7 +264,7 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 
 		RichTextWidget frequency = RichTextWidget.Cast(GetRootWidget().FindAnyWidget("Frequency"));
 		if (frequency)
-			frequency.SetTextFormat("#AR-VON_FrequencyUnits_MHz", group.GetRadioFrequency() * 0.001);
+			frequency.SetTextFormat("%1 #AR-VON_FrequencyUnits_MHz", group.GetRadioFrequency() * 0.001);
 
 		RichTextWidget playerCount = RichTextWidget.Cast(GetRootWidget().FindAnyWidget("PlayerCount"));
 		ImageWidget playerImageWidget = ImageWidget.Cast(GetRootWidget().FindAnyWidget("PlayerIcon"));
@@ -660,7 +658,7 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 
 		CheckLeaderOptions();
 
-		frequency.SetTextFormat("#AR-VON_FrequencyUnits_MHz", group.GetRadioFrequency() * 0.001);
+		frequency.SetTextFormat("%1 #AR-VON_FrequencyUnits_MHz", group.GetRadioFrequency() * 0.001);
 
 		Widget children = playerList.GetChildren();
 		while (children)
@@ -1055,11 +1053,8 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 	{
 		super.OnFocus(w, x, y);
 
-		if (m_GroupComponent.GetSelectedGroupID() != m_iGroupID)
-		{
-			s_OnGroupButtonClicked.Invoke();
+		if (m_GroupComponent.GetSelectedGroupID() == -1)
 			m_GroupComponent.SetSelectedGroupID(m_iGroupID);
-		}
 		
 		EInputDeviceType deviceType = GetGame().GetInputManager().GetLastUsedInputDevice();
 		if (deviceType == EInputDeviceType.GAMEPAD || deviceType == EInputDeviceType.KEYBOARD)

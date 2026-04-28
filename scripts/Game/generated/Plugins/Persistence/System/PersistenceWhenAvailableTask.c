@@ -25,7 +25,7 @@ class PersistenceWhenAvailableTask: PersistenceCallback
 	event protected void OnResult(Managed instance, PersistenceDeferredDeserializeTask task = null, bool expired = false, Managed context = null);
 
 	//! Invoke the delegate assigned to this callback. Returns false if there is none. To be used from OnResult.
-	proto external bool InvokeDelegate(Managed instance, PersistenceDeferredDeserializeTask task = null, bool expired = false, Managed context = null);
+	proto external bool InvokeDelegate(Managed instance, PersistenceDeferredDeserializeTask task = null, bool expired = false);
 }
 
 /*!

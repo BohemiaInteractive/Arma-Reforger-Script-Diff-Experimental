@@ -34,7 +34,11 @@ class SCR_CharacterDamageManagerComponent : SCR_ExtendedDamageManagerComponent
 	protected float m_fMinImpulse;
 	protected float m_fWaterFallDamageMultiplier = 0.33;
 	protected int m_fMinWaterFallDamageVelocity = 10;
-
+	
+	// Fall damage
+	protected float m_fVehicleFallTriggerVelocity = -2.0;
+	protected float m_fVehicleFallDamage = 200.0;
+	
 	// Static array for all limbs
 	static ref array<ECharacterHitZoneGroup> LIMB_GROUPS;
 	static const ref array<ECharacterHitZoneGroup> EXTREMITY_LIMB_GROUPS = {ECharacterHitZoneGroup.LEFTARM, ECharacterHitZoneGroup.RIGHTARM, ECharacterHitZoneGroup.LEFTLEG, ECharacterHitZoneGroup.RIGHTLEG};
@@ -103,6 +107,27 @@ class SCR_CharacterDamageManagerComponent : SCR_ExtendedDamageManagerComponent
 	float GetPoisonBuildupFactor()
 	{
 		return m_fPoisonBuildupFactor;
+	}
+	
+	
+	bool IsFallingVehicle(IEntity owner, IEntity other, Contact contact)
+	{
+		// Is it falling?
+		if (contact.VelocityBefore2[1] > m_fVehicleFallTriggerVelocity)
+			return false;
+		
+		// Is it a vehicle
+		if (!Vehicle.Cast(other))
+			return false;
+			
+		ChimeraCharacter character = ChimeraCharacter.Cast(owner);
+		if (!character)
+			return false;
+		
+		// Is the contact above the character?
+		vector characterPosition = character.AimingPosition();
+		vector impactPosition = contact.Position;
+		return impactPosition[1] > characterPosition[1];	
 	}
 	
 	//-----------------------------------------------------------------------------------------------------------
@@ -1666,8 +1691,8 @@ class SCR_CharacterDamageManagerComponent : SCR_ExtendedDamageManagerComponent
 	//------------------------------------------------------------------------------------------------
 	//! Filter out any contacts under a reasonable speed for damage
 	override bool FilterContact(IEntity owner, IEntity other, Contact contact)
-	{
-		if (Math.AbsFloat(contact.GetRelativeNormalVelocityBefore()) <= 3)
+	{			
+		if (!IsFallingVehicle(owner, other, contact) && (Math.AbsFloat(contact.GetRelativeNormalVelocityBefore()) <= 3))
 			return false;
 
 		// Do not recompute collisiondamage within the impulseDelay if it's lower than the highest one thus far
@@ -1747,6 +1772,12 @@ class SCR_CharacterDamageManagerComponent : SCR_ExtendedDamageManagerComponent
 	{		
 		float relativeNormalVelocityBefore = Math.AbsFloat(contact.GetRelativeNormalVelocityBefore());
 
+		if (IsFallingVehicle(owner, other, contact))
+		{
+			ApplyCollisionDamage(other, contact.Position, m_fVehicleFallDamage);
+			m_fHighestContact = 0.0;
+			return;
+		}
 		CalculateCollisionDamage(owner, other, contact.Position, relativeNormalVelocityBefore);
 	}
 

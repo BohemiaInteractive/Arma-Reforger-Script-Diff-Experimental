@@ -1336,7 +1336,7 @@ class SCR_DestructibleBuildingComponent : SCR_DamageManagerComponent
 		// Ensure registration of destroyed building as they are otherwise not tracked by default
 		auto persistence = PersistenceSystem.GetInstance();
 		if (persistence)
-			persistence.StartTracking(owner);
+			persistence.StartTracking(owner, false);
 
 		vector mins, maxs;
 		owner.GetBounds(mins, maxs);

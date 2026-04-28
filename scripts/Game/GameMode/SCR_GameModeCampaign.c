@@ -1388,14 +1388,18 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 		if (!loadout || !spawnpoint)
 			return true;
 
-		// Spawning on MHQ with custom loadouts is not allowed
-		if (spawnpoint.FindComponent(SCR_CampaignMobileAssemblyStandaloneComponent))
+		// Spawning on MHQ or random spawn points with custom loadouts is not allowed
+		if (spawnpoint.IsSpawnPointRandom() || spawnpoint.FindComponent(SCR_CampaignMobileAssemblyStandaloneComponent))
 		{
 			result = SCR_ESpawnResult.NOT_ALLOWED_CUSTOM_LOADOUT;
 			return false;
 		}
 
 		if (!base)
+			return true;
+
+		SCR_CampaignFaction baseFaction = base.GetCampaignFaction();
+		if (baseFaction && baseFaction.CanSpawnOnSourceBases())
 			return true;
 
 		SCR_ServicePointDelegateComponent armory = base.GetServiceDelegateByType(SCR_EServicePointType.ARMORY);

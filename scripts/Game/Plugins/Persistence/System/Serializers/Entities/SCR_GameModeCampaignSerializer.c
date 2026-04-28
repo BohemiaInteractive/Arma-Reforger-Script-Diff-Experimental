@@ -1,8 +1,8 @@
-class SCR_GameModeCampaignSerializer : ScriptedEntitySerializer
+class SCR_GameModeCampaignSerializer : SCR_GameModeSerializer
 {
 	[Attribute("120.0", desc: "Maximum time a faction commander can reconnect at and automatically get his role back.")]
 	protected float m_fMaxCommanderReconnectTime;
-	
+
 	//------------------------------------------------------------------------------------------------
 	override static typename GetTargetType()
 	{
@@ -34,6 +34,12 @@ class SCR_GameModeCampaignSerializer : ScriptedEntitySerializer
 			}
 		}
 
+		context.StartObject("base");
+		const ESerializeResult baseResult = super.Serialize(entity, context);
+		context.EndObject();
+		if (baseResult == ESerializeResult.ERROR)
+			return baseResult;
+
 		context.WriteValue("version", 1);
 		context.Write(callsignOffset);
 
@@ -48,6 +54,16 @@ class SCR_GameModeCampaignSerializer : ScriptedEntitySerializer
 	{
 		auto conflict = SCR_GameModeCampaign.Cast(entity);
 
+		if (context.DoesObjectExist("base"))
+		{
+			if (!context.StartObject("base") ||
+				!super.Deserialize(entity, context) ||
+				!context.EndObject())
+			{
+				return false;
+			}
+		}
+
 		int version;
 		context.Read(version);
 
@@ -61,7 +77,7 @@ class SCR_GameModeCampaignSerializer : ScriptedEntitySerializer
 			foreach (FactionKey factionKey, UUID commanderId : factionCommanders)
 			{
 				Tuple1<FactionKey> ctx(factionKey);
-				PersistenceWhenAvailableTask task(OnPlayerAvailable,  ctx);
+				PersistenceWhenAvailableTask task(OnPlayerAvailable, ctx);
 				GetSystem().WhenAvailable(commanderId, task, m_fMaxCommanderReconnectTime);
 			}
 		}

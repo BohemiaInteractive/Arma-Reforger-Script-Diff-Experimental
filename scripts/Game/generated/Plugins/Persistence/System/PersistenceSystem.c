@@ -32,8 +32,10 @@ class PersistenceSystem: WorldSystem
 	/*!
 	Make an instance known to the internal system for further tracking and to apply save-data on load.
 	Mostly for scripted states. IEntity should usually be registered by putting the PersistenceComponent on it!
+	\param[in] entityOrState The instance to track
+	\param[in] lazy Allow lazy registration at a later point to reduce performance impact.
 	*/
-	proto external bool StartTracking(notnull Managed entityOrState);
+	proto external bool StartTracking(notnull Managed entityOrState, bool lazy = true);
 	//! Stop the tracking the instance for save-game processing. Optionally delete the data during the next save.
 	proto external bool StopTracking(notnull Managed entityOrState, bool removeData = true);
 	//! Get the internal id of the instance. Null if not persistent.

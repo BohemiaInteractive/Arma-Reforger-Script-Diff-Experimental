@@ -22,7 +22,7 @@ class SaveGameOperationCallback: SaveGameCallback
 	event protected void OnCompleted(bool success, Managed context = null);
 
 	//! Invoke the delegate assigned to this callback. Returns false if there is none. To be used from OnCompleted.
-	proto external bool InvokeDelegate(bool success, Managed context = null);
+	proto external bool InvokeDelegate(bool success);
 }
 
 /*!

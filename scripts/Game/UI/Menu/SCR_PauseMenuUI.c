@@ -25,24 +25,26 @@ class PauseMenuUI : ChimeraMenuBase
 	protected SCR_ButtonTextComponent m_SettingsButton;
 
 	protected ref SCR_ConfigurableDialogUi m_ExitDialog;
+	protected ref SCR_ConfigurableDialogUi m_RespawnDialog;
 
-	const string EXIT_SAVE = "#AR-PauseMenu_ReturnSaveTitle";
-	const string EXIT_NO_SAVE = "#AR-PauseMenu_ReturnTitle";
+	protected const string EXIT_SAVE = "#AR-PauseMenu_ReturnSaveTitle";
+	protected const string EXIT_NO_SAVE = "#AR-PauseMenu_ReturnTitle";
 
-	const string EXIT_MESSAGE = "#AR-PauseMenu_ReturnText";
-	const string EXIT_TITLE = "#AR-PauseMenu_ReturnTitle";
-	const string EXIT_IMAGE = "exit";
+	protected const string EXIT_MESSAGE = "#AR-PauseMenu_ReturnText";
+	protected const string EXIT_TITLE = "#AR-PauseMenu_ReturnTitle";
+	protected const string EXIT_IMAGE = "exit";
 
-	const string RESTART_MESSAGE = "#AR-PauseMenu_RestartText";
-	const string RESTART_TITLE = "#AR-PauseMenu_Restart";
-	const string RESTART_IMAGE = "restart";
+	protected const string RESTART_MESSAGE = "#AR-PauseMenu_RestartText";
+	protected const string RESTART_TITLE = "#AR-PauseMenu_Restart";
+	protected const string RESTART_IMAGE = "restart";
 
-	const string LOAD_MESSAGE = "#AR-PauseMenu_LoadText";
-	const string LOAD_TITLE = "#AR-PauseMenu_Load";
-	const string LOAD_IMAGE = "up";
+	protected const string LOAD_MESSAGE = "#AR-PauseMenu_LoadText";
+	protected const string LOAD_TITLE = "#AR-PauseMenu_Load";
+	protected const string LOAD_IMAGE = "up";
 
-	const string DIALOG_SCENARIO_EXIT = "scenario_exit";
-	const string DIALOG_SAVE_FAILED = "pause_menu_save_failed";
+	protected const string DIALOG_SCENARIO_EXIT = "scenario_exit";
+	protected const string DIALOG_SAVE_FAILED = "pause_menu_save_failed";
+	protected const string DIALOG_CONFIRM_RESPAWN = "respawn_confirmation";
 
 	static ref ScriptInvoker m_OnPauseMenuOpened = new ScriptInvoker();
 	static ref ScriptInvoker m_OnPauseMenuClosed = new ScriptInvoker();
@@ -106,28 +108,15 @@ class PauseMenuUI : ChimeraMenuBase
 			comp.m_OnClicked.Insert(OnRestart);
 		}
 
-		// Respawn
-		SCR_RespawnSystemComponent respawnComponent = SCR_RespawnSystemComponent.GetInstance();
 
 		comp = SCR_ButtonTextComponent.GetButtonText("Respawn", m_wRoot);
 		if (comp)
-		{
+		{ // Respawn
+			SCR_RespawnSystemComponent respawnComponent = SCR_RespawnSystemComponent.GetInstance();
 			if (respawnComponent && !respawnComponent.IsPauseMenuRespawnEnabled())
-			{
 				comp.SetVisible(false);
-			}
 			else
-			{
-				bool canRespawn;
-				if (gameMode)
-				{
-					RespawnSystemComponent respawn = RespawnSystemComponent.Cast(gameMode.FindComponent(RespawnSystemComponent));
-					canRespawn = (respawn != null && CanRespawn());
-				}
-
-				comp.GetRootWidget().SetVisible(canRespawn);
-				comp.m_OnClicked.Insert(OnRespawn);
-			}
+				comp.m_OnClicked.Insert(ConfirmRespawn);
 		}
 
 		// Leave faction
@@ -491,6 +480,29 @@ class PauseMenuUI : ChimeraMenuBase
 	}
 
 	//------------------------------------------------------------------------------------------------
+	private void ConfirmRespawn()
+	{
+		// Create respawn confirmation dialog
+		m_RespawnDialog = SCR_CommonDialogs.CreateDialog(DIALOG_CONFIRM_RESPAWN);
+		if (!m_RespawnDialog)
+			return;
+
+		bool canRespawn;
+		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+		if (gameMode)
+		{
+			RespawnSystemComponent respawn = RespawnSystemComponent.Cast(gameMode.FindComponent(RespawnSystemComponent));
+			canRespawn = (respawn != null && CanRespawn());
+		}
+
+		m_RespawnDialog.GetRootWidget().SetVisible(canRespawn);
+		if (canRespawn)
+			m_RespawnDialog.m_OnConfirm.Insert(OnRespawn);
+		else
+			m_RespawnDialog.Close();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	private void OnRewind()
 	{
 		new SCR_RewindDialog();
@@ -501,10 +513,11 @@ class PauseMenuUI : ChimeraMenuBase
 	{
 		m_ExitDialog.m_OnConfirm.Remove(OnExitConfirm);
 
-		if (IsSavingOnExit())
+		SaveGameManager manager = GetGame().GetSaveGameManager();		
+		if (IsSavingOnExit() && !manager.IsBusy())
 		{
-			//--- Close only after the save file was created
-			GetGame().GetSaveGameManager().RequestSavePoint(ESaveGameType.SHUTDOWN, flags: ESaveGameRequestFlags.BLOCKING, callback: new SaveGameOperationCallback(OnExitSaveResult))
+			//--- Close only after the save file was created, unless a save was already ongoing.
+			manager.RequestSavePoint(ESaveGameType.SHUTDOWN, flags: ESaveGameRequestFlags.BLOCKING, callback: new SaveGameOperationCallback(OnExitSaveResult))
 		}
 		else
 		{
@@ -764,6 +777,8 @@ class PauseMenuUI : ChimeraMenuBase
 	//------------------------------------------------------------------------------------------------
 	private void OnRespawn()
 	{
+		m_RespawnDialog.m_OnConfirm.Remove(OnRespawn);
+		m_RespawnDialog.Close();
 		PlayerController playerController = GetGame().GetPlayerController();
 		if (!playerController)
 			return;

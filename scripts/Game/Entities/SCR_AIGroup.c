@@ -146,7 +146,7 @@ class SCR_AIGroup : ChimeraAIGroup
 	protected SCR_EGroupRole m_eGroupRole;
 	protected bool m_bIsPrivacyChangeable = 1;
 	protected bool m_bIsCreatedByCommander;
-	protected bool m_bIsPredefinedGroup;
+	protected ResourceName m_rPreset;
 
 	//gamecode uses 0 as invalid playerID
 	protected int m_iDescriptionAuthorID = 0;
@@ -1041,15 +1041,15 @@ class SCR_AIGroup : ChimeraAIGroup
 		Rpc(RpcDo_SetCreatedByCommander, isCreatedByCommander);
 	}
 	//------------------------------------------------------------------------------------------------
-	bool IsPredefinedGroup()
+	ResourceName GetPresetResource()
 	{
-		return m_bIsPredefinedGroup;
+		return m_rPreset;
 	}
 
 	//------------------------------------------------------------------------------------------------
-	void SetPredefinedGroup(bool predefined)
+	void SetPresetResource(ResourceName preset)
 	{
-		m_bIsPredefinedGroup = predefined;
+		m_rPreset = preset;
 	}
 
 	//------------------------------------------------------------------------------------------------

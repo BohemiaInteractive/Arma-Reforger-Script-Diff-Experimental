@@ -650,8 +650,16 @@ class SCR_EditableEntityComponent : ScriptComponent
 		if (!IsServer() || !m_Owner)
 			return false;
 
-		if (changedByUser && !SCR_Global.IsPositionWithinTerrainBounds(transform[3]))
-			return false;
+		vector position = transform[3];
+		if (changedByUser && !SCR_Global.IsPositionWithinTerrainBounds(position))
+		{
+			Physics phys = m_Owner.GetPhysics();
+			float terrainY = m_Owner.GetWorld().GetSurfaceY(position[0], position[2]);
+			if (phys && (phys.IsDynamic() || phys.IsKinematic()) && position[1] > terrainY || float.AlmostEqual(position[1], terrainY, 0.01))
+				return false; // we dont allow for placing of dynamic objects outside of world bounds
+
+			transform[3][1] = terrainY; // if it was only Y that was wrong, then we can snap it to the surface
+		}
 
 		SCR_ResourceComponent resourceComponent = SCR_ResourceComponent.FindResourceComponent(m_Owner);
 		if (resourceComponent)

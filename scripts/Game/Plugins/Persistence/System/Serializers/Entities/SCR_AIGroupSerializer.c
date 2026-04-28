@@ -45,7 +45,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 				aiMembers.Insert(uuid);
 		}
 
-		array<UUID> waypoints();
+		set<UUID> waypoints();
 		array<AIWaypoint> outWaypoints();
 		group.GetWaypoints(outWaypoints);
 		foreach (auto waypoint : outWaypoints)
@@ -61,10 +61,11 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 			factionKey = faction.GetFactionKey();
 
 		const bool playable = group.IsPlayable();
-		const bool preDefined = group.IsPredefinedGroup();
+		const ResourceName preset = group.GetPresetResource();
 		array<int> playerIds = group.GetPlayerIDs();
 
-		if (aiMembers.IsEmpty() && (!playable || preDefined) && playerIds.IsEmpty())
+		// If entirely empty usually not needed unless commander setup some groups in advance
+		if (aiMembers.IsEmpty() && playerIds.IsEmpty() && !group.IsCreatedByCommander())
 			return ESerializeResult.DEFAULT;
 
 		context.WriteValue("version", 1);
@@ -81,6 +82,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 
 		if (playable)
 		{
+			const int groupId = group.GetGroupID();
 			const int radioFrequency = group.GetRadioFrequency();
 			const string flag = group.GetGroupFlag();
 			const bool isPrivate = group.IsPrivate();
@@ -105,7 +107,10 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 			}
 
 			context.Write(radioFrequency);
-			context.WriteDefault(preDefined, false);
+			context.WriteDefault(preset, string.Empty);
+			if (preset)
+				context.Write(groupId);
+
 			context.WriteDefault(role, SCR_EGroupRole.NONE);
 			context.WriteDefault(flag, string.Empty);
 			context.WriteDefault(isPrivate, false);
@@ -215,9 +220,17 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 			context.Read(radioFrequency);
 			group.SetRadioFrequency(radioFrequency);
 
-			bool preDefined;
-			if (context.Read(preDefined))
-				group.SetPredefinedGroup(preDefined);
+			ResourceName preset;
+			if (context.Read(preset))
+			{
+				group.SetPresetResource(preset);
+				if (preset)
+				{
+					int groupId;
+					context.Read(groupId);
+					group.SetGroupID(groupId);
+				}
+			}
 
 			SCR_EGroupRole role;
 			if (context.Read(role))

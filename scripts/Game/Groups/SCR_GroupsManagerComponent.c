@@ -198,7 +198,7 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 
 		array<Faction> factions = {};
 		factionManager.GetFactionsList(factions);
-		
+
 		bool isCommanderRoleEnabled = true;
 		SCR_GameModeCampaign gameModeCampaign = SCR_GameModeCampaign.Cast(GetGame().GetGameMode());
 		if (gameModeCampaign)
@@ -222,6 +222,8 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 			SCR_AIGroup newGroup;
 			foreach (SCR_GroupPreset gr : groups)
 			{
+				const int groupId = presetGroupId++;
+
 				if (!isCommanderRoleEnabled && gr.GetGroupRole() == SCR_EGroupRole.COMMANDER)
 					continue;
 
@@ -231,24 +233,26 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 				{
 					foreach (SCR_AIGroup group : existingGroups)
 					{
-						if (group.IsPredefinedGroup() && (group.GetGroupRole() == gr.GetGroupRole()))
+						if (group.GetPresetResource() == gr.GetStoreName())
 						{
-							group.SetGroupID(presetGroupId++);
 							found = true;
 							break;
 						}
 					}
-					
+
 					if (found)
 						continue;
 				}
 
+				// Swap to pre defined ID for creation process as events are fired that would otherwise link the wrong id
+				const int latestId = m_iLatestGroupID;
+				m_iLatestGroupID = groupId;
 				newGroup = CreateNewPlayableGroup(faction, gr.GetGroupRole());
+				m_iLatestGroupID = latestId;
 				if (!newGroup)
 					continue;
 
-				newGroup.SetGroupID(presetGroupId++);
-				newGroup.SetPredefinedGroup(true);
+				newGroup.SetPresetResource(gr.GetStoreName());
 				newGroup.SetCanDeleteIfNoPlayer(false);
 
 				// setup group by groupRolePresetConfig if is configured
@@ -354,7 +358,7 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 	SCR_AIGroup FindGroup(int groupID)
 	{
 		array<SCR_AIGroup> groups;
-		
+
 		for (int i = m_mPlayableGroups.Count() - 1; i >= 0; i--)
 		{
 			groups = m_mPlayableGroups.GetElement(i);
@@ -429,7 +433,7 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 	bool IsPlayerInAnyGroup(int playerID)
 	{
 		array<SCR_AIGroup> groups;
-		
+
 		for (int i = m_mPlayableGroups.Count() - 1; i >= 0; i--)
 		{
 			groups = m_mPlayableGroups.GetElement(i);
@@ -1050,7 +1054,7 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 		{
 			return;
 		}
-		
+
 		outGroups.Insert(group);
 		group.GetOnAgentAdded().Insert(OnGroupAgentAdded);
 		group.GetOnAgentRemoved().Insert(OnGroupAgentRemoved);
@@ -1079,6 +1083,9 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 	//------------------------------------------------------------------------------------------------
 	void AssignGroupID(SCR_AIGroup group)
 	{
+		if (group.GetGroupID() != -1)
+			return; // Already assigned
+
 		group.SetGroupID(m_iLatestGroupID);
 		m_iLatestGroupID++;
 	}
@@ -1098,13 +1105,7 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 
 		SCR_AIGroup newPlayerGroup = GetFirstNotFullForFaction(newFaction);
 		if (!newPlayerGroup && scrFaction.IsEnabledAutoGroupCreationWhenFull())
-		{
 			newPlayerGroup = CreateNewPlayableGroup(newFaction);
-
-			// Automatically created ones without any ai players in them later are irrlevant for saving
-			if (newPlayerGroup)
-				newPlayerGroup.SetPredefinedGroup(true);
-		}
 
 		if (!owner)
 			return;

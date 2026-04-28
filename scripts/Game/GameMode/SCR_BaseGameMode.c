@@ -507,6 +507,11 @@ class SCR_BaseGameMode : BaseGameMode
 			return;
 		}
 
+#ifdef ENABLE_DIAG
+		if (!Replication.IsRunning()) // You cannot pause in MP, thus this option is only available in SP
+			DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_SINGLEPLAYER_DISABLE_TIME_PAUSE, "", "Disable time pause", "Game");
+#endif
+
 		m_fTimeElapsed = 0.0;
 		m_eGameState = SCR_EGameModeState.GAME;
 		Replication.BumpMe();
@@ -724,7 +729,7 @@ class SCR_BaseGameMode : BaseGameMode
 		GetGame().GetSaveGameManager().SetSavingAllowed(false);
 
 		const PersistenceSystem persistence = PersistenceSystem.GetInstance();
-		if (System.IsCLIParam("keepSessionSave") || persistence.ShouldKeepSessionData())
+		if (System.IsCLIParam("keepSessionSave") || (persistence && persistence.ShouldKeepSessionData()))
 			return;
 
 		// We only delete on DS or workbench for now
@@ -2021,6 +2026,11 @@ class SCR_BaseGameMode : BaseGameMode
 	{
 		if (!CanBePaused())
 			return false;
+
+#ifdef ENABLE_DIAG
+		if (DiagMenu.GetBool(SCR_DebugMenuID.DEBUGUI_SINGLEPLAYER_DISABLE_TIME_PAUSE))
+			pause = false;
+#endif
 
 		if (pause)
 			m_ePauseReasons = m_ePauseReasons | reason;

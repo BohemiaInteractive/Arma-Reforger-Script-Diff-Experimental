@@ -26,7 +26,7 @@ class PersistenceResultCallback: PersistenceCallback
 	event protected void OnResult(EPersistenceStatusCode statusCode, Managed result, bool isLast, Managed context = null);
 
 	//! Invoke the delegate assigned to this callback. Returns false if there is none. To be used from OnResult.
-	proto external bool InvokeDelegate(EPersistenceStatusCode statusCode, Managed result, bool isLast, Managed context = null);
+	proto external bool InvokeDelegate(EPersistenceStatusCode statusCode, Managed result, bool isLast);
 }
 
 /*!

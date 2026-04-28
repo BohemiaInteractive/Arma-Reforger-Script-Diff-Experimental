@@ -358,6 +358,7 @@ class SCR_PreviewEntityEditorUIComponent : SCR_BaseEditorUIComponent
 			}
 		}
 
+		pos[1] = Math.Max(pos[1], GetGame().GetWorld().GetSurfaceY(pos[0], pos[2]));
 		transform[3] = pos;
 		m_fUnsnapProgress = 0;
 		m_PreviewEntityManager.SetIsMovingVertically(false);

@@ -1,5 +1,5 @@
 [BaseContainerProps()]
-class SCR_GroupPreset
+class SCR_GroupPreset : BaseContainerObject
 {	
 	[Attribute("1")]
 	protected bool m_bIsEnabled;

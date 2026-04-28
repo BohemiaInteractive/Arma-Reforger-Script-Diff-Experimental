@@ -1389,6 +1389,7 @@ class SCR_CampaignMapUIBase : SCR_CampaignMapUIElement
 			case "SourceBase":
 			{
 				TStringArray highlightSplit = new TStringArray;
+				spawnPoint = m_Base.GetSpawnPoint();
 				highlight.Split("_", highlightSplit, true);
 				if (highlightSplit.Count() >= 2)
 					highlight = string.Format("%1_%2", highlightSplit.Get(0), highlightSplit.Get(1));

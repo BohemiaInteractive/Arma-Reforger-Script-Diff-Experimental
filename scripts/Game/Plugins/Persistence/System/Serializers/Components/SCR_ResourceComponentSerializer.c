@@ -25,93 +25,95 @@ class SCR_ResourceComponentSerializer : ScriptedComponentSerializer
 		const BaseContainer source = component.GetComponentSource(owner);
 		auto containerSources = source.GetObjectArray("m_aContainers");
 		auto containers = resource.GetContainers();
-		if (!containers)
-			return ESerializeResult.DEFAULT;
-
-		if (containerSources.Count() != containers.Count())
-			return ESerializeResult.ERROR;
 
 		array<ref SCR_PersistentResource> resources();
-		foreach (int idx, auto container : containers)
+		if (containers)
 		{
-			if (container.IsEncapsulated())
-				continue;
+			if (containerSources.Count() != containers.Count())
+				return ESerializeResult.ERROR;
 
-			const EResourceType resourceType = container.GetResourceType();
-			if (!m_aResourceTypeFilter.IsEmpty() && !m_aResourceTypeFilter.Contains(resourceType))
-				continue;
-
-			const float value = container.GetResourceValue();
-
-			float defaultValue;
-			const SCR_ResourceEncapsulator encapsulator = resource.GetEncapsulator(resourceType);
-			if (encapsulator)
+			foreach (int idx, auto container : containers)
 			{
-				bool overrideByAction = false;
-				auto actions = encapsulator.GetActions();
-				foreach (auto action : actions)
-				{
-					auto changeDefaultAction = SCR_ResourceEncapsulatorActionChangeResourceValue.Cast(action);
-					if (!changeDefaultAction)
-						continue;
+				if (container.IsEncapsulated())
+					continue;
 
-					overrideByAction = true;
-					defaultValue = changeDefaultAction.GetValueCurrent();
-					break;
-				}
-				if (!overrideByAction)
+				const EResourceType resourceType = container.GetResourceType();
+				if (!m_aResourceTypeFilter.IsEmpty() && !m_aResourceTypeFilter.Contains(resourceType))
+					continue;
+
+				const float value = container.GetResourceValue();
+
+				float defaultValue;
+				const SCR_ResourceEncapsulator encapsulator = resource.GetEncapsulator(resourceType);
+				if (encapsulator)
 				{
-					const SCR_ResourceContainerQueueBase queue = encapsulator.GetContainerQueue();
-					for (int i = 0, count = queue.GetContainerCount(); i < count; ++i)
+					bool overrideByAction = false;
+					auto actions = encapsulator.GetActions();
+					foreach (auto action : actions)
 					{
-						const SCR_ResourceContainer childContainer = queue.GetContainerAt(i);
-						const SCR_ResourceComponent childComponent = childContainer.GetComponent();
-						const int containerIdx = childComponent.GetContainers().Find(childContainer);
-						auto childContainerSources = childComponent.GetComponentSource(childComponent.GetOwner()).GetObjectArray("m_aContainers");
-						if (containerIdx == -1 || containerIdx >= childContainerSources.Count())
-							return ESerializeResult.ERROR;
+						auto changeDefaultAction = SCR_ResourceEncapsulatorActionChangeResourceValue.Cast(action);
+						if (!changeDefaultAction)
+							continue;
 
-						float childDefaultValue;
-						childContainerSources.Get(containerIdx).Get("m_fResourceValueCurrent", childDefaultValue);
-						defaultValue += childDefaultValue;
+						overrideByAction = true;
+						defaultValue = changeDefaultAction.GetValueCurrent();
+						break;
+					}
+					if (!overrideByAction)
+					{
+						const SCR_ResourceContainerQueueBase queue = encapsulator.GetContainerQueue();
+						for (int i = 0, count = queue.GetContainerCount(); i < count; ++i)
+						{
+							const SCR_ResourceContainer childContainer = queue.GetContainerAt(i);
+							const SCR_ResourceComponent childComponent = childContainer.GetComponent();
+							const int containerIdx = childComponent.GetContainers().Find(childContainer);
+							auto childContainerSources = childComponent.GetComponentSource(childComponent.GetOwner()).GetObjectArray("m_aContainers");
+							if (containerIdx == -1 || containerIdx >= childContainerSources.Count())
+								return ESerializeResult.ERROR;
+
+							float childDefaultValue;
+							childContainerSources.Get(containerIdx).Get("m_fResourceValueCurrent", childDefaultValue);
+							defaultValue += childDefaultValue;
+						}
 					}
 				}
-			}
-			else
-			{
-				containerSources.Get(idx).Get("m_fResourceValueCurrent", defaultValue);
-			}
+				else
+				{
+					containerSources.Get(idx).Get("m_fResourceValueCurrent", defaultValue);
+				}
 
-			if (!float.AlmostEqual(value, defaultValue))
-			{
-				SCR_PersistentResource entry();
-				entry.m_eResourceType = resourceType;
-				entry.m_fValue = value;
-				resources.Insert(entry);
+				if (!float.AlmostEqual(value, defaultValue))
+				{
+					SCR_PersistentResource entry();
+					entry.m_eResourceType = resourceType;
+					entry.m_fValue = value;
+					resources.Insert(entry);
+				}
 			}
 		}
 
 		array<EResourceType> disabledTypes();
 		resource.GetDisabledResourceTypes(disabledTypes);
-		if (!disabledTypes.IsEmpty())
-		{
-			array<EResourceType> disabledTypesDefault();
-			source.Get("m_aDisabledResourceTypes", disabledTypesDefault);
-			foreach (auto removeDefault : disabledTypesDefault)
-			{
-				disabledTypes.Remove(removeDefault);
-			}
-		}
 
-		if (resources.IsEmpty() && disabledTypes.IsEmpty())
+		array<EResourceType> disabledTypesDefault();
+		source.Get("m_aDisabledResourceTypes", disabledTypesDefault);
+
+		if (SCR_ArrayHelperT<EResourceType>.AreEqual(disabledTypes, disabledTypesDefault))
+			disabledTypes = null;
+
+		if (resources.IsEmpty() && !disabledTypes)
 			return ESerializeResult.DEFAULT;
 
 		context.WriteValue("version", 1);
-		const bool prev = context.EnableTypeDiscriminator(m_bUseTypeDescriminator);
-		context.Write(resources);
-		context.EnableTypeDiscriminator(prev);
-		
-		if (!disabledTypes.IsEmpty() || !context.CanSeekMembers())
+
+		if (!resources.IsEmpty() || !context.CanSeekMembers())
+		{
+			const bool prev = context.EnableTypeDiscriminator(m_bUseTypeDescriminator);
+			context.Write(resources);
+			context.EnableTypeDiscriminator(prev);
+		}
+
+		if (disabledTypes || !context.CanSeekMembers())
 			context.Write(disabledTypes);
 
 		return ESerializeResult.OK;
@@ -142,11 +144,22 @@ class SCR_ResourceComponentSerializer : ScriptedComponentSerializer
 		}
 
 		array<EResourceType> disabledTypes;
-		if (context.Read(disabledTypes))
+		context.Read(disabledTypes);
+		if (disabledTypes)
 		{
-			foreach (auto disabledType : disabledTypes)
+			// Enable those who are not disabled in save-game
+			array<EResourceType> currentDisabled();
+			resource.GetDisabledResourceTypes(currentDisabled);
+			foreach (EResourceType type : currentDisabled)
 			{
-				resource.SetResourceTypeEnabled(false, disabledType);
+				if (!disabledTypes.Contains(type))
+					resource.SetResourceTypeEnabled(true, type);
+			}
+
+			// Disable all from save-game
+			foreach (EResourceType type : disabledTypes)
+			{
+				resource.SetResourceTypeEnabled(false, type);
 			}
 		}
 

@@ -46,10 +46,17 @@ class SCR_ReconnectComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
-		
+
 		SCR_DSConfig config();
 		if (GetGame().GetBackendApi().GetRunningDSConfig(config))
 			m_iReconnectTime = config.operating.slotReservationTimeout;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! For how many seconds a player can reconnect before the controlled character is removed.
+	int GetReconnectTimeout()
+	{
+		return m_iReconnectTime;
 	}
 
 	//------------------------------------------------------------------------------------------------

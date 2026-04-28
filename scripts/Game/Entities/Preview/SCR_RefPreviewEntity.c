@@ -197,18 +197,7 @@ class SCR_RefPreviewEntity: SCR_EditablePreviewEntity
 		float height = transform[3][1] - terrainY;
 		
 		m_fHeightTerrain = 0;
-		float altitudeChange = height - currentHeight;
-		float verticalIconOffset;
-		if (m_EditableEntity)
-			verticalIconOffset = m_EditableEntity.GetIconPos()[1];
-
-		if (height < verticalIconOffset)
-		{
-			altitudeChange = verticalIconOffset - altitudeChange;
-			transform[3][1] = Math.Max(transform[3][1] + altitudeChange, terrainY);
-		}
-
-		SetPreviewTransform(transform, verticalMode, altitudeChange, isUnderwater, trace);
+		SetPreviewTransform(transform, verticalMode, height - currentHeight, isUnderwater, trace);
 	}
 
 	//------------------------------------------------------------------------------------------------

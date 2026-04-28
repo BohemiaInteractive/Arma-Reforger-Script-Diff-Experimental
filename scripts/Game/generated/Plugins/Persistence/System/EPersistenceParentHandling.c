@@ -13,7 +13,7 @@ sealed enum EPersistenceParentHandling
 {
 	//! No root record if any parent is present.
 	ACCEPT,
-	//! Ignore all parents that are not tracked by internal.
+	//! Ignore all parents that are not tracked.
 	IGNORE_UNTRACKED,
 	//! Ignore if any parent is a loaded world entity (even if they are tracked).
 	IGNORE_LOADED,

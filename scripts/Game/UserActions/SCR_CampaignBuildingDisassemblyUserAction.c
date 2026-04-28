@@ -185,13 +185,20 @@ class SCR_CampaignBuildingDisassemblyUserAction : ScriptedUserAction
 		if (m_RplComponent.IsProxy())
 			return;
 
+		if (character.GetCharacterController().GetLifeState() != ECharacterLifeState.ALIVE)
+			return;
+
+		PlayerManager playerMgr = GetGame().GetPlayerManager();
+		int playerId = playerMgr.GetPlayerIdFromControlledEntity(character);
+		if (!playerMgr.IsPlayerConnected(playerId))
+			return;
+
 		if (vector.DistanceSqXZ(m_RootEntity.GetOrigin(), character.GetOrigin()) > ALLOWED_PLAYER_DISTANCE_SQ)
 			return;
 		
 		if (HasCompositionLabel())
 			TryToSendNotification(pOwnerEntity, character);
 		
-		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(character);
 		PrintFormat("Player %1 dismantled composition %2", SCR_PlayerIdentityUtils.GetPlayerLogInfo(playerId), m_RootEntity, level:LogLevel.DEBUG);
 
 		SCR_CampaignMilitaryBaseComponent base;
@@ -255,12 +262,12 @@ class SCR_CampaignBuildingDisassemblyUserAction : ScriptedUserAction
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	protected void TryToSendNotification(IEntity pOwnerEntity, IEntity pUserEntity)
+	protected void TryToSendNotification(notnull IEntity pOwnerEntity, notnull SCR_ChimeraCharacter disassemblingCharacter)
 	{
 		if (!m_CompositionComponent)
 			return;
 		
-		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(pUserEntity);
+		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(disassemblingCharacter);
 			
 		IEntity provider = m_CompositionComponent.GetProviderEntity();
 		if (!provider)
@@ -274,25 +281,22 @@ class SCR_CampaignBuildingDisassemblyUserAction : ScriptedUserAction
 		providerComponent.GetBases(bases);
 		if (bases.IsEmpty())
 			return;
-			
-		int callsign = bases[0].GetCallsign();
+
+		SCR_MilitaryBaseComponent base = bases[0];
+		int callsign = base.GetCallsign();
 		if (callsign == SCR_MilitaryBaseComponent.INVALID_BASE_CALLSIGN)
 			return;
 		
-		Faction baseFaction = bases[0].GetFaction();
-		Faction playerFaction = SCR_FactionManager.SGetPlayerFaction(playerId);
-		if (playerFaction != baseFaction)
+		Faction baseFaction = base.GetFaction();
+		SCR_Faction characterFaction = SCR_Faction.Cast(disassemblingCharacter.GetFaction());
+		if (characterFaction != baseFaction)
 			return;
 
 		RplComponent rplComponent = RplComponent.Cast(m_EditableEntity.GetOwner().FindComponent(RplComponent));
 		if (!rplComponent)
 			return;
 
-		SCR_Faction faction = SCR_Faction.Cast(SCR_FactionManager.SGetPlayerFaction(playerId));
-		if (!faction)
-			return;
-
-		SCR_NotificationsComponent.SendToFaction(faction, true, ENotification.EDITOR_SERVICE_DISASSEMBLED, playerId, rplComponent.Id(), callsign);
+		SCR_NotificationsComponent.SendToFaction(characterFaction, true, ENotification.EDITOR_SERVICE_DISASSEMBLED, playerId, rplComponent.Id(), callsign);
 	}
 	
 	//------------------------------------------------------------------------------------------------

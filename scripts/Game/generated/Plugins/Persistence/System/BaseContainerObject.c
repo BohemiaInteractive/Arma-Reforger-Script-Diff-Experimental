@@ -5,7 +5,7 @@ Do not modify, this script is generated
 */
 
 /*!
-\addtogroup Core
+\addtogroup Plugins_Persistence_System
 \{
 */
 

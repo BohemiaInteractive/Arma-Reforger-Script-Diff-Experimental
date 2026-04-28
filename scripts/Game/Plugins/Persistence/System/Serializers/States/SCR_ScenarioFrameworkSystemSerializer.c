@@ -140,29 +140,29 @@ class SCR_ScenarioFrameworkLayerSave
 	//------------------------------------------------------------------------------------------------
 	SCR_ScenarioFrameworkLayerSave GetLayerTypeSave(const SCR_ScenarioFrameworkLayerBase layer)
 	{
-		if (layer.IsInherited(SCR_ScenarioFrameworkArea))
-			return new SCR_ScenarioFrameworkAreaSave();
+		if (layer.IsInherited(SCR_ScenarioFrameworkLayerTaskDefend))
+			return new SCR_ScenarioFrameworkLayerTaskDefendSave();
 
 		if (layer.IsInherited(SCR_ScenarioFrameworkLayerTask))
 			return new SCR_ScenarioFrameworkLayerTaskSave();
 
-		if (layer.IsInherited(SCR_ScenarioFrameworkLayerTaskDefend))
-			return new SCR_ScenarioFrameworkLayerTaskDefendSave();
-
-		if (layer.IsInherited(SCR_ScenarioFrameworkSlotBase))
-			return new SCR_ScenarioFrameworkSlotSave();
-
 		if (layer.IsInherited(SCR_ScenarioFrameworkSlotAI))
 			return new SCR_ScenarioFrameworkSlotAISave();
-
-		if (layer.IsInherited(SCR_ScenarioFrameworkSlotTask))
-			return new SCR_ScenarioFrameworkSlotTaskSave();
 
 		if (layer.IsInherited(SCR_ScenarioFrameworkSlotTaskAI))
 			return new SCR_ScenarioFrameworkSlotTaskAISave();
 
+		if (layer.IsInherited(SCR_ScenarioFrameworkSlotTask))
+			return new SCR_ScenarioFrameworkSlotTaskSave();
+
 		if (layer.IsInherited(SCR_ScenarioFrameworkSlotTrigger))
 			return new SCR_ScenarioFrameworkSlotTriggerSave();
+
+		if (layer.IsInherited(SCR_ScenarioFrameworkSlotBase))
+			return new SCR_ScenarioFrameworkSlotSave();
+
+		if (layer.IsInherited(SCR_ScenarioFrameworkArea))
+			return new SCR_ScenarioFrameworkAreaSave();
 
 		return new SCR_ScenarioFrameworkLayerSave();
 	}
@@ -744,7 +744,7 @@ class SCR_ScenarioFrameworkSlotSave : SCR_ScenarioFrameworkLayerSave
 	}
 }
 
-class SCR_ScenarioFrameworkSlotAISave : SCR_ScenarioFrameworkLayerSave
+class SCR_ScenarioFrameworkSlotAISave : SCR_ScenarioFrameworkSlotSave
 {
 	UUID m_sGroupId;
 
@@ -918,7 +918,7 @@ class SCR_ScenarioFrameworkSlotTaskSave : SCR_ScenarioFrameworkSlotSave
 	}
 }
 
-class SCR_ScenarioFrameworkSlotTaskAISave : SCR_ScenarioFrameworkLayerSave
+class SCR_ScenarioFrameworkSlotTaskAISave : SCR_ScenarioFrameworkSlotTaskSave
 {
 	UUID m_sGroupId;
 
@@ -1108,6 +1108,8 @@ class SCR_ScenarioFrameworkLogicCounterSave : SCR_ScenarioFrameworkLogicSave
 	//------------------------------------------------------------------------------------------------
 	override void Read(PersistenceSystem persistence, SCR_ScenarioFrameworkLogic logic)
 	{
+		super.Read(persistence, logic);
+
 		m_iCounterValue = SCR_ScenarioFrameworkLogicCounter.Cast(logic).GetCounterValue();
 	}
 

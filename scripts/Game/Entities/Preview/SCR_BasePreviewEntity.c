@@ -338,7 +338,7 @@ class SCR_BasePreviewEntity: GenericEntity
 					}
 					
 					//--- Apply height
-					transform[3][1] = Math.Max(transform[3][1], surfaceBasis[3][1] + Math.Max(m_fHeightTerrain + heightTerrain, 0));
+					transform[3][1] = surfaceBasis[3][1] + m_fHeightTerrain + heightTerrain;
 
 					//--- Preserve scale
 					if (scale != 1)

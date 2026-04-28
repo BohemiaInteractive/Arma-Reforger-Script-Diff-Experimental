@@ -182,6 +182,7 @@ class SCR_RandomSpawnManagerComponent : SCR_BaseGameModeComponent
 
 		if (!m_aSafeCells.IsEmpty())
 		{
+			m_iLastUsedIndex = Math.RandomInt(0, m_aSafeCells.Count());
 			WakeUpGenerator();
 		}
 	}
