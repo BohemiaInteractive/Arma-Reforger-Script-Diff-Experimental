@@ -38,6 +38,10 @@ class SCR_CacheManagerComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return;
 		
+		SCR_GameModeCampaign campaign = SCR_GameModeCampaign.GetInstance();
+		if (!campaign || !campaign.GetSpawnRandomCaches())
+			return;
+		
 		m_TerrainConfig = SCR_CacheTerrainConfig.Cast(SCR_BaseContainerTools.CreateInstanceFromPrefab(m_sTerrainConfig, true));
 		if (m_TerrainConfig && m_TerrainConfig.m_aCachePool)
 			m_aCachePool = m_TerrainConfig.m_aCachePool;

@@ -74,24 +74,44 @@ class SCR_RankContainer
 	//------------------------------------------------------------------------------------------------
 	//! \param[in] rank
 	//! \return the next higher rank
-	SCR_ECharacterRank GetRankNext(SCR_ECharacterRank rankID)
+	SCR_ECharacterRank GetNextRank(SCR_ECharacterRank rankID)
 	{
-		int rankXP = GetRequiredRankXP(rankID);
-		int higherXP = int.MAX;
-		SCR_ECharacterRank foundID = SCR_ECharacterRank.INVALID;
-
 		if (!m_aRanks)
 			return SCR_ECharacterRank.INVALID;
 
+		SCR_ECharacterRank foundID = SCR_ECharacterRank.INVALID;
+		SCR_ECharacterRank CheckedID;
+
+		if (GetRankByID(rankID)) // rank needs to be defined in this container to be able to retrieve and use the XP
+		{
+			int rankXP = GetRequiredRankXP(rankID);
+			int higherXP = int.MAX;
+
+			foreach (SCR_RankInfo checkedRank : m_aRanks)
+			{
+				CheckedID = checkedRank.GetRankID();
+				int thisXP = GetRequiredRankXP(CheckedID);
+
+				if (thisXP > rankXP && thisXP < higherXP)
+				{
+					higherXP = thisXP;
+					foundID = CheckedID;
+				}
+			}
+
+			return foundID;
+		}
+
+		// this rank is currently not defined in this specific faction / rank container so the xp cannot be checked.
+		// so we will attempt to get the closest rank by going from the top down using the enums
+		// Invalid is already the highest enum value so we only need to go down.
 		foreach (SCR_RankInfo checkedRank : m_aRanks)
 		{
-			SCR_ECharacterRank ID = checkedRank.GetRankID();
-			int thisXP = GetRequiredRankXP(ID);
+			CheckedID = checkedRank.GetRankID();
 
-			if (thisXP > rankXP && thisXP < higherXP)
+			if (rankID < CheckedID && CheckedID < foundID)
 			{
-				higherXP = thisXP;
-				foundID = ID;
+				foundID = CheckedID;
 			}
 		}
 
@@ -101,24 +121,45 @@ class SCR_RankContainer
 	//------------------------------------------------------------------------------------------------
 	//! \param[in] rank
 	//! \return the next lower rank
-	SCR_ECharacterRank GetRankPrev(SCR_ECharacterRank rankID)
+	SCR_ECharacterRank GetPreviousRank(SCR_ECharacterRank rankID)
 	{
-		int rankXP = GetRequiredRankXP(rankID);
-		int lowerXP = int.MIN;
-		SCR_ECharacterRank foundID = SCR_ECharacterRank.INVALID;
-
 		if (!m_aRanks)
 			return SCR_ECharacterRank.INVALID;
 
+		SCR_ECharacterRank foundID = SCR_ECharacterRank.INVALID;
+		SCR_ECharacterRank CheckedID;
+
+		if (GetRankByID(rankID)) // rank needs to be defined in this container to be able to retrieve and use the XP
+		{
+			int rankXP = GetRequiredRankXP(rankID);
+			int lowerXP = int.MIN;
+
+			foreach (SCR_RankInfo checkedRank : m_aRanks)
+			{
+				CheckedID = checkedRank.GetRankID();
+				int thisXP = GetRequiredRankXP(CheckedID);
+
+				if (thisXP < rankXP && thisXP > lowerXP)
+				{
+					lowerXP = thisXP;
+					foundID = CheckedID;
+				}
+			}
+
+			return foundID;
+		}
+
+		// this rank is currently not defined in this specific faction / rank container so the xp cannot be checked.
+		// so we will attempt to get the closest rank by going from the bottom up using the enums
+		foundID = SCR_ECharacterRank.RENEGADE;
+
 		foreach (SCR_RankInfo checkedRank : m_aRanks)
 		{
-			SCR_ECharacterRank ID = checkedRank.GetRankID();
-			int thisXP = GetRequiredRankXP(ID);
+			CheckedID = checkedRank.GetRankID();
 
-			if (thisXP < rankXP && thisXP > lowerXP)
+			if (rankID > CheckedID && CheckedID > foundID)
 			{
-				lowerXP = thisXP;
-				foundID = ID;
+				foundID = CheckedID;
 			}
 		}
 

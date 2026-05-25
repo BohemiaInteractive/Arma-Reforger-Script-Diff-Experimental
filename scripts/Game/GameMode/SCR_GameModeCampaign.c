@@ -89,6 +89,18 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 	[Attribute("0", UIWidgets.CheckBox, "Players can establish bases. If disabled, the game starts with existing FOBs", category: "Campaign")]
 	protected bool m_bEstablishingBasesEnabled;
 
+	[Attribute("0", UIWidgets.CheckBox, "INDFOR players can spawn on bases at the start of the game", category: "Campaign")]
+	protected bool m_bINDFORCanSpawnOnBases;
+
+	[Attribute("0", UIWidgets.CheckBox, "INDFOR players can spawn on distant bases at the start of the game", category: "Campaign")]
+	protected bool m_bINDFORCanSpawnOnDistantBases;
+
+	[Attribute("0", UIWidgets.CheckBox, desc: "When enabled, random caches will spawn around the map")]
+	protected bool m_bSpawnRandomCaches;
+
+	[Attribute("0", UIWidgets.CheckBox, desc: "When enabled, are allowed to have a Randomized Spawnpoint")]
+	protected bool m_bRandomSpawnpointsEnabled;
+
 	[Attribute("0", UIWidgets.CheckBox, "When enabled, FOBs automatically regenerate supplies", category: "Campaign")]
 	protected bool m_bSuppliesAutoRegenerationEnabled;
 
@@ -150,6 +162,24 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 	bool GetEstablishingBasesEnabled()
 	{
 		return m_bEstablishingBasesEnabled;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool GetINDFORCanSpawnOnBases()
+	{
+		return m_bINDFORCanSpawnOnBases;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool GetSpawnRandomCaches()
+	{
+		return m_bSpawnRandomCaches;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool GetINDFORCanSpawnOnDistantBases()
+	{
+		return m_bINDFORCanSpawnOnDistantBases;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -759,6 +789,9 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 	//------------------------------------------------------------------------------------------------
 	protected void DisableExtraSpawnpoint(SCR_SpawnPoint spawnpoint)
 	{
+		if (!m_bRandomSpawnpointsEnabled && spawnpoint.IsSpawnPointRandom())
+			spawnpoint.SetFaction(null);
+		
 		if (spawnpoint.Type() != SCR_SpawnPoint)
 			return;
 
@@ -1818,10 +1851,14 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 			if (supplyAssistanceReward >= 0)
 				m_fSupplyOffloadAssistanceReward = supplyAssistanceReward;
 
+			m_bRandomSpawnpointsEnabled = header.m_bRandomSpawnpointsEnabled;
+			m_bSpawnRandomCaches = header.m_bSpawnRandomCaches;
 			m_bCommanderRoleEnabled = header.m_bCommanderRoleEnabled;
 			m_bEstablishingBasesEnabled = header.m_bEstablishingBasesEnabled;
 			m_bSuppliesAutoRegenerationEnabled = header.m_bSuppliesAutoRegenerationEnabled;
 			m_eStartingRank = header.m_eStartingRank;
+			m_bINDFORCanSpawnOnBases = header.m_bINDFORCanSpawnOnBases;
+			m_bINDFORCanSpawnOnDistantBases = header.m_bINDFORCanSpawnOnDistantBases;
 		}
 
 		// Establishing Bases can only be enabled when Commander Role is enabled

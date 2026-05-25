@@ -1104,11 +1104,20 @@ class SCR_ArsenalManagerComponent : SCR_BaseGameModeComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected bool CanSaveLoadout(int playerId, notnull GameEntity characterEntity, FactionAffiliationComponent playerFactionAffiliation, SCR_ArsenalComponent arsenalComponent, bool sendNotificationOnFailed)
+	protected bool CanSaveLoadout(int playerId, notnull GameEntity characterEntity, Faction characterFaction, SCR_ArsenalComponent arsenalComponent, bool sendNotificationOnFailed)
 	{
 		//~ Always allow saving if no arsenal component or no restrictions
 		if (!arsenalComponent || (arsenalComponent.GetArsenalSaveType() == SCR_EArsenalSaveType.NO_RESTRICTIONS && (!m_LoadoutSaveBlackListHolder || m_LoadoutSaveBlackListHolder.GetBlackListsCount() == 0)))
 			return true;
+
+		SCR_Faction playerFaction = SCR_Faction.Cast(characterFaction);
+		if (playerFaction && !playerFaction.IsCustomLoadoutSupported())
+		{
+			if (sendNotificationOnFailed)
+				SCR_NotificationsComponent.SendToPlayer(playerId, ENotification.PLAYER_LOADOUT_NOT_SAVED);
+
+			return false;
+		}
 
 		SCR_InventoryStorageManagerComponent characterInventory = SCR_InventoryStorageManagerComponent.Cast(characterEntity.FindComponent(SCR_InventoryStorageManagerComponent));
 		if (!characterInventory)
@@ -1129,14 +1138,6 @@ class SCR_ArsenalManagerComponent : SCR_BaseGameModeComponent
 		{
 			if (arsenalComponent.GetArsenalSaveType() == SCR_EArsenalSaveType.FACTION_ITEMS_ONLY)
 			{
-				//~ Player has no faction affiliation comp
-				if (!playerFactionAffiliation)
-				{
-					Print("'SCR_ArsenalManagerComponent' is checking 'CanSaveArsenal()' but player has no faction affiliation component, arsenal saving will simply be allowed", LogLevel.WARNING);
-					return true;
-				}
-
-				SCR_Faction playerFaction = SCR_Faction.Cast(playerFactionAffiliation.GetAffiliatedFaction());
 				//~ Player has no faction
 				if (!playerFaction)
 				{
@@ -1161,14 +1162,6 @@ class SCR_ArsenalManagerComponent : SCR_BaseGameModeComponent
 			}
 			else if (arsenalComponent.GetArsenalSaveType() == SCR_EArsenalSaveType.FRIENDLY_AND_FACTION_ITEMS_ONLY)
 			{
-				//~ Player has no faction affiliation comp
-				if (!playerFactionAffiliation)
-				{
-					Print("'SCR_ArsenalManagerComponent' is checking 'CanSaveArsenal()' but player has no faction affiliation component, arsenal saving will simply be allowed", LogLevel.WARNING);
-					return true;
-				}
-
-				SCR_Faction playerFaction = SCR_Faction.Cast(playerFactionAffiliation.GetAffiliatedFaction());
 				//~ Player has no faction
 				if (!playerFaction)
 				{
@@ -1381,11 +1374,15 @@ class SCR_ArsenalManagerComponent : SCR_BaseGameModeComponent
 			return;
 
 		string factionKey = SCR_PlayerArsenalLoadout.ARSENALLOADOUT_FACTIONKEY_NONE;
-		FactionAffiliationComponent factionAffiliation = FactionAffiliationComponent.Cast(characterEntity.FindComponent(FactionAffiliationComponent));
-		if (factionAffiliation)
-			factionKey = factionAffiliation.GetAffiliatedFaction().GetFactionKey();
+		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(characterEntity);
+		Faction characterFaction;
+		if (character)
+		{
+			characterFaction = character.GetFaction();
+			factionKey = characterFaction.GetFactionKey();
+		}
 
-		if (!CanSaveLoadout(playerId, characterEntity, factionAffiliation, arsenalComponent, true))
+		if (!CanSaveLoadout(playerId, characterEntity, characterFaction, arsenalComponent, true))
 			return;
 
 		auto context = new JsonSaveContext();

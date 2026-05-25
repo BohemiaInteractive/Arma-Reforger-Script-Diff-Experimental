@@ -111,6 +111,7 @@ class SCR_Faction : ScriptedFaction
 	
 	protected bool m_bCatalogInitDone;
 	protected bool m_bIsPlayableDefault;
+	protected bool m_bIsCustomLoadoutSupported;
 	protected ref set<Faction> m_FriendlyFactions = new set<Faction>;
 	
 	static const int AI_COMMANDER_ID = 0;
@@ -134,7 +135,21 @@ class SCR_Faction : ScriptedFaction
 	{
 		return m_bCreateOnlyPredefinedGroups;
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	//! \return
+	bool IsCustomLoadoutSupported()
+	{
+		return m_bIsCustomLoadoutSupported;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Updates local state of which determines if players from this faction can save custom loadouts
+	void UpdateCustomLoadoutSupportState(SCR_LoadoutManager loadoutMgr)
+	{
+		m_bIsCustomLoadoutSupported = loadoutMgr && loadoutMgr.IsFactionSupportingCsutomLoadouts(this);
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! \param groupArray
 	void GetPredefinedGroups(notnull array<ref SCR_GroupPreset> groupArray)

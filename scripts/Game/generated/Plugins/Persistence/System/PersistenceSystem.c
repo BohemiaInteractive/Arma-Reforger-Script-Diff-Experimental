@@ -75,7 +75,7 @@ class PersistenceSystem: WorldSystem
 	*/
 	proto external IEntity DeserializeLoadEntity(notnull IEntity entity, notnull LoadContext context, bool allowRecreate = true);
 	//! Spawn a new entity from serialization data.
-	proto external IEntity DeserializeSpawnEntity(notnull EntitySpawnParams params, notnull LoadContext context);
+	proto external IEntity DeserializeSpawnEntity(notnull LoadContext context);
 	/*!
 	The deserialization completed callback is invoked after all tasks are completed.
 	Adding a task gives the ability to wait for a call queue, frame or other delayed event until the instance is considered done and can be used by the callback handler.

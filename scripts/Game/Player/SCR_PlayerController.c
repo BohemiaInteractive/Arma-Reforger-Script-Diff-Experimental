@@ -92,6 +92,15 @@ class SCR_PlayerController : PlayerController
 				SCR_EditorManagerCore managerCore = SCR_EditorManagerCore.Cast(SCR_EditorManagerCore.GetInstance(SCR_EditorManagerCore));
 				managerCore.Event_OnEditorManagerInitOwner.Insert(OnPlayerRegistered);
 			}
+			
+			// registering own local player controller to local MarkerManager
+			const SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			if (gameMode && !gameMode.IsMaster())
+			{
+				SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.Cast(gameMode.FindComponent(SCR_MapMarkerManagerComponent));
+				if (markerManager)
+					markerManager.RegisterLocalController(this);
+			}
 		}
 
 		SCR_DamageSufferingSystem.GetInstance().StartObservingControlledEntityChanges(this, changing, becameOwner);

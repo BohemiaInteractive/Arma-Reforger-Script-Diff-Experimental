@@ -170,7 +170,7 @@ class SCR_XPInfoDisplay : SCR_InfoDisplayExtended
 		SCR_RankContainer ranks = factionManager.GetFactionRanks(m_PlayerController.GetPlayerId());
 
 		m_ECurrentRank = ranks.GetRankByXP(totalXP);
-		SCR_ECharacterRank nextRank = ranks.GetRankNext(m_ECurrentRank);
+		SCR_ECharacterRank nextRank = ranks.GetNextRank(m_ECurrentRank);
 		
 		m_EReward = rewardID;
 		m_sCurrentRankIcon = ranks.GetRankInsignia(m_ECurrentRank);
@@ -268,7 +268,7 @@ class SCR_XPInfoDisplay : SCR_InfoDisplayExtended
 		int totalXP = comp.GetPlayerXP();
 
 		m_ECurrentRank = ranks.GetRankByXP(totalXP);
-		SCR_ECharacterRank nextRank = ranks.GetRankNext(m_ECurrentRank);
+		SCR_ECharacterRank nextRank = ranks.GetNextRank(m_ECurrentRank);
 
 		m_EReward = SCR_EXPRewards.UNDEFINED;
 		m_sCurrentRankIcon = ranks.GetRankInsignia(m_ECurrentRank);
@@ -410,7 +410,7 @@ class SCR_XPInfoWidgetData
 	void UpdateXPProgressBar(notnull SCR_FactionManager factionManager, SCR_ECharacterRank curRank, SCR_ECharacterRank prevRank, int XP, int totalXP, bool notify, notnull SCR_RankContainer ranks)
 	{	
 
-		if (ranks.GetRankNext(curRank) == SCR_ECharacterRank.INVALID)
+		if (ranks.GetNextRank(curRank) == SCR_ECharacterRank.INVALID)
 		{
 			// Player at max level, no gain to show
 			m_wProgress.SetMin(0);
@@ -422,7 +422,7 @@ class SCR_XPInfoWidgetData
 		}
 		else
 		{
-			if (ranks.GetRankPrev(curRank) == SCR_ECharacterRank.INVALID && XP < 0)
+			if (ranks.GetPreviousRank(curRank) == SCR_ECharacterRank.INVALID && XP < 0)
 			{
 				// Player is renegade and losing XP, just show red bar
 				m_wProgress.SetMin(0);
@@ -435,11 +435,11 @@ class SCR_XPInfoWidgetData
 			else
 			{
 				int XPCurRank = ranks.GetRequiredRankXP(curRank);
-				int XPNextRank = ranks.GetRequiredRankXP(ranks.GetRankNext(curRank));
+				int XPNextRank = ranks.GetRequiredRankXP(ranks.GetNextRank(curRank));
 
 				if (curRank == prevRank)
 				{
-					if (ranks.GetRankPrev(curRank) != SCR_ECharacterRank.INVALID)
+					if (ranks.GetPreviousRank(curRank) != SCR_ECharacterRank.INVALID)
 					{
 						// Standard XP change
 						m_wProgress.SetMin(XPCurRank);

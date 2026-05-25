@@ -75,6 +75,21 @@ class SCR_FactionManager : FactionManager
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Forces all factions to reevaluate if they support players saving custom loadouts
+	void UpdateCustomLoadoutSupportState(SCR_LoadoutManager loadoutMgr)
+	{
+		array<Faction> factions = {};
+		GetFactionsList(factions);
+		SCR_Faction faction;
+		foreach(Faction baseFaction : factions)
+		{
+			faction = SCR_Faction.Cast(baseFaction);
+			if (faction)
+				faction.UpdateCustomLoadoutSupportState(loadoutMgr);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Update local player faction mapping.
 	protected void OnPlayerFactionInfoChanged()
 	{

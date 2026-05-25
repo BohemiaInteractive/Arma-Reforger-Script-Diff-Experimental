@@ -20,9 +20,6 @@ class SCR_EditableEntityCoreSerializer : ScriptedStateSerializer
 	//------------------------------------------------------------------------------------------------
 	override ESerializeResult Serialize(notnull Managed instance, notnull SaveContext context)
 	{
-		if (!Replication.IsRunning())
-			return ESerializeResult.DEFAULT;
-
 		SCR_EditableEntityCore core = SCR_EditableEntityCore.Cast(SCR_EditableEntityCore.GetInstance(SCR_EditableEntityCore));
 		if (!core)
 			return ESerializeResult.DEFAULT;
@@ -64,33 +61,31 @@ class SCR_EditableEntityCoreSerializer : ScriptedStateSerializer
 		context.EnableTypeDiscriminator(prev);
 		if (authors)
 		{
+			const PlayerManager playerManager = GetGame().GetPlayerManager();
+			array<int> players();
+			playerManager.GetAllPlayers(players);
+
 			foreach (SCR_PersistentEditableEntityAuthor authorData : authors)
 			{
 				SCR_EditableEntityAuthor author();
 				author.m_sAuthorUID = authorData.m_sIdentity;
 				author.m_sAuthorPlatformID = authorData.m_sPlatformId;
 				author.m_ePlatform = authorData.m_ePlatform;
+				author.m_iAuthorID = -1;
+				foreach (int playerId : players)
+				{
+					if (SCR_PlayerIdentityUtils.GetPlayerIdentityId(playerId) == authorData.m_sPlatformId)
+					{
+						author.m_iAuthorID = playerId;
+						break;
+					}
+				}
+
 				author.m_iEntityCount = -1; // Registration will bump it to 0
 				core.RegisterAuthorServer(author);
-
-				Tuple1<SCR_EditableEntityAuthor> authorContext(author);
-				PersistenceWhenAvailableTask task(OnAuthorAvailable, authorContext);
-				GetSystem().WhenAvailable(authorData.m_sIdentity, task);
 			}
 		}
 
 		return true;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected static void OnAuthorAvailable(Managed instance, PersistenceDeferredDeserializeTask task, bool expired, Managed context)
-	{
-		auto playerController = PlayerController.Cast(instance);
-		if (!playerController)
-			return;
-
-		auto ctx = Tuple1<SCR_EditableEntityAuthor>.Cast(context);
-		if (ctx.param1)
-			ctx.param1.m_iAuthorID = playerController.GetPlayerId();
 	}
 }

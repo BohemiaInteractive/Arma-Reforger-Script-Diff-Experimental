@@ -24,6 +24,9 @@ class SCR_CampaignFaction : SCR_Faction
 	[Attribute(desc: "Whitelist of allowed radio messages")]
 	protected ref SCR_CampaignRadioMsgWhitelistConfig m_RadioMsgWhitelistConfig;
 	
+	[Attribute("1", UIWidgets.CheckBox, desc: "Faction can spawn on Main Bases")]
+	protected bool m_bCanSpawnOnMainBases;
+	
 	[Attribute("0", UIWidgets.CheckBox, desc: "Faction can spawn on Source Bases")]
 	protected bool m_bCanSpawnOnSourceBases;
 

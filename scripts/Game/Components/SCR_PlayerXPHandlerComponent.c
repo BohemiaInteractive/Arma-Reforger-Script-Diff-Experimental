@@ -178,7 +178,7 @@ class SCR_PlayerXPHandlerComponent : ScriptComponent
 
 		if (demote)
 		{
-			SCR_ECharacterRank newRank = ranks.GetRankPrev(rank);
+			SCR_ECharacterRank newRank = ranks.GetPreviousRank(rank);
 
 			if (newRank == SCR_ECharacterRank.INVALID)
 				return;
@@ -187,7 +187,7 @@ class SCR_PlayerXPHandlerComponent : ScriptComponent
 		}
 		else
 		{
-			SCR_ECharacterRank newRank = ranks.GetRankNext(rank);
+			SCR_ECharacterRank newRank = ranks.GetNextRank(rank);
 
 			if (newRank == SCR_ECharacterRank.INVALID)
 				return;

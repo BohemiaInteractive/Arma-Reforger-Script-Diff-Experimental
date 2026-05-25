@@ -114,8 +114,13 @@ class SCR_BaseRadialCommand
 			if (!userFaction)
 				return false;
 
-			string requiredRankName = userFaction.GetRanks().GetRankName(m_eRequiredRank);
-			string currentRankName = userFaction.GetRanks().GetRankName(currentRank);
+			SCR_RankContainer userRanks = userFaction.GetRanks();
+			string requiredRankName = userRanks.GetRankName(m_eRequiredRank);
+
+			if (requiredRankName == string.Empty) // If we dont define this rank in this faction, we will attempt to get the next one that would qualify.
+				requiredRankName = userRanks.GetRankName(userRanks.GetNextRank(m_eRequiredRank));
+
+			string currentRankName = userRanks.GetRankName(currentRank);
 			SetCannotPerformReason(WidgetManager.Translate(CANNOT_PERFORM_RANK_TOO_LOW, requiredRankName, currentRankName));
 			return false;
 		}

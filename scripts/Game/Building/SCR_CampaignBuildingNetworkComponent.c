@@ -147,7 +147,46 @@ class SCR_CampaignBuildingNetworkComponent : ScriptComponent
 
 		buildingManagerComponent.EnterEditorMode(playerID, provider, UserActionActivationOnly, UserActionUsed, useAllAvailableProviders);
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	//! Client method which asks the server for the information about providers used for by current build mode editor
+	void RequestBuildModeProvider()
+	{
+		Rpc(RpcAsk_RequestBuildModeProvider);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_RequestBuildModeProvider()
+	{
+		SCR_EditorManagerCore core = SCR_EditorManagerCore.Cast(SCR_EditorManagerCore.GetInstance(SCR_EditorManagerCore));
+		if (!core)
+			return;
+
+		PlayerController playerController = PlayerController.Cast(GetOwner());
+		SCR_EditorManagerEntity editorManager = core.GetEditorManager(playerController.GetPlayerId());
+		if (!editorManager)
+			return;
+
+		SCR_EditorModeEntity modeEntity = editorManager.FindModeEntity(EEditorMode.BUILDING);
+		if (!modeEntity)
+		{
+			editorManager.Close();
+			return;
+		}
+
+		SCR_CampaignBuildingEditorComponent buildingComp = SCR_CampaignBuildingEditorComponent.Cast(modeEntity.FindComponent(SCR_CampaignBuildingEditorComponent));
+		if (buildingComp)
+		{
+			buildingComp.SendProviders_S();
+		}
+		else
+		{
+			editorManager.Close();
+			return;
+		}
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Increase XP
 	//! \param[in] playerId

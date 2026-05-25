@@ -875,6 +875,47 @@ class SCR_MapMarkerManagerComponent : SCR_BaseGameModeComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
+	//! run on proxy only, adds listener to faction affiliation change of player controller when ready
+	//! \param[in] playerController
+	void RegisterLocalController(notnull PlayerController playerController)
+	{
+		SCR_PlayerFactionAffiliationComponent playerFactionAffiliation = SCR_PlayerFactionAffiliationComponent.Cast(playerController.FindComponent(SCR_PlayerFactionAffiliationComponent));
+		if (playerFactionAffiliation)
+			playerFactionAffiliation.GetOnFactionChanged().Insert(OnPlayerFactionChanged);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	// run on proxy only, removes markers from array that are of different faction than player's 
+	protected void RemoveMarkersOfOtherFactions(int factionIndexOfPlayer, notnull inout array<ref SCR_MapMarkerBase> markers)
+	{
+		SCR_MapMarkerBase marker = new SCR_MapMarkerBase();
+		for(int index = markers.Count() - 1; index >= 0; index --)
+		{
+			marker = markers[index];
+			if (!marker || marker.GetMarkerFactionFlags() == 0)
+				continue;
+			
+			if (!marker.IsFaction(factionIndexOfPlayer)) // marker faction is not same as player faction
+				markers.Remove(index);
+		}
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	// run on proxy only
+	protected void OnPlayerFactionChanged(notnull FactionAffiliationComponent owner, Faction previousFaction, Faction newFaction)
+	{
+		// Note: we delete markers of different factions and thus if we change faction in runtime again, we might obtain incomplete list! TODO if it matters
+		FactionManager factionManager = GetGame().GetFactionManager();
+		if (!factionManager)
+			return;
+		
+		int newFactionIndex = factionManager.GetFactionIndex(newFaction);
+		
+		RemoveMarkersOfOtherFactions(newFactionIndex, m_aStaticMarkers);
+		RemoveMarkersOfOtherFactions(newFactionIndex, m_aDisabledMarkers);		
+	}
+	
+	//------------------------------------------------------------------------------------------------
 	override protected void EOnInit(IEntity owner)
 	{	
 		bool isMaster = m_pGameMode.IsMaster();

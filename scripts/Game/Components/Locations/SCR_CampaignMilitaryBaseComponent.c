@@ -1359,8 +1359,15 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 
 		if (owner)
 		{
-			ownerKey = owner.GetFactionKey();
-			finalKey = ownerKey;
+		    ownerKey = owner.GetFactionKey();
+		    finalKey = ownerKey;
+		    
+		    SCR_GameModeCampaign campaign = SCR_GameModeCampaign.GetInstance();
+		    if (campaign && owner == campaign.GetFactionByEnum(SCR_ECampaignFaction.INDFOR))
+			{
+			    if (!campaign.GetINDFORCanSpawnOnBases() || (!campaign.GetINDFORCanSpawnOnDistantBases() && !IsHQRadioTrafficPossible(campaign.GetFactionByEnum(SCR_ECampaignFaction.BLUFOR)) && !IsHQRadioTrafficPossible(campaign.GetFactionByEnum(SCR_ECampaignFaction.OPFOR))))
+		        	finalKey = FactionKey.Empty;
+			}
 		}
 
 		if (ownerKey == FactionKey.Empty)

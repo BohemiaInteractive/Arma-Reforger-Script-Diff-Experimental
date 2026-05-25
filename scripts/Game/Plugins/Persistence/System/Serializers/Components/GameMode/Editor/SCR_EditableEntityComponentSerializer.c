@@ -31,17 +31,8 @@ class SCR_EditableEntityComponentSerializer : ScriptedComponentSerializer
 		auto slotManager = SCR_CompositionSlotManagerComponent.GetInstance();
 		const bool slotted = slotManager && slotManager.IsInSlot(owner);
 
-		UUID author;
-		int lastUpdated;
-		if (Replication.IsRunning())
-		{
-			author = editable.GetAuthorUID();
-			lastUpdated = editable.GetAuthorLastUpdated();
-		}
-		else
-		{
-			author = UUID.NULL_UUID;
-		}
+		const UUID author = editable.GetAuthorUID();
+		const int lastUpdated = editable.GetAuthorLastUpdated();
 
 		if (parentId.IsNull() && !slotted && author.IsNull())
 			return ESerializeResult.DEFAULT;

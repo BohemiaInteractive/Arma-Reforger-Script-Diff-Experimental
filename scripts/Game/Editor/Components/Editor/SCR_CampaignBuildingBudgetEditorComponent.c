@@ -42,7 +42,10 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 	{
 		m_CampaignBuildingComponent = SCR_CampaignBuildingEditorComponent.Cast(FindEditorComponent(SCR_CampaignBuildingEditorComponent, true, true));
 		if (!m_CampaignBuildingComponent)
+		{
+			Debug.Error("SCR_CampaignBuildingBudgetEditorComponent was unable to find SCR_CampaignBuildingEditorComponent on " + m_Owner);
 			return;
+		}
 
 		RefreshBudgetSettings();
 		m_CampaignBuildingComponent.GetOnProviderChanged().Insert(OnTargetBaseChanged);
@@ -70,10 +73,41 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Checks if we have a reference to building editor component, and if not, then it will try to find it and connect what needs to be connected
+	//! \returns true if building editor component ispresent, otherwise false
+	protected bool CheckAndRecoverCampaignBuildingComponent()
+	{
+		if (m_CampaignBuildingComponent)
+			return true;
+
+		m_CampaignBuildingComponent = SCR_CampaignBuildingEditorComponent.Cast(FindEditorComponent(SCR_CampaignBuildingEditorComponent, true, true));
+		if (!m_CampaignBuildingComponent)
+		{
+			Debug.Error("Recovering of SCR_CampaignBuildingBudgetEditorComponent was unable to find SCR_CampaignBuildingEditorComponent on " + m_Owner + " and because of that editor will be closed now!");
+			m_Manager.Close();
+			return false;
+		}
+
+		RefreshBudgetSettings();
+		ScriptInvoker providerChangedInvoker = m_CampaignBuildingComponent.GetOnProviderChanged();
+		providerChangedInvoker.Remove(OnTargetBaseChanged); // it is possible that it was added there previously, so first we have to do a cleanup just to be safe
+		providerChangedInvoker.Insert(OnTargetBaseChanged);
+		
+		SCR_BaseGameMode baseGameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+		if (!baseGameMode)
+			return false; // if game mode doesnt exist then there is no hope for things working right
+
+		ScriptInvokerBase<SCR_BaseGameMode_OnResourceEnabledChanged> resourceTypeInvoker = baseGameMode.GetOnResourceTypeEnabledChanged();
+		resourceTypeInvoker.Remove(OnResourceTypeEnabledChanged); // it is possible that it was added there previously, so first we have to do a cleanup just to be safe
+		resourceTypeInvoker.Insert(OnResourceTypeEnabledChanged);
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	[Obsolete("SCR_CampaignBuildingBudgetEditorComponent.RefreshResourcesComponent() should be used instead.")]
 	protected bool RefreshSuppliesComponent()
 	{
-		if (!m_CampaignBuildingComponent)
+		if (!CheckAndRecoverCampaignBuildingComponent())
 			return false;
 
 		SCR_CampaignSuppliesComponent providerSuppliesComponent;
@@ -198,9 +232,12 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 	//------------------------------------------------------------------------------------------------
 	override int GetCurrentBudgetValue(EEditableEntityBudget type)
 	{
+		if (!CheckAndRecoverCampaignBuildingComponent())
+			return 0;
+
 		SCR_CampaignBuildingProviderComponent providerComponent = m_CampaignBuildingComponent.GetProviderComponent();
 		if (!providerComponent)
-			return -1;
+			return 0; // build mode must have a provider, if it doesnt, then there is no budget
 		
 		switch (type)
 		{
@@ -265,12 +302,12 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 	//! \return max prop value for a current provider. This number limits the number of prefabs (compositions) buildable with this provider.
 	int GetProviderMaxValue(EEditableEntityBudget budget)
 	{
-		if (!m_CampaignBuildingComponent)
-			return UNLIMITED_PROP_BUDGET;
+		if (!CheckAndRecoverCampaignBuildingComponent())
+			return 0;
 		
 		SCR_CampaignBuildingProviderComponent providerComponent = m_CampaignBuildingComponent.GetProviderComponent();
 		if (!providerComponent)
-			return UNLIMITED_PROP_BUDGET;
+			return 0; // build mode must have a provider who determines the budget
 		
 		return providerComponent.GetMaxBudgetValue(budget);
 	}
@@ -279,7 +316,7 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 	//! Return current cooldown timer state.
 	bool HasCooldownTime()
 	{		
-		if (!m_CampaignBuildingComponent)
+		if (!CheckAndRecoverCampaignBuildingComponent())
 			return false;
 		
 		SCR_CampaignBuildingProviderComponent providerComponent = m_CampaignBuildingComponent.GetProviderComponent();
@@ -295,12 +332,12 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 	//------------------------------------------------------------------------------------------------
 	int GetCooldownTime()
 	{
-		if (!m_CampaignBuildingComponent)
-			return 0;
+		if (!CheckAndRecoverCampaignBuildingComponent())
+			return int.MAX;
 		
 		SCR_CampaignBuildingProviderComponent providerComponent = m_CampaignBuildingComponent.GetProviderComponent();
 		if (!providerComponent)
-			return 0;
+			return int.MAX; // build mode must have a provider, if it doesnt, then its safer to block at all cost
 
 		return providerComponent.GetCooldownValue(m_Manager.GetPlayerID());
 	}
@@ -313,7 +350,7 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 		if (!campaignGameMode)
 			return true;
 
-		if (!m_CampaignBuildingComponent)
+		if (!CheckAndRecoverCampaignBuildingComponent())
 			return false;
 
 		SCR_CampaignBuildingProviderComponent providerComponent = m_CampaignBuildingComponent.GetProviderComponent();
@@ -413,12 +450,15 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 	//------------------------------------------------------------------------------------------------
 	protected override void RefreshBudgetSettings()
 	{
-		if (!m_CampaignBuildingComponent)
+		if (!CheckAndRecoverCampaignBuildingComponent())
 			return;
 		
 		SCR_CampaignBuildingProviderComponent providerComponent = m_CampaignBuildingComponent.GetProviderComponent();
 		if (!providerComponent)
+		{
+			m_Manager.Close(); // build mode must have a provider
 			return;
+		}
 		
 		array<ref EEditableEntityBudget> budgetsType = {};
 		providerComponent.GetBudgetTypesToEvaluate(budgetsType);
@@ -742,7 +782,7 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 	//! \return
 	bool IsBudgetCapEnabled(EEditableEntityBudget blockingBudget)
 	{
-		if (!m_CampaignBuildingComponent)
+		if (!CheckAndRecoverCampaignBuildingComponent())
 			return true;
 		
 		SCR_CampaignBuildingProviderComponent providerComponent = m_CampaignBuildingComponent.GetProviderComponent();

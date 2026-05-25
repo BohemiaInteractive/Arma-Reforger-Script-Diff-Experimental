@@ -758,6 +758,12 @@ class ArmaReforgerScripted : ChimeraGame
 			m_CoresManager.OnGameEnd();
 	}
 
+	override protected void OnBeforeWorldCleanup()
+	{
+		if (GetGame().InPlayMode() && m_CoresManager)
+			m_CoresManager.OnBeforeWorldCleanup();
+	}
+	
 	//------------------------------------------------------------------------------------------------
 	override void OnUserSettingsChangedEvent()
 	{
@@ -1099,6 +1105,12 @@ class ArmaReforgerScripted : ChimeraGame
 		}
 
 		m_pLoadoutManager = instance;
+		if (!m_pLoadoutManager)
+			return;
+
+		SCR_FactionManager factionMgr = SCR_FactionManager.Cast(GetFactionManager());
+		if (factionMgr)
+			factionMgr.UpdateCustomLoadoutSupportState(m_pLoadoutManager);
 	}
 
 	//------------------------------------------------------------------------------------------------

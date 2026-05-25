@@ -145,7 +145,7 @@ class SCR_AIGroupSerializer : ScriptedEntitySerializer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	override bool DeserializeSpawnData(out ResourceName prefab, out EntitySpawnParams params, notnull LoadContext context)
+	override bool DeserializeSpawnData(out ResourceName prefab, notnull out EntitySpawnParams params, notnull LoadContext context)
 	{
 		int version;
 		context.Read(version);

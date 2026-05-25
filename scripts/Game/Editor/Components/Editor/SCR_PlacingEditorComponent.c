@@ -391,8 +391,12 @@ class SCR_PlacingEditorComponent : SCR_BaseEditorComponent
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void CreateEntityServer(SCR_EditorPreviewParams params, RplId prefabID, int playerID, int entityIndex, bool isQueue, array<RplId> recipientIds, bool canBePlayer, RplId holderId)
 	{
+		array<RplId> entityIds = {};
 		if (m_bBlockPlacing)
+		{
+			Rpc(CreateEntityOwner, prefabID, entityIds, entityIndex, false, false, RplId.Invalid(), 0);
 			return;
+		}
 
 		PlayerManager playerMgr = GetGame().GetPlayerManager();
 		if (!m_Manager || m_Manager.GetPlayerID() != playerID)
@@ -406,9 +410,8 @@ class SCR_PlacingEditorComponent : SCR_BaseEditorComponent
 		}
 
 		SCR_PlacingEditorComponentClass prefabData = SCR_PlacingEditorComponentClass.Cast(GetEditorComponentData());
-		if (RplSession.Mode() == RplMode.Client || !prefabData) return;
-		
-		array<RplId> entityIds = {};
+		if (RplSession.Mode() == RplMode.Client || !prefabData)
+			return;
 		
 		if (!params.Deserialize() || !CanCreateEntity(params: params))
 		{
@@ -461,7 +464,10 @@ class SCR_PlacingEditorComponent : SCR_BaseEditorComponent
 			bool canSpawn = IsThereEnoughBudgetToSpawn(editableEntitySource);
 		
 			if(!canSpawn)
+			{
+				Rpc(CreateEntityOwner, prefabID, entityIds, entityIndex, false, false, RplId.Invalid(), 0);
 				return;
+			}
 		}
 
 		OnBeforeEntityCreatedServer(prefab);
