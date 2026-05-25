@@ -1564,7 +1564,10 @@ class SCR_CampaignMapUIBase : SCR_CampaignMapUIElement
 			m_wRallyPointIconBottom.SetVisible(visible);
 
 		if (m_wRallyPointIconBalancer)
-			m_wRallyPointIconBalancer.SetVisible(visible);
+		{
+			bool hasCallsign = m_wCallsignName && m_wCallsignName.GetText() != string.Empty;
+			m_wRallyPointIconBalancer.SetVisible(visible && hasCallsign);
+		}
 
 		if (m_wRallyPointText)
 			m_wRallyPointText.SetVisible(visible);

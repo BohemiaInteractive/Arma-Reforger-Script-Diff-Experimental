@@ -323,7 +323,7 @@ class SCR_CampaignBuildingEditorComponent : SCR_BaseEditorComponent
 		if (!TabContainLabel(tab))
 			return false;
 
-		return tab.CanBeShown();
+		return tab.CanBeShown(GetProviderEntity(), m_Manager.GetPlayerID());
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -342,6 +342,8 @@ class SCR_CampaignBuildingEditorComponent : SCR_BaseEditorComponent
 			return false;
 
 		array<EEditableEntityLabel> labels = providerComponent.GetAvailableTraits();
+		if (labels.Contains(EEditableEntityLabel.SERVICE_HQ) && !SCR_CampaignBuildingProviderComponent.CanBeUsedToEstablishBase(providerComponent.GetOwner(), m_Manager.GetPlayerID()))
+			labels.RemoveItem(EEditableEntityLabel.SERVICE_HQ);
 
 		foreach (EEditableEntityLabel label : labels)
 		{

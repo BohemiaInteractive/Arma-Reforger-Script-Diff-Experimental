@@ -456,7 +456,8 @@ class SCR_RoleSelectionMenu : SCR_DeployMenuBase
 			m_MapEntity.CloseMap();
 		
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
-		gameMode.PauseGame(false, SCR_EPauseReason.MENU);
+		if (gameMode)
+			gameMode.PauseGame(false, SCR_EPauseReason.MENU);
 	}
 	
 	//------------------------------------------------------------------------------------------------

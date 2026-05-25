@@ -174,7 +174,7 @@ class SCR_ContentBrowser_AddonsSubMenu : SCR_SubMenuBase
 				GetGame().GetCallqueue().Call(SwitchFocus, m_eFocusedWidgetState);
 		}
 		
-		SCR_AnalyticsApplication.GetInstance().WorkshopSetTab(m_iIndex);
+		//SCR_AnalyticsApplication.GetInstance().WorkshopSetTab(m_iIndex);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -891,7 +891,7 @@ class SCR_ContentBrowser_AddonsSubMenu : SCR_SubMenuBase
 		else
 			SwitchFocus(SCR_EListMenuWidgetFocus.LIST);
 
-		SCR_AnalyticsApplication.GetInstance().WorkshopUseFilterOn();
+		//SCR_AnalyticsApplication.GetInstance().WorkshopUseFilterOn();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -1202,7 +1202,7 @@ class SCR_ContentBrowser_AddonsSubMenu : SCR_SubMenuBase
 	{
 		m_bClearCacheAtNextRequest = true;
 		RequestPage(0);
-		SCR_AnalyticsApplication.GetInstance().WorkshopSetFilter(filter.GetCategory().m_sInternalName, filter.m_sInternalName);
+		//SCR_AnalyticsApplication.GetInstance().WorkshopSetFilter(filter.GetCategory().m_sInternalName, filter.m_sInternalName);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1211,7 +1211,7 @@ class SCR_ContentBrowser_AddonsSubMenu : SCR_SubMenuBase
 	{
 		m_bClearCacheAtNextRequest = true;
 		RequestPage(0);
-		SCR_AnalyticsApplication.GetInstance().WorkshopUseSearch();
+		//SCR_AnalyticsApplication.GetInstance().WorkshopUseSearch();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1220,7 +1220,7 @@ class SCR_ContentBrowser_AddonsSubMenu : SCR_SubMenuBase
 	{
 		m_bClearCacheAtNextRequest = true;
 		RequestPage(0);
-		SCR_AnalyticsApplication.GetInstance().WorkshopSetSorting(sortHeader.GetSortElementName());
+		//SCR_AnalyticsApplication.GetInstance().WorkshopSetSorting(sortHeader.GetSortElementName());
 	}
 
 	//------------------------------------------------------------------------------------------------

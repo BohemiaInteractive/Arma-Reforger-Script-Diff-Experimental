@@ -1765,7 +1765,7 @@ class SCR_InventoryStorageManagerComponent : ScriptedInventoryStorageManagerComp
 		m_bWasRaised = m_CharacterController.IsWeaponRaised();
 		m_CharacterController.SetWeaponRaised(false);
 				
-		SCR_AnalyticsApplication.GetInstance().OpenInventory(GetTotalWeightOfAllStorages());
+		//SCR_AnalyticsApplication.GetInstance().OpenInventory(GetTotalWeightOfAllStorages());
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1832,7 +1832,7 @@ class SCR_InventoryStorageManagerComponent : ScriptedInventoryStorageManagerComp
 		if (m_CharacterController)
 			m_CharacterController.SetWeaponRaised(m_bWasRaised);		
 		
-		SCR_AnalyticsApplication.GetInstance().CloseInventory(GetTotalWeightOfAllStorages());
+		//SCR_AnalyticsApplication.GetInstance().CloseInventory(GetTotalWeightOfAllStorages());
 	}
 	
 	//------------------------------------------------------------------------------------------------

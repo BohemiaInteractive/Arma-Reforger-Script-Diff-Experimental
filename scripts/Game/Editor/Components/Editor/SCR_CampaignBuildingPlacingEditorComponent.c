@@ -32,6 +32,24 @@ class SCR_CampaignBuildingPlacingEditorComponent : SCR_PlacingEditorComponent
 	
 	//different because this cant be a global map, but one map per base, probably gotta put this somewhere else lol
 	ref map<EEditableEntityBudget, int> m_accumulatedCampaignBudgetChanges = new map<EEditableEntityBudget, int>;
+
+	//------------------------------------------------------------------------------------------------
+	Faction GetProviderAffiliatedFaction()
+	{
+		if (!m_CampaignBuildingComponent)
+			return null;
+
+		SCR_FactionAffiliationComponent factionAffiliationComp = m_CampaignBuildingComponent.GetProviderFactionComponent();
+		if (!factionAffiliationComp)
+			return null;
+
+		Faction faction = factionAffiliationComp.GetAffiliatedFaction();
+		if (!faction)
+			return factionAffiliationComp.GetDefaultAffiliatedFaction();
+
+		return faction;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Return the base which belongs to a provider (if any)
 	protected bool GetProviderBase(out SCR_MilitaryBaseComponent base)
@@ -419,6 +437,9 @@ class SCR_CampaignBuildingPlacingEditorComponent : SCR_PlacingEditorComponent
 			return false;
 
 		array<EEditableEntityLabel> providerLabels = providerComp.GetAvailableTraits();
+		if (providerLabels.Contains(EEditableEntityLabel.SERVICE_HQ) && !SCR_CampaignBuildingProviderComponent.CanBeUsedToEstablishBase(m_Provider, m_Manager.GetPlayerID()))
+			providerLabels.RemoveItem(EEditableEntityLabel.SERVICE_HQ);
+
 		bool matchingLabel;
 		foreach (EEditableEntityLabel providerLabel : providerLabels)
 		{

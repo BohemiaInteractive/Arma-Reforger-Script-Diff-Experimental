@@ -75,7 +75,6 @@ class SCR_AnalyticsDataCollectionTasksModule : SCR_AnalyticsDataCollectionModule
 	protected void SendSessionDataEvent(SCR_Task task, SCR_EAnalyticalTaskState state)
 	{
 		SCR_SessionDataEvent sessionEvent = new SCR_SessionDataEvent();
-		sessionEvent = new SCR_SessionDataEvent();		
 		sessionEvent.task_name = task.GetTaskName();
 		sessionEvent.task_id = task.GetTaskID();
 		sessionEvent.task_state = typename.EnumToString(SCR_EAnalyticalTaskState, state);	

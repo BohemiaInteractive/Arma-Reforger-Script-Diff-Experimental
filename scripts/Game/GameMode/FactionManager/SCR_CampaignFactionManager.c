@@ -134,5 +134,6 @@ enum SCR_ECampaignFaction
 {
 	INDFOR,
 	BLUFOR,
-	OPFOR
+	OPFOR,
+	RNGD
 }

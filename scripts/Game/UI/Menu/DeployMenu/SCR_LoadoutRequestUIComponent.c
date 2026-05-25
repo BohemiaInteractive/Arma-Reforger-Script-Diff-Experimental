@@ -384,7 +384,7 @@ class SCR_LoadoutRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		buttonComp.SetLoadout(loadout);
 		buttonComp.SetPlayer(pid);
 		buttonComp.SetSelected(pid == GetGame().GetPlayerController().GetPlayerId());
-		buttonComp.SetEnabled(loadout.IsLoadoutAvailableClient());
+		buttonComp.SetEnabled(!loadout || loadout.IsLoadoutAvailableClient());
 
 		buttonComp.m_OnFocus.Insert(OnButtonFocused);
 		buttonComp.m_OnFocusLost.Insert(OnButtonFocusLost);

@@ -2782,7 +2782,7 @@ class SCR_InventoryMenuUI : ChimeraMenuBase
 			return;
 		}
 		
-		SCR_AnalyticsApplication.GetInstance().UseExaminationFromInventory();
+		//SCR_AnalyticsApplication.GetInstance().UseExaminationFromInventory();
 		
 		IEntity item = itemComp.GetOwner();
 		
@@ -3078,7 +3078,7 @@ class SCR_InventoryMenuUI : ChimeraMenuBase
 	//!
 	protected void SimpleFSM(EMenuAction EAction = EMenuAction.ACTION_SELECT)
 	{
-		SCR_AnalyticsApplication.GetInstance().InteractWithItem(m_pFocusedSlotUI, m_pSelectedSlotUI, EAction, m_bIsUsingGamepad);
+		//SCR_AnalyticsApplication.GetInstance().InteractWithItem(m_pFocusedSlotUI, m_pSelectedSlotUI, EAction, m_bIsUsingGamepad);
 		
 		switch (EAction)
 		{

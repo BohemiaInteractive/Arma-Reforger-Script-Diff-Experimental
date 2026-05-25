@@ -77,6 +77,9 @@ class SCR_CampaignMilitaryBaseManager
 			if (!campaignFaction.IsPlayable())
 				continue;
 
+			if (!campaignFaction.CanBuildBases())
+				continue;
+
 			baseCallsignIndexes = campaignFaction.GetBaseCallsignIndexes();
 
 			// Skip faction that does not use any callsigns
@@ -136,6 +139,10 @@ class SCR_CampaignMilitaryBaseManager
 	{
 		// Establishing bases is not enabled at all
 		if (!m_Campaign.GetEstablishingBasesEnabled())
+			return false;
+
+		SCR_CampaignFaction campaignFaction = SCR_CampaignFaction.Cast(faction);
+		if (campaignFaction && !campaignFaction.CanBuildBases())
 			return false;
 
 		int factionsWithBuiltBases = m_mFactionEstablishedBasesAmount.Count();
@@ -533,6 +540,46 @@ class SCR_CampaignMilitaryBaseManager
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Build the callsign index pool used to assign m_iCallsign to bases.
+	//! Returns array positions [0..N) where N is the smallest base callsign count among
+	//! playable factions, so every playable faction can resolve every assigned value.
+	protected void GetSharedCallsignPool(notnull array<int> outIndexes)
+	{
+		outIndexes.Clear();
+
+		FactionManager factionManager = GetGame().GetFactionManager();
+		if (!factionManager)
+			return;
+
+		array<Faction> allFactions = {};
+		factionManager.GetFactionsList(allFactions);
+
+		int minCallsignCount = int.MAX;
+		foreach (Faction faction : allFactions)
+		{
+			SCR_CampaignFaction campaignFaction = SCR_CampaignFaction.Cast(faction);
+			if (!campaignFaction || !campaignFaction.IsPlayable())
+				continue;
+
+			if (!campaignFaction.CanBuildBases())
+				continue;
+
+			int count = campaignFaction.GetBaseCallsignIndexes().Count();
+			if (count <= 0)
+				continue;
+
+			if (count < minCallsignCount)
+				minCallsignCount = count;
+		}
+
+		if (minCallsignCount == int.MAX)
+			return;
+
+		for (int i = 0; i < minCallsignCount; i++)
+			outIndexes.Insert(i);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void InitializeBases(notnull array<SCR_CampaignMilitaryBaseComponent> selectedHQs, bool randomizeSupplies)
 	{
 		array<SCR_CampaignMilitaryBaseComponent> basesSorted = {};
@@ -543,17 +590,8 @@ class SCR_CampaignMilitaryBaseManager
 		bool indexFound;
 		int callsignIndex;
 		array<int> allCallsignIndexes = {};
-		array<int> callsignIndexesBLUFOR = m_Campaign.GetFactionByEnum(SCR_ECampaignFaction.BLUFOR).GetBaseCallsignIndexes();
-		SCR_CampaignFaction factionOPFOR = m_Campaign.GetFactionByEnum(SCR_ECampaignFaction.OPFOR);
+		GetSharedCallsignPool(allCallsignIndexes);
 
-		// Grab all valid base callsign indexes (if both factions have the index)
-		foreach (int indexBLUFOR : callsignIndexesBLUFOR)
-		{
-			if (factionOPFOR.GetBaseCallsignByIndex(indexBLUFOR))
-				allCallsignIndexes.Insert(indexBLUFOR);
-		}
-
-		int callsignsCount = allCallsignIndexes.Count();
 		Faction defaultFaction;
 		BaseRadioComponent radio;
 		BaseTransceiver tsv;
@@ -574,18 +612,10 @@ class SCR_CampaignMilitaryBaseManager
 					campaignBase.SetFaction(m_Campaign.GetFactionByEnum(SCR_ECampaignFaction.INDFOR));
 			}
 
-			// Assign callsign
-			if (campaignBase.GetType() == SCR_ECampaignBaseType.RELAY)
-			{
-				// Relays use a dummy callsign just so search by callsign is still possible
-				campaignBase.SetCallsignIndex(callsignsCount + iBase);
-			}
-			else
-			{
-				callsignIndex = allCallsignIndexes.GetRandomIndex();
-				campaignBase.SetCallsignIndex(allCallsignIndexes[callsignIndex]);
-				allCallsignIndexes.Remove(callsignIndex);
-			}
+			// Assign callsign from the shared pool (relays included, so their callsign is searchable AND displayable)
+			callsignIndex = allCallsignIndexes.GetRandomIndex();
+			campaignBase.SetCallsignIndex(allCallsignIndexes[callsignIndex]);
+			allCallsignIndexes.Remove(callsignIndex);
 
 			// Sort bases by distance to a HQ so randomized supplies can be applied fairly (if enabled)
 			if (randomizeSupplies && campaignBase.GetType() == SCR_ECampaignBaseType.BASE)
@@ -1375,16 +1405,7 @@ class SCR_CampaignMilitaryBaseManager
 		if (!m_Campaign.IsProxy())
 		{
 			array<int> callsignsPool = {};
-
-			array<int> callsignIndexesBLUFOR = m_Campaign.GetFactionByEnum(SCR_ECampaignFaction.BLUFOR).GetBaseCallsignIndexes();
-			SCR_CampaignFaction factionOPFOR = m_Campaign.GetFactionByEnum(SCR_ECampaignFaction.OPFOR);
-
-			// Grab all valid base callsign indexes (if both factions have the index)
-			foreach (int indexBLUFOR : callsignIndexesBLUFOR)
-			{
-				if (factionOPFOR.GetBaseCallsignByIndex(indexBLUFOR))
-					callsignsPool.Insert(indexBLUFOR);
-			}
+			GetSharedCallsignPool(callsignsPool);
 
 			// Ignore callsigns which are already assigned to other bases
 			foreach (SCR_CampaignMilitaryBaseComponent existingBase : m_aBases)

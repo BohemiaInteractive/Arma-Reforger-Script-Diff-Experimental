@@ -45,6 +45,8 @@ class SCR_AnalyticsDataCollectionTransferSuppliesModule : SCR_AnalyticsDataColle
 {
 	protected ref array<ref SCR_TransferSuppliesInteraction> m_Interactions = new array<ref SCR_TransferSuppliesInteraction>();
 	protected static const string BASE = "BASE";
+	// SessionMeasures fires every 900 s; cap prevents unbounded growth between flushes
+	protected static const int MAX_INTERACTIONS = 2000;
 	
 	//------------------------------------------------------------------------------------------------
 	protected override void Enable()
@@ -262,9 +264,15 @@ class SCR_AnalyticsDataCollectionTransferSuppliesModule : SCR_AnalyticsDataColle
 	//------------------------------------------------------------------------------------------------
 	protected void OnTransferSupplies(EResourcePlayerInteractionType interactionType, SCR_ResourceComponent resourceComponentFrom, SCR_ResourceComponent resourceComponentTo, EResourceType resourceType, float resourceValue, PlayerController playerController, SCR_AIGroupUtilityComponent utility)
 	{
-		if(resourceValue <= 0)
-			return; 
-		
+		if (resourceValue <= 0)
+			return;
+
+		if (m_Interactions.Count() >= MAX_INTERACTIONS)
+		{
+			Print("SCR_AnalyticsDataCollectionTransferSuppliesModule: interaction cap reached, dropping entry", LogLevel.WARNING);
+			return;
+		}
+
 		bool isPlayer = playerController;
 
 		ResourceName fromPrefab;

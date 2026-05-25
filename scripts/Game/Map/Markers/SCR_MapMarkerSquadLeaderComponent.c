@@ -142,7 +142,7 @@ class SCR_MapMarkerSquadLeaderComponent : SCR_MapMarkerDynamicWComponent
 			// leader entry first, order of IDs is not guaranteed
 			foreach (int id : membersCopy)
 			{
-				if (id == leaderID)
+				if (id == leaderID && !m_aGroupMemberEntries.IsEmpty())
 				{
 					Widget entry = m_aGroupMemberEntries[0];
 					TextWidget txtW = TextWidget.Cast(entry.FindWidget(m_sLineTextWidgetName));
@@ -257,7 +257,7 @@ class SCR_MapMarkerSquadLeaderComponent : SCR_MapMarkerDynamicWComponent
 	protected void OnClusterUpdated(notnull array<int> cluster)
 	{
 		array<int> players = SCR_MapMarkerSquadLeader.Cast(m_MarkerEnt).GetGroup().GetPlayerIDs();
-		if (!players || players.Count() == 0)
+		if (!players || players.Count() == 0 || m_aGroupMemberEntries.IsEmpty())
 			return;
 
 		foreach (int i, int playerID : m_aDisplayedPlayerIDs)

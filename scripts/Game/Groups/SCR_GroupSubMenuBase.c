@@ -302,21 +302,23 @@ class SCR_GroupSubMenuBase : SCR_SubMenuBase
 	{
 		if (!m_AcceptInviteButton || !m_DeclineInviteButton)
 			return;
+		
+		int selectedGroupId = m_PlayerGroupController.GetSelectedGroupID();
 
-		if (m_PlayerGroupController.GetGroupInviteID() == -1 || m_PlayerGroupController.GetGroupInviteID() != m_PlayerGroupController.GetSelectedGroupID())
+		if (!m_PlayerGroupController.HasInviteFromGroup(selectedGroupId))
 		{
 			m_AcceptInviteButton.SetVisible(false, false);
 			m_DeclineInviteButton.SetVisible(false, false);
 		}
 		else
 		{
-			SCR_AIGroup group = m_GroupManager.FindGroup(m_PlayerGroupController.GetGroupInviteID());
+			SCR_AIGroup group = m_GroupManager.FindGroup(selectedGroupId);
 
 			if (!group)
 			{
 				m_AcceptInviteButton.SetVisible(false, false);
 				m_DeclineInviteButton.SetVisible(false, false);
-				m_PlayerGroupController.SetGroupInviteID(-1);
+				m_PlayerGroupController.RemoveGroupInviteId(selectedGroupId);
 				return;
 			}
 
@@ -328,7 +330,7 @@ class SCR_GroupSubMenuBase : SCR_SubMenuBase
 	//------------------------------------------------------------------------------------------------
 	protected void SetSelectedGroupButtonStatus(int selectedGroupId)
 	{
-		bool canShow = selectedGroupId > -1 && m_PlayerGroupController.GetGroupInviteID() != selectedGroupId;
+		bool canShow = selectedGroupId > -1 && !m_PlayerGroupController.HasInviteFromGroup(selectedGroupId);
 
 		m_JoinGroupButton.SetVisible(canShow, false);
 		m_AddGroupButton.SetVisible(canShow, false);

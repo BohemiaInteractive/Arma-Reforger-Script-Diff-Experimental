@@ -208,7 +208,6 @@ class SCR_TaskSave
 			}
 		}
 
-		taskSystem.SetTaskState(task, m_eState);
 		task.SetTaskOwnership(m_eOwnership);
 		task.SetTaskVisibility(m_eVisibility);
 		task.SetTaskUIVisibility(m_eUIVisibility);
@@ -249,6 +248,8 @@ class SCR_TaskSave
 			persistence.WhenAvailable(owner, loadTask);
 		}
 
+		taskSystem.SetTaskState(task, m_eState);
+		
 		return task;
 	}
 

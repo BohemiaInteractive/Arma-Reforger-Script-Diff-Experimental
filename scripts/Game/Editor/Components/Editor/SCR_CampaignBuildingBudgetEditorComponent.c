@@ -357,13 +357,45 @@ class SCR_CampaignBuildingBudgetEditorComponent : SCR_BudgetEditorComponent
 		if (!providerComponent)
 			return false;
 
-		IEntity player = SCR_PlayerController.GetLocalControlledEntity();
+		SCR_ChimeraCharacter player = SCR_ChimeraCharacter.Cast(SCR_PlayerController.GetLocalControlledEntity());
 		if (!player)
 			return false;
 
-		Faction faction = SCR_FactionManager.SGetLocalPlayerFaction();
+		Faction faction = player.GetFaction();
 		if (!faction)
 			return false;
+
+		IEntity providerEnt = providerComponent.GetOwner();
+		FactionAffiliationComponent factionComp = FactionAffiliationComponent.Cast(providerEnt.FindComponent(FactionAffiliationComponent));
+		if (!factionComp)
+		{
+			// in case of construction trucks, the provider is the back of the truck,
+			// while faction affiliation component is only on the truck itself,
+			// which is a parent, thus we need to check that as well
+			IEntity parent = providerEnt.GetParent();
+			while (parent && factionComp == null)
+			{
+				factionComp = FactionAffiliationComponent.Cast(parent.FindComponent(FactionAffiliationComponent));
+				if (!factionComp)
+					parent = parent.GetParent();
+			}
+
+			if (!factionComp)
+				return false;
+
+			providerEnt = parent;
+		}
+
+		if (Vehicle.Cast(providerEnt))
+		{
+			if (faction != factionComp.GetDefaultAffiliatedFaction())
+				return false;
+		}
+		else
+		{
+			if (faction != factionComp.GetAffiliatedFaction())
+				return false;
+		}
 
 		if (!campaignGameMode.GetBaseManager().CanFactionBuildNewBase(faction))
 			return false;

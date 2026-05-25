@@ -30,6 +30,9 @@ class SCR_CampaignFaction : SCR_Faction
 	[Attribute("0", UIWidgets.CheckBox, desc: "Faction can spawn on Source Bases")]
 	protected bool m_bCanSpawnOnSourceBases;
 
+	[Attribute(defvalue: "1", desc: "Can Build Bases")]
+	protected bool m_bCanBuildBases;
+
 	protected SCR_CampaignMilitaryBaseComponent m_MainBase;
 	
 	protected SCR_CampaignMobileAssemblyStandaloneComponent m_MobileAssembly;
@@ -248,5 +251,11 @@ class SCR_CampaignFaction : SCR_Faction
 	bool CanSpawnOnSourceBases()
 	{
 		return m_bCanSpawnOnSourceBases;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool CanBuildBases()
+	{
+		return m_bCanBuildBases;
 	}
 };

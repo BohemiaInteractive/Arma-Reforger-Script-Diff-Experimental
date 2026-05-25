@@ -25,10 +25,10 @@ class SCR_Faction : ScriptedFaction
 	[Attribute(defvalue: "1", desc: "Will players in the faction be able to volunteer to become a commander? \nKeep in mind commanders might be disabled altogether in the mission header.")]
 	protected bool m_bIsCommanderAvailable;
 
-	[Attribute(defvalue: "1", desc: "If true will show the faction in the welcome screen even if it is not playable")]
-	protected bool m_bShowInWelcomeScreenIfNonPlayable;
+	[Attribute(desc: "This faction will punish people who lost their rank by removing them from the faction\nIf the player gains rank they can (re)join FIA specifically")]
+	protected bool m_bExileRenegadePunishment;
 	
-	[Attribute("true", desc: "Is this a military faction? This affects AI functionality related to combat.")]
+	[Attribute("1", desc: "Is this a military faction? This affects AI functionality related to combat.")]
 	protected bool m_bIsMilitary;
 	
 	[Attribute("true", desc: "This faction can receive tasks.")]
@@ -43,11 +43,17 @@ class SCR_Faction : ScriptedFaction
 	[Attribute("0", UIWidgets.SearchComboBox, "", enumType: EEditableEntityLabel)]
 	protected EEditableEntityLabel m_FactionLabel;
 	
+	[Attribute(defvalue: EOverrideWelcomeScreenFactionDisplay.NONE.ToString(), desc: "An extra override if the spawn menu will show the faction in the welcome screen regardless of it being playable", uiwidget: UIWidgets.SearchComboBox, enums: ParamEnumArray.FromEnum(EOverrideWelcomeScreenFactionDisplay))]
+	protected EOverrideWelcomeScreenFactionDisplay m_eShowInWelcomeScreenOverride;
+	
 	[Attribute("1", desc: "If this is false it would mean that every AI will be hostile towards their own faction members and essentially allow for Deathmatch. Use with caution, only checked on init, you can still set the faction hostile towards itself in runtime. This essentially makes sure it adds itself to FriendlyFactionsIds.")]
 	protected bool m_bFriendlyToSelf;
 	
 	[Attribute(desc: "List of faction IDs that are considered friendly for this faction. Note: If factionA has factionB as friendly but FactionB does not have FactionA as friendly then they are still both set as friendly so for init it is only required for one faction.")]
 	protected ref array<string> m_aFriendlyFactionsIds;
+
+	[Attribute(desc: "Parent faction ID, players in this faction will be considered a part of their parent faction, but are seperate in gameplay to allow for custom interactions with AI, spawning and communication.\nNo value means this faction will be created independently.")]
+	protected string m_sParentFactionId;
 
 	[Attribute()]
 	protected ref SCR_FactionCallsignInfo m_CallsignInfo;
@@ -113,6 +119,7 @@ class SCR_Faction : ScriptedFaction
 	protected bool m_bIsPlayableDefault;
 	protected bool m_bIsCustomLoadoutSupported;
 	protected ref set<Faction> m_FriendlyFactions = new set<Faction>;
+	protected Faction m_ParentFaction;
 	
 	static const int AI_COMMANDER_ID = 0;
 	protected int m_iCommanderId = AI_COMMANDER_ID;
@@ -335,11 +342,16 @@ class SCR_Faction : ScriptedFaction
 	}
 	
 	//------------------------------------------------------------------------------------------------
+	bool IsRenegadePunishedExile()
+	{
+		return m_bExileRenegadePunishment;
+	}
+	//------------------------------------------------------------------------------------------------
 	//! If faction should be shown in the welcome screen if it is not playable
 	//! \return True if it should show even if not playable otherwise hide
-	bool IsShownInWelcomeScreenIfNonPlayable()
+	EOverrideWelcomeScreenFactionDisplay ShowInWelcomeScreenOverride()
 	{
-		return m_bShowInWelcomeScreenIfNonPlayable;
+		return m_eShowInWelcomeScreenOverride;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -507,6 +519,28 @@ class SCR_Faction : ScriptedFaction
 		
 		if (index >= 0)
 			m_FriendlyFactions.Remove(index);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool IsRelatedFaction(notnull Faction otherFaction)
+	{
+		if (this == otherFaction || m_ParentFaction == otherFaction)
+			return true;
+
+		SCR_Faction scrOtherFaction = SCR_Faction.Cast(otherFaction);
+		if (scrOtherFaction && scrOtherFaction.GetParent() == this)
+			return true;
+
+ 		return false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	Faction GetParent()
+	{
+		if (m_ParentFaction)
+			return m_ParentFaction;
+
+		return null;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -682,12 +716,25 @@ class SCR_Faction : ScriptedFaction
 		if (SCR_Global.IsEditMode()) 
 			return;
 		
+		
+		// These faction relations are hardset, we do them here to avoid doing unnecessary networking calls
+		SCR_FactionManager factionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
+		if (factionManager)
+		{
+			Faction parent = factionManager.GetFactionByKey(m_sParentFactionId);
+
+			if (parent)
+				m_ParentFaction = parent;
+
+			if (IsRenegadePunishedExile() && factionManager.GetFactionByKey("RNGD"))	
+					this.SetFactionFriendly(factionManager.GetFactionByKey("RNGD"));
+		}
+
 		//~ Server only
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 		if ((gameMode && gameMode.IsMaster()) || (!gameMode && Replication.IsServer()))
 		{
 			//~ Set faction friendly
-			SCR_FactionManager factionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 			if (!factionManager)
 			{
 				//~ Still make sure faction is friendly towards itself	
@@ -727,6 +774,7 @@ class SCR_Faction : ScriptedFaction
 					}
 				}
 			}
+			
 		}
 		
 		//~ Init the catalog for faster processing
@@ -787,8 +835,12 @@ class SCR_Faction : ScriptedFaction
 		
 		if (m_aBaseCallsigns.IsIndexValid(index))
 			return m_aBaseCallsigns[index];
-		
-		index -= m_aBaseCallsigns.Count();
+
+		int count = m_aBaseCallsigns.Count();
+		if (count < 1)
+			return null;
+
+		index = Math.Repeat(index, count);
 		
 		if (m_aBaseCallsigns.IsIndexValid(index))
 			return m_aBaseCallsigns[index];
@@ -942,4 +994,15 @@ class SCR_MilitaryBaseCallsign
 	{
 		return m_iSignalIndex;
 	}
+}
+
+[EnumLinear()]
+enum EOverrideWelcomeScreenFactionDisplay
+{
+	// No override will be applied, "normal behaviour" will show playable factions and hide non playable ones
+	NONE,
+	// Always show the faction
+	ALWAYSSHOW,
+	// Never show the faction in the menu
+	NEVERSHOW
 }

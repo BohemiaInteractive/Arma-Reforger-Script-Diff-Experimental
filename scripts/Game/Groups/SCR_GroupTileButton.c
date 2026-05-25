@@ -771,10 +771,9 @@ class SCR_GroupTileButton : SCR_ButtonBaseComponent
 		int focusedGroupId = playerGroupController.GetSelectedGroupID();
 		if (focusedGroupId != -1)
 		{
-			int inviteId = playerGroupController.GetGroupInviteID();
 			int groupId = playerGroupController.GetGroupID();
 
-			if (inviteId == focusedGroupId)
+			if (playerGroupController.HasInviteFromGroup(focusedGroupId))
 				state = false;
 			else if (groupId == focusedGroupId)
 				state = false;

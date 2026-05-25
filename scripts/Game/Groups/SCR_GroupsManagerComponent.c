@@ -753,7 +753,7 @@ class SCR_GroupsManagerComponent : SCR_BaseGameModeComponent
 
 		// Yes, can we delete it?
 		array<SCR_AIGroup> playableGroups = GetPlayableGroupsByFaction(group.GetFaction());
-		if (!playableGroups)
+		if (!playableGroups || playableGroups.Count() <= 1) // faction should always have at least one group active.
 			return;
 
 		DeleteGroupDelayed(group);

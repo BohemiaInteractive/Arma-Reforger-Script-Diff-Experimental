@@ -393,6 +393,17 @@ class SCR_CampaignBuildingManagerComponent : SCR_BaseGameModeComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	array<ResourceName> GetPlaceablePrefabs()
+	{
+		if (!m_aPlaceablePrefabs)
+			return null;
+
+		array<ResourceName> copy = {};
+		copy.Copy(m_aPlaceablePrefabs);
+		return copy;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Returns composition id based on provided resource name.
 	//! \param[in] resName
 	//! \return

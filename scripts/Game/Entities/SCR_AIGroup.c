@@ -1420,7 +1420,11 @@ class SCR_AIGroup : ChimeraAIGroup
 		if (!controlledEntity)
 			QueueAddAgent(playerID);
 		else
-			AddAgentFromControlledEntity(controlledEntity);
+		{
+			SCR_PlayerController scriptedController = SCR_PlayerController.Cast(GetGame().GetPlayerManager().GetPlayerController(playerID));
+			if (!scriptedController || !scriptedController.IsPossessing())
+				AddAgentFromControlledEntity(controlledEntity);
+		}
 
 		GetGame().GetCallqueue().CallLater(CheckForLeader, 0, false, playerID, false);
 	}

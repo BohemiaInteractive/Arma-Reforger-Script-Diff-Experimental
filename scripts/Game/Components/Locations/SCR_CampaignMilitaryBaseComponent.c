@@ -360,9 +360,6 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 	//! \return Formatted base name with callsign in brackets
 	string GetFormattedBaseNameWithCallsign(Faction faction)
 	{
-		if (GetType() == SCR_ECampaignBaseType.RELAY)
-			return GetBaseNameUpperCase();
-
 		if (!GetCallsignDisplayNameOnlyUC().IsEmpty())
 			return string.Format("%1 (%2)", GetBaseNameUpperCase(), GetCallsignDisplayNameOnlyUC());
 
@@ -1736,9 +1733,6 @@ class SCR_CampaignMilitaryBaseComponent : SCR_MilitaryBaseComponent
 		if (!campaign)
 			return;
 
-		if (GetType() == SCR_ECampaignBaseType.RELAY) // Ignore relays as they only have dummy callsigns
-			return;
-		
 		if (m_iCallsign == INVALID_BASE_CALLSIGN)
 			return;
 

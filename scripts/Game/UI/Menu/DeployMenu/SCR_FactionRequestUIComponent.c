@@ -106,7 +106,7 @@ class SCR_FactionRequestUIComponent : SCR_DeployRequestUIBaseComponent
 				btnComp.SetEnabled(playerFaction == scriptedFaction);
 			}
 
-			btnComp.SetVisible(scriptedFaction.IsPlayable(), false);
+			btnComp.SetVisible(scriptedFaction.IsPlayable() && scriptedFaction.ShowInWelcomeScreenOverride() != EOverrideWelcomeScreenFactionDisplay.NEVERSHOW , false);
 
 			if (scriptedFaction.IsPlayable())
 				playableFactionCount++;

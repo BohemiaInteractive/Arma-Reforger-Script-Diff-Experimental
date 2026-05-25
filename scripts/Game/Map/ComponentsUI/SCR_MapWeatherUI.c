@@ -111,7 +111,7 @@ class SCR_MapWeatherUI : SCR_MapUIBaseComponent
 		m_wWindOverrideInfo.SetVisible(m_bLastAutomaticWindState);
 
 		m_fLastWindSpeed = Math.Round(m_WeatherManager.GetWindSpeed() / m_fWindSpeedPrecision) * m_fWindSpeedPrecision;
-		m_fLastWindDirection = Math.Round(m_WeatherManager.GetWindDirection() / m_iWindDirectionPrecision) * m_iWindDirectionPrecision;
+		m_fLastWindDirection = Math.Repeat(Math.Round(m_WeatherManager.GetWindDirection() / m_iWindDirectionPrecision) * m_iWindDirectionPrecision + 180, 360);
 		m_wCurrentWindSpeed.SetTextFormat(LABEL_SPEED, m_fLastWindSpeed);
 		m_wCurrentWindDirection.SetTextFormat(LABEL_DIRECTION, m_fLastWindDirection);
 	}

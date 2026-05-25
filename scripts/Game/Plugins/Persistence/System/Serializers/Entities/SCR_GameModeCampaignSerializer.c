@@ -3,6 +3,9 @@ class SCR_GameModeCampaignSerializer : SCR_GameModeSerializer
 	[Attribute("120.0", desc: "Maximum time a faction commander can reconnect at and automatically get his role back.")]
 	protected float m_fMaxCommanderReconnectTime;
 
+	[Attribute("60.0", desc: "How much time, if any, is added to victory countdown to account for players needing time to reconnect after loading a save.")]
+	protected float m_fVictoryGracePeriod;
+
 	//------------------------------------------------------------------------------------------------
 	override static typename GetTargetType()
 	{
@@ -16,22 +19,29 @@ class SCR_GameModeCampaignSerializer : SCR_GameModeSerializer
 
 		const int callsignOffset = conflict.GetCallsignOffset();
 
-		map<FactionKey, UUID> factionCommanders();
-		FactionManager factionManager = GetGame().GetFactionManager();
-		if (factionManager)
-		{
-			array<Faction> factions();
-			factionManager.GetFactionsList(factions);
-			foreach (auto faction : factions)
-			{
-				const SCR_Faction scrFaction = SCR_Faction.Cast(faction);
-				if (scrFaction.IsAICommander())
-					continue;
+		const WorldTimestamp currentTime = entity.GetWorld().GetTimestamp();
 
-				const UUID playerIdentity = GetSystem().GetId(GetGame().GetPlayerManager().GetPlayerController(scrFaction.GetCommanderId()));
+		map<FactionKey, UUID> factionCommanders();
+		map<FactionKey, int> factionVictoryTimestamps();
+		const FactionManager factionManager = GetGame().GetFactionManager();
+		array<Faction> factions();
+		factionManager.GetFactionsList(factions);
+		foreach (auto faction : factions)
+		{
+			const SCR_CampaignFaction campaignFaction = SCR_CampaignFaction.Cast(faction);
+			if (!campaignFaction)
+				continue;
+
+			if (!campaignFaction.IsAICommander())
+			{
+				const UUID playerIdentity = GetSystem().GetId(GetGame().GetPlayerManager().GetPlayerController(campaignFaction.GetCommanderId()));
 				if (!playerIdentity.IsNull())
-					factionCommanders.Set(scrFaction.GetFactionKey(), playerIdentity);
+					factionCommanders.Set(campaignFaction.GetFactionKey(), playerIdentity);
 			}
+
+			const float victoryTime = Math.Max(campaignFaction.GetVictoryTimestamp().DiffSeconds(currentTime), 0.0);
+			if (victoryTime)
+				factionVictoryTimestamps.Set(campaignFaction.GetFactionKey(), victoryTime);
 		}
 
 		context.StartObject("base");
@@ -45,6 +55,9 @@ class SCR_GameModeCampaignSerializer : SCR_GameModeSerializer
 
 		if (!factionCommanders.IsEmpty() || !context.CanSeekMembers())
 			context.Write(factionCommanders);
+
+		if (!factionVictoryTimestamps.IsEmpty() || !context.CanSeekMembers())
+			context.Write(factionVictoryTimestamps);
 
 		return ESerializeResult.OK;
 	}
@@ -79,6 +92,19 @@ class SCR_GameModeCampaignSerializer : SCR_GameModeSerializer
 				Tuple1<FactionKey> ctx(factionKey);
 				PersistenceWhenAvailableTask task(OnPlayerAvailable, ctx);
 				GetSystem().WhenAvailable(commanderId, task, m_fMaxCommanderReconnectTime);
+			}
+		}
+
+		map<FactionKey, int> factionVictoryTimestamps;
+		if (context.Read(factionVictoryTimestamps))
+		{
+			const FactionManager factionManager = GetGame().GetFactionManager();
+			const WorldTimestamp currentTime = entity.GetWorld().GetTimestamp();
+			foreach (FactionKey factionKey, int timestamp : factionVictoryTimestamps)
+			{
+				auto campaignFaction = SCR_CampaignFaction.Cast(factionManager.GetFactionByKey(factionKey));
+				if (campaignFaction && timestamp > 0)
+					campaignFaction.SetVictoryTimestamp(currentTime.PlusSeconds(timestamp + m_fVictoryGracePeriod));
 			}
 		}
 

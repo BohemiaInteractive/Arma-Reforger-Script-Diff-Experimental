@@ -694,6 +694,44 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	static bool CanBeUsedToEstablishBase(IEntity provider, int userPlayerId)
+	{
+		SCR_GameModeCampaign gameMode = SCR_GameModeCampaign.Cast(GetGame().GetGameMode());
+		if (!gameMode)
+			return true; // The construction of command posts in allowed in every game mode
+
+		if (!gameMode.GetEstablishingBasesEnabled())
+			return false; // unless it is disabled
+
+		FactionAffiliationComponent affiliationComp;
+		while (provider && affiliationComp == null)
+		{
+			affiliationComp = FactionAffiliationComponent.Cast(provider.FindComponent(FactionAffiliationComponent));
+			if (!affiliationComp)
+				provider = provider.GetParent();
+		}
+
+		if (!affiliationComp)
+			return false;
+
+		Faction providerFaction;
+		if (Vehicle.Cast(provider))
+			providerFaction = affiliationComp.GetDefaultAffiliatedFaction();
+		else
+			providerFaction = affiliationComp.GetAffiliatedFaction();
+
+		if (!providerFaction)
+			return false;
+
+		SCR_CampaignFaction campaignFaction = SCR_CampaignFaction.Cast(providerFaction);
+		if (campaignFaction && !campaignFaction.CanBuildBases())
+			return false;
+
+		Faction playerFaction = SCR_FactionManager.SGetPlayerFaction(userPlayerId);
+		return playerFaction && playerFaction == providerFaction;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	override void OnPostInit(IEntity owner)
 	{
 		SetEventMask(owner, EntityEvent.INIT);
@@ -1315,14 +1353,10 @@ class SCR_CampaignBuildingProviderComponent : SCR_MilitaryBaseLogicComponent
 	//------------------------------------------------------------------------------------------------
 	//! Check if given character faction is a hostile to player, or not.
 	//! \param[in] char Character to be evaluated if is enemy or not.
-	bool IsEnemyFaction(notnull ChimeraCharacter char)
+	bool IsEnemyFaction(notnull SCR_ChimeraCharacter char)
 	{
-		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(char.FindComponent(FactionAffiliationComponent));
-		if (!factionComponent)
-			return false;
-		
-		Faction faction = factionComponent.GetAffiliatedFaction();
-		if (!faction )
+		Faction faction = char.GetFaction();
+		if (!faction)
 			return false;
 		
 		SCR_CampaignFactionManager factionManager = SCR_CampaignFactionManager.Cast(GetGame().GetFactionManager());

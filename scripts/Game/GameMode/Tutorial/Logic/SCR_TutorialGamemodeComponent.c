@@ -424,7 +424,7 @@ class SCR_TutorialGamemodeComponent : SCR_BaseGameModeComponent
 		m_bCourseBreaking = true;
 		
 		SCR_ETutorialCourses course = m_ActiveConfig.GetCourseType();
-		SCR_AnalyticsApplication.GetInstance().TutorialCourseEnds(course, breakType);
+		//SCR_AnalyticsApplication.GetInstance().TutorialCourseEnds(course, breakType);
 
 		m_bOutroBreak = course == SCR_ETutorialCourses.OUTRO;
 		
@@ -1618,8 +1618,8 @@ class SCR_TutorialGamemodeComponent : SCR_BaseGameModeComponent
 				
 			}
 			
-			if (m_ActiveConfig && m_ActiveConfig.GetCourseType() != SCR_ETutorialCourses.INTRO)
-				SCR_AnalyticsApplication.GetInstance().TutorialCourseEnds(finishedCourse, SCR_EAnalyticsCourseEndReason.COMPLETED);
+			//if (m_ActiveConfig && m_ActiveConfig.GetCourseType() != SCR_ETutorialCourses.INTRO)
+			//	SCR_AnalyticsApplication.GetInstance().TutorialCourseEnds(finishedCourse, SCR_EAnalyticsCourseEndReason.COMPLETED);
 			
 			m_iActiveStage = 0;
 			
@@ -1767,8 +1767,8 @@ class SCR_TutorialGamemodeComponent : SCR_BaseGameModeComponent
 				world.GetMusicManager().Play("SOUND_COURSE_START");
 		}
 		
-		if (config != SCR_ETutorialCourses.INTRO && config != SCR_ETutorialCourses.FREE_ROAM)
-			SCR_AnalyticsApplication.GetInstance().TutorialCourseStarts(config);
+		//if (config != SCR_ETutorialCourses.INTRO && config != SCR_ETutorialCourses.FREE_ROAM)
+		//	SCR_AnalyticsApplication.GetInstance().TutorialCourseStarts(config);
 	}
 	
 	//------------------------------------------------------------------------------------------------

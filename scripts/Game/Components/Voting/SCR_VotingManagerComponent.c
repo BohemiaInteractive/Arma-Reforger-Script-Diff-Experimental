@@ -115,16 +115,16 @@ class SCR_VotingManagerComponent : SCR_BaseGameModeComponent
 	void RemoveVote(int playerID, EVotingType type, int value)
 	{
 		SCR_VotingBase voting = FindVoting(type, value);
-		if (voting)
-		{
-			//--- Cancel the vote when no votes are left (i.e., last player canceled theirs) or when player who is target of the vote cancels their vote
-			if (voting.RemoveVote(playerID) || (voting.IsValuePlayerID() && playerID == value))
-				EndVoting(type, value, EVotingOutcome.FORCE_FAIL);
+		if (!voting)
+			return;
 
-			//~ If vote was successfully removed send RPC to update vote count for players
-			if (voting.RemovePlayerVotedServer(playerID))
-				Rpc(RPC_PlayerVoteCountChanged, type, value, voting.GetCurrentVoteCount());
-		}
+		//--- Cancel the vote when no votes are left (i.e., last player canceled theirs) or when player who is target of the vote cancels their vote
+		if (voting.RemoveVote(playerID) || (voting.IsValuePlayerID() && playerID == value))
+			EndVoting(voting, EVotingOutcome.FORCE_FAIL);
+
+		//~ If vote was successfully removed send RPC to update vote count for players
+		if (voting.RemovePlayerVotedServer(playerID))
+			Rpc(RPC_PlayerVoteCountChanged, type, value, voting.GetCurrentVoteCount());
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -740,7 +740,7 @@ class SCR_VotingManagerComponent : SCR_BaseGameModeComponent
 	//--- Protected, server
 
 	//------------------------------------------------------------------------------------------------
-	protected void EndVoting(SCR_VotingBase voting, EVotingOutcome outcome = EVotingOutcome.EVALUATE)
+	protected void EndVoting(notnull SCR_VotingBase voting, EVotingOutcome outcome = EVotingOutcome.EVALUATE)
 	{
 		EVotingType type = voting.GetType();
 		int value = voting.GetValue();
@@ -772,7 +772,7 @@ class SCR_VotingManagerComponent : SCR_BaseGameModeComponent
 		
 		string authorIdentityID = SCR_PlayerIdentityUtils.GetPlayerIdentityId(voting.GetAuthorId());
 		string winnerIdentityID = SCR_PlayerIdentityUtils.GetPlayerIdentityId(winner);
-		SCR_AnalyticsApplication.GetInstance().VoteToKickResult(type, authorIdentityID, winnerIdentityID, resultSuccessful);
+		//SCR_AnalyticsApplication.GetInstance().VoteToKickResult(type, authorIdentityID, winnerIdentityID, resultSuccessful);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1042,26 +1042,32 @@ class SCR_VotingManagerComponent : SCR_BaseGameModeComponent
 				//--- Server, manager all votings
 				if (GetGame().GetPlayerManager().GetPlayerCount() > 0)
 				{
+					SCR_VotingBase vote;
 					//--- Update countdowns (only if some players are present; otherwise votings are paused)
 					for (int i = m_aVotingInstances.Count() - 1; i >= 0; i--)
 					{
-						m_aVotingInstances[i].Update(m_fUpdateLength);
+						vote = m_aVotingInstances[i];
+						if (!vote)
+							continue;
+
+						vote.Update(m_fUpdateLength);
 						
 						//--- End voting when time expired
 						EVotingOutcome outcome = EVotingOutcome.EVALUATE;
-						if (m_aVotingInstances[i].Evaluate(outcome))
-						{
-							EndVoting(m_aVotingInstances[i], outcome);
-						}
+						if (vote.Evaluate(outcome))
+							EndVoting(vote, outcome);
 					}
 				}
 			}
 			else
 			{
+				SCR_VotingBase vote;
 				//--- Client, merely update countdowns
 				for (int i = m_aVotingInstances.Count() - 1; i >= 0; i--)
 				{
-					m_aVotingInstances[i].Update(m_fUpdateLength);
+					vote = m_aVotingInstances[i];
+					if (vote)
+						vote.Update(m_fUpdateLength);
 				}
 			}
 			

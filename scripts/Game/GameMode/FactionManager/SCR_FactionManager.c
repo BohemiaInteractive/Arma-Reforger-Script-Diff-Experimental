@@ -195,6 +195,26 @@ class SCR_FactionManager : FactionManager
 		Print(string.Format("%1::OnPlayerFactionCountChanged(faction: %2 [%3], count: %4)", Type().ToString(), faction, key, newCount), LogLevel.NORMAL);
 		#endif
 	}
+	
+	//------------------------------------------------------------------------------------------------	
+	// Helper method for overriding a specific players faction, can be used while the character is in the world.
+	//! \return true if the request went through to the server, otherwise false
+	bool SetPlayerFaction(notnull SCR_ChimeraCharacter character, notnull Faction faction)
+	{
+		character.m_pFactionComponent.SetAffiliatedFaction(faction);
+
+		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(character);
+
+		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
+		if (!playerController)
+			return false;
+
+		SCR_PlayerFactionAffiliationComponent playerFactionAffiliation = SCR_PlayerFactionAffiliationComponent.Cast(playerController.FindComponent(SCR_PlayerFactionAffiliationComponent));
+		if (!playerFactionAffiliation)
+			return false;
+
+		return playerFactionAffiliation.RequestFaction(faction);
+	}
 
 	//------------------------------------------------------------------------------------------------
 	//! Return affiliated ranks of a faction the player is affiliated with.
@@ -294,8 +314,20 @@ class SCR_FactionManager : FactionManager
 		if (!faction)
 			return 0;
 
-		int playerCount;
+		int playerCount, childPlayerCounts;
 		m_PlayerCount.Find(GetFactionIndex(faction), playerCount);
+		
+		array<SCR_Faction> factions = new array<SCR_Faction>;
+		m_SortedFactions.ToArray(factions);
+		foreach (SCR_Faction lookedAtFaction : factions)
+		{
+			if (!lookedAtFaction || lookedAtFaction == faction || lookedAtFaction.GetParent() != faction) 
+				continue;
+
+			m_PlayerCount.Find(GetFactionIndex(lookedAtFaction), childPlayerCounts);
+			playerCount += childPlayerCounts;
+		}
+		
 		return playerCount;
 	}
 
@@ -550,7 +582,7 @@ class SCR_FactionManager : FactionManager
 	void SetFactionsFriendly(notnull SCR_Faction factionA, notnull SCR_Faction factionB, int playerChanged = -1, bool updateAIs = true)
 	{		
 		//~ Already friendly
-		if (factionA.DoCheckIfFactionFriendly(factionB))
+		if (factionA.DoCheckIfFactionFriendly(factionB) && factionB.DoCheckIfFactionFriendly(factionA))
 			return;
 		
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());

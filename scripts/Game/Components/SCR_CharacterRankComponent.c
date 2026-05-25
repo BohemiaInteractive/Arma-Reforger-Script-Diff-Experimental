@@ -22,8 +22,78 @@ class SCR_CharacterRankComponent : ScriptComponent
 		SCR_ECharacterRank oldRank = m_iRank;
 		m_iRank = newRank;
 		OnRankChanged(oldRank, newRank, silent);
+
+		SpecialRankHandling(newRank, prevRank);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Helper method for specific ranks with custom logic attached to them
+	protected void SpecialRankHandling(SCR_ECharacterRank newRank, SCR_ECharacterRank prevRank)
+	{
+		// this logic should currently only be triggered when the renegade faction is configured! otherwise we ignore this logic
+		SCR_CampaignFaction Renegade = SCR_GameModeCampaign.GetInstance().GetFactionByEnum(SCR_ECampaignFaction.RNGD);
+
+		if (!Renegade)
+			return;
+
+		// RNGD (Renegades) is a "hidden faction" set up for when players get kicked out of their faction.
+		if (newRank == SCR_ECharacterRank.RENEGADE && GetCharacterFaction(m_Owner).IsRenegadePunishedExile())
+		{
+			AttemptSwitchFaction(Renegade);
+			return;
+		}
+
+		// Currently FIA is the only one to use the punishment mechanic, so if they are a renegade we can assume they came from
+		// the FIA faction. When they regain their rank they are able to rejoin FIA.
+		if (prevRank == SCR_ECharacterRank.RENEGADE && (GetCharacterFaction(m_Owner) == Renegade))
+			AttemptSwitchFaction(SCR_GameModeCampaign.GetInstance().GetFactionByEnum(SCR_ECampaignFaction.INDFOR));
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Helper method for attempting to switch factions
+	protected void AttemptSwitchFaction(SCR_CampaignFaction campaignFaction)
+	{
+		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(m_Owner);
+		if (!character)
+			return;
+
+		SCR_FactionManager factionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
+		if (!factionManager)
+				return;
+
+		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(character);
+
+		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
+		if (!playerController)
+			return;
+
+		SCR_PlayerFactionAffiliationComponent playerFactionAffiliation = SCR_PlayerFactionAffiliationComponent.Cast(playerController.FindComponent(SCR_PlayerFactionAffiliationComponent));
+		if (!playerFactionAffiliation)
+			return;
+
+		// self hosted clients might give an immediate response so we must be sure to be ready before attempting to set the faction
+		// if we notice the faction request didnt go through we dont need to watch for the response
+		playerFactionAffiliation.GetOnPlayerFactionResponseInvoker_S().Insert(FinishFactionSwitch);
+		if (!factionManager.SetPlayerFaction(character, campaignFaction))
+			playerFactionAffiliation.GetOnPlayerFactionResponseInvoker_S().Remove(FinishFactionSwitch);
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! Callback method for ensuring that completed faction switches are set up correctly
+	protected void FinishFactionSwitch(SCR_PlayerFactionAffiliationComponent component, int factionIndex, bool response)
+	{
+		component.GetOnPlayerFactionResponseInvoker_S().Remove(FinishFactionSwitch);
+
+		if (!response)
+			return;
+
+		SCR_PlayerControllerGroupComponent groupController = SCR_PlayerControllerGroupComponent.GetPlayerControllerComponent(component.GetPlayerId());
+		if (!groupController)
+			return;
+
+		groupController.CreateAndJoinGroup(component.GetAffiliatedFaction());
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! \param[in] unit
 	//! \return

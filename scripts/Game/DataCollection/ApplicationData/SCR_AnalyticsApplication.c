@@ -8,6 +8,7 @@ enum SCR_EAnalyticalItemSlotType
 	OTHER
 }
 
+/*
 [EnumLinear()]
 enum SCR_EAnalyticsWorkshopTab
 {
@@ -539,7 +540,7 @@ class SCR_AnalyticsApplication : WorldSystem
 		m_MOBData.MOB_zs += "]";
 		
 		// We call this with a delay because the initialization is too early for the server to start
-		GetGame().GetCallqueue().CallLater(SendMOBSessionEvent, 60000 /*a minute*/, false, m_MOBData);
+		GetGame().GetCallqueue().CallLater(SendMOBSessionEvent, 60000, false, m_MOBData); // a minute
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -748,3 +749,5 @@ class SCR_AnalyticsApplication : WorldSystem
 		}
 	}
 }
+
+*/

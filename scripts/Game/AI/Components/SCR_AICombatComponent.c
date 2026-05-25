@@ -347,7 +347,10 @@ class SCR_AICombatComponent : ScriptComponent
 		
 		m_fNextWeaponTargetEvaluation_ms = worldTime + WEAPON_TARGET_UPDATE_PERIOD_MS;
 		
-		SCR_ChimeraAIAgent myAgent = GetAiAgent();
+		SCR_ChimeraAIAgent myAgent = m_Agent;
+		if (!myAgent)
+			myAgent = GetAiAgent();
+		
 		float agentThreat = m_Utility.m_ThreatSystem.GetThreatMeasure();
 
 		AIGroup myGroup = myAgent.GetParentGroup();

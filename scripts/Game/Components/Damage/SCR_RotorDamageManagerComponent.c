@@ -94,7 +94,7 @@ class SCR_RotorDamageManagerComponent : SCR_DamageManagerComponent
 				worldImpactDir = -worldImpactDir;
 		
 			vector hitPosLocal = character.CoordToLocal(contact.Position);
-			vector directionLocal = character.VectorToLocal(worldImpactDir);
+			vector directionLocal = character.VectorToLocal(worldImpactDir).Normalized();
 			float force = rotorRPM * m_fCharacterImpulseMultiplier;
 			characterAnimationComponent.AddRagdollEffectorDamage(hitPosLocal, directionLocal, force, ragrollEffectRadius, ragrollEffectMaxTime);
 			

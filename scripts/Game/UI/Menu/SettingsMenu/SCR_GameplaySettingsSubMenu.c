@@ -203,7 +203,7 @@ class SCR_GameplaySettingsSubMenu: SCR_SettingsSubMenuBase
 		
 		GetGame().UserSettingsChanged();
 		
-		SCR_AnalyticsApplication.GetInstance().ChangeSetting(m_sUserInterfaceSettings, settingName);
+		//SCR_AnalyticsApplication.GetInstance().ChangeSetting(m_sUserInterfaceSettings, settingName);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -222,6 +222,6 @@ class SCR_GameplaySettingsSubMenu: SCR_SettingsSubMenuBase
 		
 		m_OnLanguageChanged.Invoke(this);
 		
-		SCR_AnalyticsApplication.GetInstance().ChangeSetting(m_sUserInterfaceSettings, settingName);
+		//SCR_AnalyticsApplication.GetInstance().ChangeSetting(m_sUserInterfaceSettings, settingName);
 	}
 }

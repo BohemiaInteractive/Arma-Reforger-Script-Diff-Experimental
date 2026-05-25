@@ -451,6 +451,12 @@ class SCR_ScenarioFrameworkAreaSave : SCR_ScenarioFrameworkLayerSave
 	}
 }
 
+class SCR_ScenarioFrameworkLayerTaskSaveLoadContext
+{
+	ref SCR_ScenarioFrameworkLayerTaskSave Save;
+	SCR_ScenarioFrameworkLayerTask Task;	
+}
+
 class SCR_ScenarioFrameworkLayerTaskSave : SCR_ScenarioFrameworkLayerSave
 {
 	private bool m_bTaskActive;
@@ -496,26 +502,44 @@ class SCR_ScenarioFrameworkLayerTaskSave : SCR_ScenarioFrameworkLayerSave
 	{
 		super.Write(persistence, scenarioFrameworkSystem, layer);
 
-		auto taskSystem = SCR_TaskSystem.GetInstance();
-		if (!taskSystem)
+		const UUID taskSystemId = persistence.GetId(persistence.GetPersistentState(SCR_TaskSystemData));
+		if (taskSystemId.IsNull())
 			return;
 
-		auto task = SCR_ScenarioFrameworkTask.Cast(taskSystem.GetTaskFromTaskID(layer.GetName()));
+		SCR_ScenarioFrameworkLayerTaskSaveLoadContext context();
+		context.Save = this;
+		context.Task = SCR_ScenarioFrameworkLayerTask.Cast(layer);
+		PersistenceWhenAvailableTask taskSystemDataHandler(OnTaskDataAvailable, context);
+		persistence.WhenAvailable(taskSystemId, taskSystemDataHandler);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected static void OnTaskDataAvailable(Managed instance, PersistenceDeferredDeserializeTask deserializeTask, bool expired, Managed context)
+	{
+		auto taskSystem = SCR_TaskSystem.GetInstance();
+		if (!taskSystem || !instance)
+			return;
+
+		auto ctx = SCR_ScenarioFrameworkLayerTaskSaveLoadContext.Cast(context);
+		if (!ctx.Save || !ctx.Task)
+			return;
+
+		auto task = SCR_ScenarioFrameworkTask.Cast(taskSystem.GetTaskFromTaskID(ctx.Task.GetName()));
 		if (!task)
 			return;
 
-		auto layerTask = SCR_ScenarioFrameworkLayerTask.Cast(layer);
-		layerTask.m_Task = task;
-		task.SetLayerTask(layerTask);
+		ctx.Task.m_Task = task;
+		task.SetLayerTask(ctx.Task);
 
-		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, m_aTriggerActionsOnFinish, layerTask.m_aTriggerActionsOnFinish);
-		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, m_aActionsOnCreated, layerTask.m_aActionsOnCreated);
-		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, m_aActionsOnFailed, layerTask.m_aActionsOnFailed);
-		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, m_aActionsOnCancelled, layerTask.m_aActionsOnCancelled);
-		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, m_aActionsOnProgress, layerTask.m_aActionsOnProgress);
-		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, m_aActionsOnAssigned, layerTask.m_aActionsOnAssigned);
+		const PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		const SCR_ScenarioFrameworkSystem scenarioFrameworkSystem = SCR_ScenarioFrameworkSystem.GetInstance();
+		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, ctx.Save.m_aTriggerActionsOnFinish, ctx.Task.m_aTriggerActionsOnFinish);
+		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, ctx.Save.m_aActionsOnCreated, ctx.Task.m_aActionsOnCreated);
+		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, ctx.Save.m_aActionsOnFailed, ctx.Task.m_aActionsOnFailed);
+		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, ctx.Save.m_aActionsOnCancelled, ctx.Task.m_aActionsOnCancelled);
+		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, ctx.Save.m_aActionsOnProgress, ctx.Task.m_aActionsOnProgress);
+		SCR_ScenarioFrameworkActionSave.WriteActions(persistence, scenarioFrameworkSystem, ctx.Save.m_aActionsOnAssigned, ctx.Task.m_aActionsOnAssigned);
 	}
-
 
 	//------------------------------------------------------------------------------------------------
 	override bool SerializationSave(SaveContext context)

@@ -59,6 +59,9 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 	[Attribute("FIA", category: "Campaign")]
 	protected FactionKey m_sINDFORFactionKey;
 
+	[Attribute("RNGD", category: "Campaign")]
+	protected FactionKey m_sRNGDFactionKey;
+
 	[Attribute("1", UIWidgets.CheckBox, "Randomized starting supplies in small bases", category: "Campaign")]
 	protected bool m_bRandomizeSupplies;
 
@@ -677,7 +680,7 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 		m_BaseManager.SelectHQs(candidatesForHQ, controlPoints, selectedHQs);
 		m_BaseManager.SetHQFactions(selectedHQs);
 		// Call analytic event
-		SCR_AnalyticsApplication.GetInstance().OnMOBSelected(selectedHQs);
+		//SCR_AnalyticsApplication.GetInstance().OnMOBSelected(selectedHQs);
 		
 		foreach (SCR_CampaignMilitaryBaseComponent hq : selectedHQs)
 		{
@@ -937,19 +940,16 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 		switch (faction)
 		{
 			case SCR_ECampaignFaction.INDFOR:
-			{
 				return m_sINDFORFactionKey;
-			};
 
 			case SCR_ECampaignFaction.BLUFOR:
-			{
 				return m_sBLUFORFactionKey;
-			};
 
 			case SCR_ECampaignFaction.OPFOR:
-			{
 				return m_sOPFORFactionKey;
-			};
+
+			case SCR_ECampaignFaction.RNGD:
+				return m_sRNGDFactionKey;
 		}
 
 		return FactionKey.Empty;
@@ -1806,6 +1806,9 @@ class SCR_GameModeCampaign : SCR_BaseGameMode
 
 		if (m_sINDFORFactionKey == FactionKey.Empty)
 			Print("SCR_GameModeCampaign: Empty INDFOR faction key!", LogLevel.ERROR);
+
+		if (m_sRNGDFactionKey == FactionKey.Empty)
+			Print("SCR_GameModeCampaign: Empty RNGD faction key!", LogLevel.ERROR);
 
 		if (!GetGame().InPlayMode())
 			return;

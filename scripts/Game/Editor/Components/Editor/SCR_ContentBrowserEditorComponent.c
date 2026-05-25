@@ -843,7 +843,8 @@ class SCR_ContentBrowserEditorComponent : SCR_BaseEditorComponent
 		return budgetCost != null;
 	}
 
-	bool CanPlace(int prefabID, out notnull array<ref SCR_EntityBudgetValue> budgetCosts, out SCR_UIInfo blockingBudgetInfo, bool showNotification = false)
+	//------------------------------------------------------------------------------------------------
+	bool CanPlace(int prefabID, out notnull array<ref SCR_EntityBudgetValue> budgetCosts, out SCR_UIInfo blockingBudgetInfo, bool showNotification = false, out EEditableEntityBudget blockingBudget = -1)
 	{
 		if (!m_BudgetManager)
 			return true;
@@ -852,7 +853,6 @@ class SCR_ContentBrowserEditorComponent : SCR_BaseEditorComponent
 		if (!prefabInfo)
 			return false;
 
-		EEditableEntityBudget blockingBudget;
 		if (m_BudgetManager.CanPlaceEntityInfo(prefabInfo, budgetCosts, blockingBudget, showNotification))
 		{
 			return true;
