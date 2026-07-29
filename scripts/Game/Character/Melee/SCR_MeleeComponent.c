@@ -41,7 +41,7 @@ class SCR_MeleeComponent : ScriptComponent
 	
 	[RplProp()]
 	protected bool m_bHasBayonet;
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! \return
 	bool HasBayonet()
@@ -91,8 +91,17 @@ class SCR_MeleeComponent : ScriptComponent
 	{
 		if (SCR_ChimeraCharacter.Cast(ent))
 			return true;
-				
-		return !SCR_ChimeraCharacter.Cast(ent.GetRootParent()); // Ignore anything that is not a character but attached to one e.g. weapons, armor, etc.
+
+		IEntity parent = ent.GetParent();
+		while (parent)
+		{
+			if (SCR_ChimeraCharacter.Cast(parent))
+				return false; // Ignore anything that is not a character but attached to one e.g. weapons, armor, etc.
+
+			parent = parent.GetParent();
+		}
+
+		return true; 
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -242,8 +251,13 @@ class SCR_MeleeComponent : ScriptComponent
 		SignalsManagerComponent signalsManagerComponent = SignalsManagerComponent.Cast(weaponEntity.FindComponent(SignalsManagerComponent));
 		if (signalsManagerComponent)
 		{
-			signalsManagerComponent.SetSignalValue(signalsManagerComponent.AddOrFindSignal("HitZone"), signalValue0);
-			signalsManagerComponent.SetSignalValue(signalsManagerComponent.AddOrFindSignal("Surface"), signalValue1);		
+			int signalHitZone = signalsManagerComponent.FindSignal("HitZone");
+			int signalSurface = signalsManagerComponent.FindSignal("Surface");
+			
+			// Signals are expected to exist on the weapon already.
+			// This function does not necessary run from the main thread and adding signals will be ignored.
+			signalsManagerComponent.SetSignalValue(signalHitZone, signalValue0);
+			signalsManagerComponent.SetSignalValue(signalSurface, signalValue1);
 		}
 		
 		vector transform[4];

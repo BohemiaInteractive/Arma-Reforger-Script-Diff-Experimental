@@ -59,6 +59,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		SCR_AIGroup.GetOnPlayerAdded().Insert(UpdateGroupPlayers);
 		SCR_AIGroup.GetOnPrivateGroupChanged().Insert(UpdateGroupPrivacy);
 		SCR_AIGroup.GetOnCustomNameChanged().Insert(UpdateGroupNames);
+		SCR_AIGroup.GetOnCallsignChanged().Insert(UpdateGroupName);
 		SCR_AIGroup.GetOnFrequencyChanged().Insert(UpdateGroupFrequency);
 		SCR_AIGroup.GetOnFlagSelected().Insert(UpdateGroupFlag);
 		
@@ -76,6 +77,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		}
 	}
 
+	//------------------------------------------------------------------------------------------------
 	protected override void ToggleCollapsed()
 	{
 		if (m_wExpandButton && m_wExpandButton.IsVisible())
@@ -85,12 +87,14 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 			GetOnListCollapse().Invoke(this, visible);
 		}
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
 	override void SetExpanded(bool expanded)
 	{
 		m_wGroupList.SetVisible(expanded);
 	}	
-	
+
+	//------------------------------------------------------------------------------------------------
 	protected override bool IsExpanded()
 	{
 		return m_wGroupList.IsVisible();
@@ -108,14 +112,16 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		SCR_AIGroup.GetOnPlayerAdded().Remove(UpdateGroupPlayers);
 		SCR_AIGroup.GetOnPrivateGroupChanged().Remove(UpdateGroupPrivacy);
 		SCR_AIGroup.GetOnCustomNameChanged().Remove(UpdateGroupNames);
-		SCR_AIGroup.GetOnFrequencyChanged().Remove(UpdateGroupFrequency);		
+		SCR_AIGroup.GetOnCallsignChanged().Remove(UpdateGroupName);
+		SCR_AIGroup.GetOnFrequencyChanged().Remove(UpdateGroupFrequency);
 		SCR_AIGroup.GetOnFlagSelected().Remove(UpdateGroupFlag);
 		
 		if (m_PlyGroupComp)
 			m_PlyGroupComp.GetOnGroupChanged().Remove(UpdateLocalPlayerGroup);
 	}
-	
-	// Function that manages group flags, setting the correct icon to player local group
+
+	//------------------------------------------------------------------------------------------------
+	//! Function that manages group flags, setting the correct icon to player local group
 	protected void SetGroupFlags()
 	{
 		if (!m_wGroupFlagButton || !m_PlyGroupComp)
@@ -135,7 +141,8 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 
 		m_GroupFlagImage.SetFlagButtonFromImageSet(flag);
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
 	//! Update the group widget when player joins/leaves group.
 	protected void UpdateGroupPlayers(SCR_AIGroup group, int pid)
 	{
@@ -159,6 +166,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		GetOnPlayerGroupJoined().Invoke(group, pid);
 		UpdateNewGroupButton();
 	}
+
 	//---- REFACTOR NOTE START: This code will need to be refactored as current implementation is not conforming to the standards ----
 	//! Update the group widget relevant to local player.
 	protected void UpdateLocalPlayerGroup(int groupId)
@@ -192,6 +200,8 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		}
 	}
 	//---- REFACTOR NOTE END ----
+
+	//------------------------------------------------------------------------------------------------
 	//! Set group private.
 	protected void UpdateGroupPrivacy(int groupId, bool isPrivate)
 	{
@@ -209,6 +219,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		UpdateNewGroupButton();
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Set group name.
 	protected void UpdateGroupNames()
 	{
@@ -224,6 +235,20 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		}
 	}
 
+	//------------------------------------------------------------------------------------------------
+	//! Set the name of the group button of the given group
+	protected void UpdateGroupName(notnull SCR_AIGroup group)
+	{
+		SCR_GroupButton groupBtn = GetGroupButton(group);
+		if (!groupBtn)
+			return;
+
+		groupBtn.UpdateGroupName();
+		if (m_wExpandButtonName && groupBtn.GetGroup() == GetPlayerGroup())
+			SCR_GroupButton.SGetGroupName(groupBtn.GetGroup(), m_wExpandButtonName, m_wExpandButtonNameFreq); // update group name in map's group selector
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Set group frequency.
 	protected void UpdateGroupFrequency()
 	{
@@ -235,6 +260,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		}		
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Set group flag.
 	protected void UpdateGroupFlag()
 	{
@@ -246,6 +272,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		}
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Update the expandable button name.
 	void SetPlayerGroup(SCR_AIGroup group)
 	{
@@ -253,6 +280,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 			SCR_GroupButton.SGetGroupName(group, m_wExpandButtonName, m_wExpandButtonNameFreq);
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Show groups available for given faction.
 	void ShowAvailableGroups(notnull Faction faction)
 	{
@@ -287,6 +315,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		m_wRoot.SetVisible(show);
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Joins an automatically selected group
 	void JoinGroupAutomatically()
 	{
@@ -305,6 +334,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		}
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Removes the group button from the list.
 	protected void RemoveGroup(SCR_AIGroup group)
 	{
@@ -330,6 +360,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		UpdateNewGroupButton();	
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Creates a button which handles creating of a new group.
 	protected void CreateNewGroupButton()
 	{
@@ -345,6 +376,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		UpdateNewGroupButton();
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Updates visibility of the button for creating a new group.
 	protected void UpdateNewGroupButton()
 	{
@@ -352,6 +384,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 			m_wNewGroupButton.SetVisible(m_GroupManager.CanCreateNewGroup(m_PlyFaction));	
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Requests creation of a new group.
 	protected void RequestNewGroup()
 	{
@@ -360,6 +393,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		m_PlyGroupComp.RequestCreateGroup();
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Adds a new group button into the list.
 	protected void AddGroup(SCR_AIGroup group)
 	{
@@ -414,6 +448,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		groupButton.UpdateGroup(canJoinGroup);
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Called when the group button is focused.
 	protected void OnButtonFocused(Widget w)
 	{
@@ -444,6 +479,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 			RequestNewGroup();
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Sends a request for joining a group.
 	protected void RequestJoinGroup(notnull SCR_GroupButton groupBtn)
 	{
@@ -469,6 +505,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		}
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Gets relevant group button.
 	SCR_GroupButton GetGroupButton(SCR_AIGroup group)
 	{
@@ -482,18 +519,21 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		return null;
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Return current group list.
 	Widget GetGroupList()
 	{
 		return m_wGroupList;
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Return local player's group.
 	SCR_AIGroup GetPlayerGroup()
 	{
 		return m_PlyGroupComp.GetPlayersGroup();
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Set current group list.
 	override void SetListWidget(Widget list)
 	{
@@ -502,6 +542,7 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		m_wGroupList = list;
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Clear the group list.
 	protected void ClearGroupList()
 	{
@@ -516,18 +557,21 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		m_aButtons.Clear();
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Gets id of a currently displayed group.
 	int GetShownGroupId()
 	{
 		return m_iShownGroupId;
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Set id of a currently displayed group.
 	void SetShownGroupId(int groupId)
 	{
 		m_iShownGroupId = groupId;
 	}
 
+	//------------------------------------------------------------------------------------------------
 	ScriptInvoker GetOnPlayerGroupJoined()
 	{
 		if (!m_OnPlayerGroupJoined)
@@ -535,7 +579,8 @@ class SCR_GroupRequestUIComponent : SCR_DeployRequestUIBaseComponent
 		
 		return m_OnPlayerGroupJoined;
 	}
-	
+
+	//------------------------------------------------------------------------------------------------	
 	ScriptInvoker GetOnLocalPlayerGroupJoined()
 	{
 		if (!m_OnLocalPlayerGroupJoined)
@@ -611,6 +656,7 @@ class SCR_GroupButton : SCR_DeployButtonBase
 		m_iGroupId = group.GetGroupID();
 		m_Group = group;
 	}
+
 	//---- REFACTOR NOTE START: This code will need to be refactored as current implementation is not conforming to the standards ----
 	//------------------------------------------------------------------------------------------------
 	void UpdateGroup(bool canJoin = true)
@@ -655,6 +701,7 @@ class SCR_GroupButton : SCR_DeployButtonBase
 		return m_wGroupName.GetText();
 	}
 
+	//------------------------------------------------------------------------------------------------
 	//! Set the group name into a TextWidget widget.
 	static void SGetGroupName(notnull SCR_AIGroup group, notnull TextWidget widget, notnull TextWidget freqWidget)
 	{

@@ -69,40 +69,62 @@ class SCR_GroupSubMenuBase : SCR_SubMenuBase
 		array<SCR_AIGroup> playableGroups = groupManager.GetSortedPlayableGroupsByFaction(playerFaction);
 		if (!playableGroups)
 			return;
-		
+
 		int selectedGroupID = playerGroupController.GetSelectedGroupID();
-		
-		if (playableGroups.IsIndexValid(selectedGroupID) && m_wMenuRoot)
+		SCR_AIGroup selectedGroup;
+		if (!playableGroups.IsIndexValid(selectedGroupID))
+		{
+			selectedGroup = playerGroupController.GetPlayersGroup();
+			int groupId = -1;
+			if (selectedGroup && playableGroups.Contains(selectedGroup))
+				groupId = selectedGroup.GetGroupID();
+			else if (!selectedGroup && !playableGroups.IsEmpty())
+				groupId = playableGroups[0].GetGroupID();
+
+			if (groupId > -1)
+			{
+				playerGroupController.SetSelectedGroupID(groupId);
+				selectedGroupID = groupId;
+			}
+		}
+		else
+		{
+			selectedGroup = playableGroups[selectedGroupID];
+		}
+
+		if (selectedGroup && m_wMenuRoot)
 		{
 			ImageWidget privateIcon = ImageWidget.Cast(m_wMenuRoot.FindAnyWidget("PrivateIconDetail"));
 			if (privateIcon)
 				privateIcon.SetVisible(playableGroups[selectedGroupID].IsPrivate());
 		}
 		
-		int groupCount = playableGroups.Count();
-		
-		for (int i = 0; i < groupCount; i++)
+		const WorkspaceWidget workspace = GetGame().GetWorkspace();
+		Widget groupTile;
+		ButtonWidget buttonWidget;
+		SCR_GroupTileButton buttonComponent;
+		foreach (int i, SCR_AIGroup group : playableGroups)
 		{
-			Widget groupTile = GetGame().GetWorkspace().CreateWidgets(m_ButtonLayout, m_wGridWidget);	
+			groupTile = workspace.CreateWidgets(m_ButtonLayout, m_wGridWidget);	
 			if (!groupTile)
 				continue;
-					
-			ButtonWidget buttonWidget = ButtonWidget.Cast(groupTile.FindAnyWidget("Button"));
+
+			buttonWidget = ButtonWidget.Cast(groupTile.FindAnyWidget("Button"));
 			if (!buttonWidget)
 				continue;
-			
-			SCR_GroupTileButton buttonComponent = SCR_GroupTileButton.Cast(buttonWidget.FindHandler(SCR_GroupTileButton));
-			if (buttonComponent)
-			{
-				buttonComponent.SetGroupID(playableGroups[i].GetGroupID());
-				buttonComponent.SetGroupFaction(playerFaction);
-				buttonComponent.SetJoinGroupButton(m_JoinGroupButton);
-				buttonComponent.SetRemoveGroupButton(m_RemoveGroupButton);
-				buttonComponent.InitiateGroupTile();
 
-				if (MustRefreshList(selectedGroupID, playerGroupController.GetGroupID(), playableGroups[i].GetGroupID(), i))
-					GetGame().GetCallqueue().CallLater(buttonComponent.RefreshPlayers, 1, false);
-			}
+			buttonComponent = SCR_GroupTileButton.Cast(buttonWidget.FindHandler(SCR_GroupTileButton));
+			if (!buttonComponent)
+				continue;
+
+			buttonComponent.SetGroupID(group.GetGroupID());
+			buttonComponent.SetGroupFaction(playerFaction);
+			buttonComponent.SetJoinGroupButton(m_JoinGroupButton);
+			buttonComponent.SetRemoveGroupButton(m_RemoveGroupButton);
+			buttonComponent.InitiateGroupTile();
+
+			if (MustRefreshList(selectedGroupID, playerGroupController.GetGroupID(), group.GetGroupID(), i))
+				GetGame().GetCallqueue().CallLater(buttonComponent.RefreshPlayers); // call later reason was not written down :(
 		}
 	}
 
@@ -266,7 +288,7 @@ class SCR_GroupSubMenuBase : SCR_SubMenuBase
 
 		if (group.IsPrivate())
 		{
-			m_PlayerGroupController.PlayerRequestToJoinPrivateGroup(m_PlayerGroupController.GetPlayerID(), Replication.FindItemId(group));
+			m_PlayerGroupController.PlayerRequestToJoinPrivateGroup(Replication.FindItemId(group));
 			SCR_NotificationsComponent.SendToPlayer(m_PlayerGroupController.GetPlayerID(), ENotification.GROUPS_REQUEST_SENT, group.GetGroupID());
 		}
 		else

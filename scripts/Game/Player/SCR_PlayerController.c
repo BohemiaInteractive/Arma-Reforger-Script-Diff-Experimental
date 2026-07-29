@@ -165,7 +165,7 @@ class SCR_PlayerController : PlayerController
 		
 		GameBlocklist blocklist = GetGame().GetGameBlocklist();
 		
-		array<string> identityIDs = {};
+		array<UUID> identityIDs = {};
 		foreach (SCR_EditableEntityAuthor author : activeUGCAuthors)
 		{
 			identityIDs.Insert(author.m_sAuthorUID);

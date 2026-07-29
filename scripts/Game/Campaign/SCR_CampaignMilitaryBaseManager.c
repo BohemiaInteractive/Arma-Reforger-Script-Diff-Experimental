@@ -885,7 +885,7 @@ class SCR_CampaignMilitaryBaseManager
 	}
 
 	//------------------------------------------------------------------------------------------------
-	SCR_CampaignMilitaryBaseComponent FindClosestBase(vector position)
+	SCR_CampaignMilitaryBaseComponent FindClosestBase(vector position, SCR_ECampaignBaseType searchedType = -1)
 	{
 		SCR_CampaignMilitaryBaseComponent closestBase;
 		float closestBaseDistance = float.MAX;
@@ -893,6 +893,9 @@ class SCR_CampaignMilitaryBaseManager
 		foreach (SCR_CampaignMilitaryBaseComponent base : m_aBases)
 		{
 			if (!base.IsInitialized())
+				continue;
+
+			if (searchedType > -1 && base.GetType() != searchedType)
 				continue;
 
 			float distance = vector.DistanceSq(base.GetOwner().GetOrigin(), position);
@@ -1065,7 +1068,7 @@ class SCR_CampaignMilitaryBaseManager
 				{
 					if (dist < distLimitHQ)
 					{
-						patrol.SetMembersAlive(0);
+						patrol.SetIsEliminated(true);
 						register = false;
 						break;
 					}
@@ -1075,7 +1078,7 @@ class SCR_CampaignMilitaryBaseManager
 
 						if (waypoint)
 						{
-							patrol.SetMembersAlive(0);
+							patrol.SetIsEliminated(true);
 							register = false;
 							break;
 						}
@@ -1178,7 +1181,9 @@ class SCR_CampaignMilitaryBaseManager
 		if (!onEnemyDetected)
 			return;
 
-		onEnemyDetected.Insert(OnEnemyDetectedByDefenders);
+		// disabled, would normally make the base appear to be captured by the enemy on the map when ANY ai spawned there got attacked 
+		// feature became confusing and now we have AI marking enemies on the map to do the same but better
+		//onEnemyDetected.Insert(OnEnemyDetectedByDefenders);
 
 		array<SCR_MilitaryBaseComponent> bases = {};
 		service.GetBases(bases);
@@ -1329,7 +1334,7 @@ class SCR_CampaignMilitaryBaseManager
 			if (!component)
 				continue;
 
-			component.SetMembersAlive(0);
+			component.SetIsEliminated(true);
 		}
 	}
 

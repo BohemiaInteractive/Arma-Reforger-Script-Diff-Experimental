@@ -5,8 +5,6 @@ class SCR_VehicleCameraDataComponentClass: ScriptComponentClass
 	bool m_bOverrideVehicleSettings;
 	[Attribute("1", UIWidgets.EditBox, "Height the camera should stay above the vehicle's bounding box center\n[m]")]
 	float m_fHeight;
-	[Attribute("0.3", UIWidgets.EditBox, "Pitch angle multiplier for zoom\n[m]")]
-	float m_fZoomAngleMult;
 	[Attribute("1", UIWidgets.EditBox, "Speed-based view bobbing multiplier\n[x * 100%]")]
 	float m_fBobScale;
 	[Attribute("1", UIWidgets.EditBox, "Acceleration-based view shaking multiplier\n[x * 100%]")]
@@ -57,6 +55,8 @@ class SCR_VehicleCameraDataComponentClass: ScriptComponentClass
  	float m_HorizontalSpringLag;
 	[Attribute("30", UIWidgets.EditBox, "Spring lag max angle used for horizontal movement\n")]
 	float m_HorizontalSpringLagMaxAngle;
+	[Attribute("false", UIWidgets.CheckBox, "Can fly? For camera zoom purposes\n")]
+	bool m_bCanFly;
 }
 
 

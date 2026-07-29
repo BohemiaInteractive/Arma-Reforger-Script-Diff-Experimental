@@ -41,9 +41,6 @@ class SCR_FactionManager : FactionManager
 	//~ Server only \/
 	protected ref ScriptInvokerBase<SCR_FactionManager_PlayerFactionChanged> m_OnPlayerFactionChanged;
 	
-	// if nonempty this stores player limits of factions, that are different on server and client
-	protected ref map<FactionKey, int> m_mPendingLimitUpdates;
-	
 	//------------------------------------------------------------------------------------------------
 	//! \return
 	ScriptInvoker GetOnPlayerFactionCountChanged()
@@ -201,6 +198,7 @@ class SCR_FactionManager : FactionManager
 	//! \return true if the request went through to the server, otherwise false
 	bool SetPlayerFaction(notnull SCR_ChimeraCharacter character, notnull Faction faction)
 	{
+		// this will set the SCR_CharacterFactionAffiliationComponent faction, AKA the faction of the posessed entity
 		character.m_pFactionComponent.SetAffiliatedFaction(faction);
 
 		int playerId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(character);
@@ -370,7 +368,7 @@ class SCR_FactionManager : FactionManager
 
 		if (missionHeader)
 			missionFactionLimitMap = missionHeader.GetFactionLimitMap();
-		
+
 		cliFactionLimitMap = GetFactionLimitMapCLI();
 		
 		for (int i = factions.Count() - 1; i >= 0; i--)
@@ -406,23 +404,14 @@ class SCR_FactionManager : FactionManager
 						playerTotalLimit = playerMissionLimit;
 					
 					if (playerTotalLimit >= 0)
-					{
 						scriptedFaction.SetPlayerLimit(playerTotalLimit);
-						if (!m_mPendingLimitUpdates)
-						{
-							m_mPendingLimitUpdates = new map<FactionKey, int>();
-							SetEventMask(EntityEvent.FIXEDFRAME);
-						}
-						
-						m_mPendingLimitUpdates.Insert(scriptedFactionKey, playerTotalLimit);
-					}
 				}
 				
 				scriptedFaction.InitializeFaction();
 			}
 		}
 		m_aAncestors = null; //--- Don't keep in the memory anymore, stored on factions now
-		
+
 		//--- Initialise components (OnPostInit doesn't work in them)
 		SCR_BaseFactionManagerComponent component;
 		array<Managed> components = {};
@@ -431,7 +420,15 @@ class SCR_FactionManager : FactionManager
 			component = SCR_BaseFactionManagerComponent.Cast(components[i]);
 			component.OnFactionsInit(factions);
 		}
-		
+
+		// Faction manager finished initializing, so lets finish setting up the factions
+		foreach (Faction currentFaction : factions)
+		{
+			scriptedFaction = SCR_Faction.Cast(currentFaction);
+			if (scriptedFaction)
+				scriptedFaction.InitFactionRelationships();
+		}
+
 		//--- Hook player disconnection event
 		#ifdef WORKBENCH
 		if (!GetGame().InPlayMode())
@@ -440,22 +437,6 @@ class SCR_FactionManager : FactionManager
 		
 		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 		gameMode.GetOnPlayerDisconnected().Insert(OnPlayerDisconnected);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	override protected void EOnFixedFrame(IEntity owner, float timeSlice)
-	{
-		super.EOnFixedFrame(owner,timeSlice);
-		if (m_mPendingLimitUpdates)
-		{
-			foreach (FactionKey factionKey, int playerLimit : m_mPendingLimitUpdates)
-			{
-				Rpc(RPC_UpdatePlayerLimit, factionKey, playerLimit);
-			}
-			
-			m_mPendingLimitUpdates = null;
-		}
-		ClearEventMask(EntityEvent.FIXEDFRAME);
 	}
 	
 	#ifdef ENABLE_DIAG
@@ -482,6 +463,38 @@ class SCR_FactionManager : FactionManager
 	}
 	#endif
 
+	//------------------------------------------------------------------------------------------------
+	protected override bool RplSave(ScriptBitWriter writer)
+	{
+		array<Faction> factions = {};
+		GetFactionsList(factions);
+		foreach (Faction faction : factions)
+		{
+			SCR_Faction scriptedFaction = SCR_Faction.Cast(faction);
+			if (!scriptedFaction)
+				continue;
+			
+			scriptedFaction.DoRplSave(writer)
+		}
+		return true;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	protected override bool RplLoad(ScriptBitReader reader)
+	{
+		array<Faction> factions = {};
+		GetFactionsList(factions);
+		foreach (Faction faction : factions)
+		{
+			SCR_Faction scriptedFaction = SCR_Faction.Cast(faction);
+			if (!scriptedFaction)
+				continue;
+			
+			scriptedFaction.DoRplLoad(reader)
+		}
+		return true;
+	}
+	
 	//------------------------------------------------------------------------------------------------
 	// constructor
 	//! \param[in] src
@@ -613,10 +626,12 @@ class SCR_FactionManager : FactionManager
 				RequestUpdateAllTargetsFactions();
 			
 			SCR_DelegateFactionManagerComponent delegateFactionManager = SCR_DelegateFactionManagerComponent.GetInstance();
+
 			if (!delegateFactionManager)
 				return;
 			
 			SCR_EditableFactionComponent factionDelegate = delegateFactionManager.GetFactionDelegate(factionA);
+
 			if (!factionDelegate)
 				return;
 			
@@ -624,7 +639,37 @@ class SCR_FactionManager : FactionManager
 			factionDelegate.SetFactionFriendly_S(GetFactionIndex(factionB));
 		}
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	//! Sets first faction to be friendly to the second faction, ONE WAY ONLY! (Replicated if called by server)
+	//! Resulting effect will be faction B being rewarded for killing A, but faction A getting friendly fire penalties on faction B.
+	//! \param[in] factionA faction to set friendly to factionB
+	//! \param[in] factionB faction factionA becomes friendly to
+	void SetFactionFriendlyOneWay(notnull SCR_Faction factionA, notnull SCR_Faction factionB, bool updateAIs = true)
+	{
+		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+		bool isServer = (gameMode && gameMode.IsMaster()) || (!gameMode && Replication.IsServer());
+
+		factionB.SetFactionFriendly(factionA);
+
+		if (!isServer)
+			return;
+
+		if (updateAIs)
+			RequestUpdateAllTargetsFactions();
+
+		SCR_DelegateFactionManagerComponent delegateFactionManager = SCR_DelegateFactionManagerComponent.GetInstance();
+		if (!delegateFactionManager)
+			return;
+
+		SCR_EditableFactionComponent factionDelegate = delegateFactionManager.GetFactionDelegate(factionA);
+		if (!factionDelegate)	
+			return;
+
+		// Replicate of setting the faction friendlyness.
+		factionDelegate.SetFactionFriendlyOneWay_S(GetFactionIndex(factionB));
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Set given factions hostile towards eachother (Replicated if called by server)
 	//! It is possible to set the same faction hostile towards itself to allow faction infighting
@@ -780,43 +825,6 @@ class SCR_FactionManager : FactionManager
 		
 		// Clear faction, this will result in proper update of things
 		playerFactionAffiliation.RequestFaction(null);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	override protected bool RplSave(ScriptBitWriter writer)
-	{
-		array<Faction> factions = {};
-		GetFactionsList(factions);
-		
-		writer.WriteInt(factions.Count());
-
-		foreach (Faction basefaction : factions)
-		{
-			SCR_Faction faction = SCR_Faction.Cast(basefaction);
-			writer.WriteString(faction.GetFactionKey());
-			
-			faction.DoRplSave(writer);
-		}
-
-		return true;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	override protected bool RplLoad(ScriptBitReader reader)
-	{
-		int count;
-		reader.ReadInt(count);
-
-		for (int i = 0; i < count; i++)
-		{
-			string key;
-			reader.ReadString(key);
-			
-			SCR_Faction faction = SCR_Faction.Cast(GetFactionByKey(key));
-			faction.DoRplLoad(reader);
-		}
-
-		return true;
 	}
 
 	//-----------------------------------------------------------------------------------------------

@@ -332,8 +332,22 @@ class SCR_SpawnLogic
 			return; // User was reconnected, their entity was returned
 		}
 
+		UUID playerCharacterId, controlledCharacterId;
+		ConsumeControlledEntityIds(playerController, playerCharacterId, controlledCharacterId);
+
 		if (statusCode != EPersistenceStatusCode.OK)
 		{
+			if (!playerCharacterId.IsNull())
+			{
+				// If the player was on the map (from self spawn), delete it.
+				IEntity player = IEntity.Cast(m_Persistence.FindById(playerCharacterId));
+				if (player)
+				{
+					m_Persistence.StopTracking(player);
+					SCR_EntityHelper.DeleteEntityAndChildren(player);
+				}
+			}
+
 			// Abort and proceed with default spawn
 			DoInitialSpawn_S(playerId);
 			return;
@@ -341,9 +355,6 @@ class SCR_SpawnLogic
 
 		if (playerController != result)
 			return; // Something went terribly wrong.
-
-		UUID playerCharacterId, controlledCharacterId;
-		ConsumeControlledEntityIds(playerController, playerCharacterId, controlledCharacterId);
 
 		if (playerCharacterId.IsNull())
 		{
@@ -373,7 +384,7 @@ class SCR_SpawnLogic
 		PersistenceResultCallback callback(OnPlayerCharacterLoaded_S, playerCharContext);
 		m_Persistence.RequestSpawn(request, callback);
 	}
-
+	
 	//------------------------------------------------------------------------------------------------
 	protected void OnPlayerCharacterLoaded_S(EPersistenceStatusCode statusCode, Managed result, bool isLast, Managed context)
 	{

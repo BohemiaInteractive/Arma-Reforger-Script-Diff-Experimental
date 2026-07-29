@@ -873,9 +873,7 @@ class SCR_AddonManager : GenericEntity
 		{
 			// Item can be unregistered when no actions are running
 			// And when the addon manager holds the only reference to it
-			int refCount = item.GetRefCount();
-			bool canBeUnregistered = item.Internal_GetCanBeUnregistered();
-			if (canBeUnregistered && item.GetRefCount() == 2) // SCR_WorkshopItem item above also holds one reference! The other reference is the map entry.
+			if (item.Internal_GetCanBeUnregistered()) // SCR_WorkshopItem item above also holds one reference! The other reference is the map entry.
 			{
 				if (!unregisterIds)
 					unregisterIds = {};
