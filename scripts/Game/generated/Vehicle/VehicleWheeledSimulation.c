@@ -58,8 +58,6 @@ class VehicleWheeledSimulation: VehicleBaseSimulation
 	proto external float EngineGetRPMPeakPower();
 	//! Returns maximal working rpm before engine explodes
 	proto external float EngineGetRPMMax();
-	//! Returns the redline RPM
-	proto external float EngineGetRPMRedline();
 	//! Returns current engine's RPM
 	proto external float EngineGetRPM();
 	//! Returns RPM that is feeded back from rest of the powertrain

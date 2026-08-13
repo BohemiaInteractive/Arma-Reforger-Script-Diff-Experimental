@@ -29,7 +29,7 @@ class SCR_SpawnLogic
 	protected PersistenceCollection m_PlayerCollection;
 	protected PersistenceCollection m_CharacterCollection;
 	protected ref array<ref Tuple3<SCR_PlayerController, UUID, UUID>> m_aStoredControlledEntityIds = {};
-	protected ref map<int, UUID> m_mPendingPosessions = new map<int, UUID>();
+	protected ref map<int, UUID> m_mPendingPossessions = new map<int, UUID>();
 
 	#ifdef WORKBENCH
 	protected static vector s_vPlayFromCameraPos;
@@ -172,7 +172,7 @@ class SCR_SpawnLogic
 		if (newEntity)
 			m_Persistence.ReloadConfig(newEntity);
 
-		ApplyPendingPosession(playerId);
+		ApplyPendingPossession(playerId);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -248,10 +248,10 @@ class SCR_SpawnLogic
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void ApplyPendingPosession(int playerId)
+	protected void ApplyPendingPossession(int playerId)
 	{
 		UUID posessCharacterId;
-		if (!m_mPendingPosessions.Take(playerId, posessCharacterId))
+		if (!m_mPendingPossessions.Take(playerId, posessCharacterId))
 			return;
 
 		Tuple2<int, bool> characterAvailableContext(playerId, false);
@@ -372,9 +372,9 @@ class SCR_SpawnLogic
 			return;
 		}
 
-		// Queue up posession of another entity after the main entity spawn has been completed
+		// Queue up possession of another entity after the main entity spawn has been completed
 		if (!controlledCharacterId.IsNull() && controlledCharacterId != playerCharacterId)
-			m_mPendingPosessions.Set(playerId, controlledCharacterId);
+			m_mPendingPossessions.Set(playerId, controlledCharacterId);
 
 		PersistenceSpawnRequest request();
 		request.Collection = m_CharacterCollection;
@@ -430,7 +430,7 @@ class SCR_SpawnLogic
 		SCR_EntityHelper.DeleteEntityAndChildren(controlledEntity);
 		#endif
 
-		// Dead players will not work for respawn, as no events for additional death on them are raised after posession.
+		// Dead players will not work for respawn, as no events for additional death on them are raised after possession.
 		if (character && character.GetCharacterController().IsDead())
 			character = null;
 
@@ -458,7 +458,13 @@ class SCR_SpawnLogic
 			if (charController && charController.GetLifeState() != ECharacterLifeState.DEAD)
 			{
 				auto playerController = SCR_PlayerController.Cast(GetGame().GetPlayerManager().GetPlayerController(characterAvailableContext.param1));
+
+				const IEntity previousChar = playerController.GetControlledEntity();
 				playerController.SetPossessedEntity(entity);
+				m_RespawnSystem.EmitPlayerEntityChange_S(characterAvailableContext.param1, previousChar, entity);
+				if (!previousChar) // No main entity was setup prior, so make respawn available too when e.g. unposessing by going back to GM menu
+					NotifyPlayerReadyForSpawn(characterAvailableContext.param1);
+
 				return;
 			}
 		}

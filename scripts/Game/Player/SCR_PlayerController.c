@@ -1068,16 +1068,22 @@ class SCR_PlayerController : PlayerController
 			case PlatformKind.STEAM:
 				if (showOnPC)
 					SetPlatformImagePC(targetPlatform, image, glow, setVisible);
+				else
+					return false;
 			break;
 			
 			case PlatformKind.XBOX:
 				if (showOnXbox)
 					SetPlatformImageXbox(targetPlatform, image, glow, setVisible);
+				else
+					return false;
 			break;
 			
 			case PlatformKind.NONE:
 				if (showOnPC)
 					SetPlatformImagePC(targetPlatform, image, glow, setVisible);
+				else
+					return false;
 			break;
 		}
 		

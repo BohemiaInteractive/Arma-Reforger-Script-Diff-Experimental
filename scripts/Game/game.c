@@ -585,7 +585,7 @@ class ArmaReforgerScripted : ChimeraGame
 		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_UI_CLOSE_ALL_MENUS, "", "Close All Menus", "UI");
 		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_UI_OPEN_MAIN_MENU, "", "Open Main Menu", "UI");
 		DiagMenu.RegisterBool(SCR_DebugMenuID.DEBUGUI_UI_LOG_UNDER_CURSOR, "", "Log widgets under cursor", "UI");
-		DiagMenu.RegisterRange(SCR_DebugMenuID.DEBUGUI_UI_SET_DPI_SCALE, "", "Set DPI Scale", "UI", "0.5, 1.5, 1, 0.05");
+		DiagMenu.RegisterRange(SCR_DebugMenuID.DEBUGUI_UI_SET_DPI_SCALE, "", "Set DPI Scale", "UI", "0.5, 2.0, 1, 0.05");
 
 		//Scripted systems
 		DiagMenu.RegisterMenu(SCR_DebugMenuID.DEBUGUI_SCRIPTS_MENU, "Scripts", "Physics");
@@ -650,8 +650,13 @@ class ArmaReforgerScripted : ChimeraGame
 		if (additionalSettingsComp && ((currentMode == RplMode.Listen || currentMode == RplMode.Dedicated) && System.IsCLIParam("enableNightGrain")))
 			additionalSettingsComp.SetNightNoiseEffectState_S(false);
 
+		//For now, force DPI Scale on handheld, should later become SCR_DPIScaleHelper.LoadSavedDPIScale(workspace)
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		SCR_DPIScaleHelper.LoadSavedDPIScale(workspace);
+		
+		if (System.GetPlatform() == EPlatform.WINDOWS_HANDHELD)
+			SCR_DPIScaleHelper.SetDPIScale(workspace, 1.05);
+		else
+			SCR_DPIScaleHelper.SetDPIScale(workspace, 1.0);
 
 		return true;
 	}

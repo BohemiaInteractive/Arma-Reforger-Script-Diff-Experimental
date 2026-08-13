@@ -520,7 +520,8 @@ class SCR_FileIOHelper
 			|| platform == EPlatform.XBOX_ONE_S
 			|| platform == EPlatform.XBOX_ONE_X
 			|| platform == EPlatform.XBOX_SERIES_S
-			|| platform == EPlatform.XBOX_SERIES_X;
+			|| platform == EPlatform.XBOX_SERIES_X
+			|| platform == EPlatform.WINDOWS_HANDHELD;
 	}
 
 	//------------------------------------------------------------------------------------------------

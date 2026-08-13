@@ -61,14 +61,14 @@ class SCR_WatermarkComponent: ScriptedWidgetComponent
 		if (platformID < platformStrings.Count())
 		{
 			// FIXME: Not the greatest idea to loosely map enum value to this local array. Slight change may throw this off
-			string platformSuffix = WidgetManager.Translate(platformStrings[platformID]);
+			string platformSuffix = platformStrings[platformID];
 		
 			if (platformSuffix != "")
 			{
 				// TODO: Implement me better including localization!
 				string isHandheld = "";
 				if (System.GetPlatform() == EPlatform.WINDOWS_HANDHELD)
-					isHandheld = " Handheld";
+					isHandheld = " #AR-Settings_Title_Handheld";
 				version = string.Format("%1 (%2)%3", version, platformSuffix, isHandheld);
 			}
 		}

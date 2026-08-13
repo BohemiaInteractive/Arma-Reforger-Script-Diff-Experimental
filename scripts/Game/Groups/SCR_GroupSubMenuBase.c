@@ -72,31 +72,45 @@ class SCR_GroupSubMenuBase : SCR_SubMenuBase
 
 		int selectedGroupID = playerGroupController.GetSelectedGroupID();
 		SCR_AIGroup selectedGroup;
-		if (!playableGroups.IsIndexValid(selectedGroupID))
+		// find which of the available groups is the selected one
+		foreach (int i, SCR_AIGroup group : playableGroups)
 		{
+			if (!group)
+				continue;
+
+			if (group.GetGroupID() != selectedGroupID)
+				continue;
+
+			selectedGroup = group;
+			break;
+		}
+
+		if (!selectedGroup)
+		{ // if there is no selected group, then try to focus on local player group
 			selectedGroup = playerGroupController.GetPlayersGroup();
+
 			int groupId = -1;
 			if (selectedGroup && playableGroups.Contains(selectedGroup))
 				groupId = selectedGroup.GetGroupID();
 			else if (!selectedGroup && !playableGroups.IsEmpty())
-				groupId = playableGroups[0].GetGroupID();
-
-			if (groupId > -1)
-			{
-				playerGroupController.SetSelectedGroupID(groupId);
-				selectedGroupID = groupId;
+			{ // or first group on the list
+				selectedGroup = playableGroups[0];
+				groupId = selectedGroup.GetGroupID();
 			}
-		}
-		else
-		{
-			selectedGroup = playableGroups[selectedGroupID];
+
+			if (groupId < 0)
+				selectedGroup = null;
+			else
+				playerGroupController.SetSelectedGroupID(groupId);
+
+			selectedGroupID = groupId;
 		}
 
 		if (selectedGroup && m_wMenuRoot)
 		{
 			ImageWidget privateIcon = ImageWidget.Cast(m_wMenuRoot.FindAnyWidget("PrivateIconDetail"));
 			if (privateIcon)
-				privateIcon.SetVisible(playableGroups[selectedGroupID].IsPrivate());
+				privateIcon.SetVisible(selectedGroup.IsPrivate());
 		}
 		
 		const WorkspaceWidget workspace = GetGame().GetWorkspace();
